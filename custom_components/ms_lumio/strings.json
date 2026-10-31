@@ -35,9 +35,10 @@
           "upload_mbps": "Débit montant (Mbit/s)",
           "extra_days": "Jours supplémentaires après le séjour",
           "access_mode": "Comptes Home Assistant",
-          "climate_entities": "Chauffage",
-          "cover_entities": "Volets",
-          "light_entities": "Éclairage",
+          "tenant_entities": "Entités autorisées",
+          "tenant_devices": "Appareils autorisés",
+          "confirm_sensitive": "J'autorise caméras, serrures ou alarmes",
+          "allow_remote": "Accès internet pendant le séjour",
           "notify_service": "Notification (optionnelle)",
           "journal_path": "Fichier journal CSV",
           "title_blocklist": "Titres ignorés",
@@ -55,6 +56,10 @@
           "upload_mbps": "Défaut : 100.",
           "extra_days": "La durée du voucher est le séjour plus ce nombre de jours. Défaut : 1. UniFi démarre ce compteur à la première utilisation du code, pas à l'arrivée.",
           "access_mode": "Un compte par séjour, ou un compte « locataire » dont le mot de passe change.",
+          "tenant_entities": "Tous les domaines. Les caméras, serrures et alarmes ne sont pas cochées : les ajouter exige la confirmation ci-dessous.",
+          "tenant_devices": "Toutes les entités de l'appareil sont autorisées, y compris celles ajoutées plus tard. Un appareil qui contient une caméra, une serrure ou une alarme exige la confirmation.",
+          "confirm_sensitive": "Sans cette case, l'enregistrement est refusé si la sélection contient une caméra, une serrure ou une alarme.",
+          "allow_remote": "Désactivé par défaut. Le compte n'est plus « local uniquement » pendant le séjour. Home Assistant doit déjà être joignable de l'extérieur ; ce module n'ouvre rien.",
           "notify_service": "Ex. notify.mobile_app_telephone. Vide = notification persistante seulement.",
           "journal_path": "Relatif au dossier config, ou absolu sous config/ ou un dossier média (partage Synology).",
           "title_blocklist": "Sous-chaînes, séparées par des virgules, qui ne sont pas des locataires (dates bloquées).",
@@ -78,6 +83,7 @@
       "ssl_error": "Certificat TLS refusé. Décochez la vérification pour un certificat auto-signé, uniquement en local.",
       "no_sites": "Aucun site Network, ou le site enregistré n'existe plus.",
       "calendar_missing": "Choisissez une entité calendrier.",
+      "sensitive_entities": "La sélection contient une caméra, une serrure ou une alarme. Cochez la confirmation pour l'autoriser vraiment, ou retirez ces équipements.",
       "invalid_path": "Le fichier journal doit rester dans le dossier de configuration ou un dossier média (partage Synology monté).",
       "unknown": "Erreur inattendue. Consultez le journal, sans y chercher la clé : elle n'y est pas écrite."
     },
@@ -101,9 +107,10 @@
           "upload_mbps": "Débit montant (Mbit/s)",
           "extra_days": "Jours supplémentaires après le séjour",
           "access_mode": "Comptes Home Assistant",
-          "climate_entities": "Chauffage",
-          "cover_entities": "Volets",
-          "light_entities": "Éclairage",
+          "tenant_entities": "Entités autorisées",
+          "tenant_devices": "Appareils autorisés",
+          "confirm_sensitive": "J'autorise caméras, serrures ou alarmes",
+          "allow_remote": "Accès internet pendant le séjour",
           "notify_service": "Notification (optionnelle)",
           "journal_path": "Fichier journal CSV",
           "title_blocklist": "Titres ignorés",
@@ -121,6 +128,7 @@
     },
     "error": {
       "calendar_missing": "Choisissez une entité calendrier.",
+      "sensitive_entities": "La sélection contient une caméra, une serrure ou une alarme. Cochez la confirmation pour l'autoriser vraiment, ou retirez ces équipements.",
       "invalid_path": "Le fichier journal doit rester dans le dossier de configuration ou un dossier média."
     }
   },
@@ -185,6 +193,34 @@
     "appliquer_tableau": {
       "name": "Appliquer le tableau de bord",
       "description": "Met à jour le tableau de bord ms-lumio."
+    },
+    "reglages_sejour": {
+      "name": "Réglages d'un séjour",
+      "description": "Remplace, pour une réservation, la liste d'entités et l'accès internet. Vide les listes envoyées. Réinitialiser revient au réglage global.",
+      "fields": {
+        "reservation_key": {
+          "name": "Réservation",
+          "description": "Attribut reservation_id du capteur, ou UID du calendrier."
+        },
+        "entity_ids": {
+          "name": "Entités",
+          "description": "Remplace la liste globale pour ce séjour."
+        },
+        "device_ids": {
+          "name": "Appareils",
+          "description": "Remplace les appareils globaux pour ce séjour."
+        },
+        "allow_remote": {
+          "name": "Accès internet",
+          "description": "inherit = réglage global, local = réseau local seulement, remote = internet pendant ce séjour."
+        },
+        "confirm_sensitive": {
+          "name": "Confirmer caméra, serrure ou alarme"
+        },
+        "reset": {
+          "name": "Revenir au réglage global"
+        }
+      }
     }
   },
   "issues": {

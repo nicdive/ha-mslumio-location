@@ -12,14 +12,10 @@ Passwords are returned to the caller and are never logged here.
 
 from __future__ import annotations
 
+import re
 import secrets
 
-from .const import (
-    ALLOWED_DOMAINS,
-    FORBIDDEN_DOMAINS,
-    TENANT_GROUP_ID,
-    TENANT_GROUP_NAME,
-)
+from .const import SENSITIVE_DOMAINS, TENANT_GROUP_NAME
 
 ADMIN_GROUP_ID = "system-admin"
 
@@ -40,27 +36,103 @@ def entity_domain(entity_id: str) -> str:
     return entity_id.split(".", 1)[0]
 
 
-def build_tenant_policy(entity_ids: list[str]) -> dict:
-    """Policy limited to the chosen climate, cover and light entities.
+def sensitive_entity_ids(entity_ids: list[str]) -> list[str]:
+    """Return the cameras, locks and alarm panels in a selection."""
+    return [entity_id for entity_id in entity_ids if entity_domain(entity_id) in SENSITIVE_DOMAINS]
 
-    ``edit`` is false so a tenant cannot rename or delete the entity.
+
+def group_id_for_username(username: str) -> str:
+    """One group per tenant account, so two stays cannot share a policy."""
+    safe = re.sub(r"[^a-z0-9-]", "", username.casefold())[:48] or "locataire"
+    return f"ms-lumio-{safe}"
+
+
+def unique_strings(values: list[str] | None) -> list[str]:
+    """Drop empties and duplicates, keeping order."""
+    result: list[str] = []
+    for value in values or []:
+        if value and value not in result:
+            result.append(value)
+    return result
+
+
+def resolve_stay_access(
+    key: str,
+    *,
+    overrides: dict[str, dict] | None,
+    entity_ids: list[str],
+    device_ids: list[str],
+    allow_remote: bool,
+) -> tuple[list[str], list[str], bool]:
+    """Global selection, replaced by a per-stay override when one is stored."""
+    override = (overrides or {}).get(key) or {}
+    if "entity_ids" in override or "device_ids" in override:
+        entities = unique_strings(list(override.get("entity_ids") or []))
+        devices = unique_strings(list(override.get("device_ids") or []))
+    else:
+        entities = unique_strings(entity_ids)
+        devices = unique_strings(device_ids)
+    if "allow_remote" in override:
+        remote = bool(override["allow_remote"])
+    else:
+        remote = allow_remote
+    return entities, devices, remote
+
+
+def resolve_shared_access(
+    keys: list[str],
+    *,
+    overrides: dict[str, dict] | None,
+    entity_ids: list[str],
+    device_ids: list[str],
+    allow_remote: bool,
+) -> tuple[list[str], list[str], bool]:
+    """Union of every active stay. One shared login cannot hold two policies."""
+    if not keys:
+        return [], [], False
+    entities: list[str] = []
+    devices: list[str] = []
+    remote = False
+    for key in keys:
+        stay_entities, stay_devices, stay_remote = resolve_stay_access(
+            key,
+            overrides=overrides,
+            entity_ids=entity_ids,
+            device_ids=device_ids,
+            allow_remote=allow_remote,
+        )
+        entities = unique_strings(entities + stay_entities)
+        devices = unique_strings(devices + stay_devices)
+        remote = remote or stay_remote
+    return entities, devices, remote
+
+
+def build_tenant_policy(
+    entity_ids: list[str],
+    device_ids: list[str] | None = None,
+) -> dict:
+    """Read and control only the chosen entities and devices.
+
+    ``edit`` is false so a tenant cannot rename or delete them.
+    Nothing else is granted: no ``all``, no whole domain.
     An empty selection grants no entity at all.
     """
-    allowed: list[str] = []
-    for entity_id in entity_ids:
-        domain = entity_domain(entity_id)
-        if domain in FORBIDDEN_DOMAINS or domain not in ALLOWED_DOMAINS:
-            raise TenantAccessError(f"forbidden_domain:{domain or entity_id}")
-        if entity_id not in allowed:
-            allowed.append(entity_id)
-    return {
-        "entities": {
-            "entity_ids": {
-                entity_id: {"read": True, "control": True, "edit": False}
-                for entity_id in allowed
-            }
+    entities = unique_strings(entity_ids)
+    devices = unique_strings(device_ids)
+    policy: dict = {"entities": {}}
+    if entities:
+        policy["entities"]["entity_ids"] = {
+            entity_id: {"read": True, "control": True, "edit": False}
+            for entity_id in entities
         }
-    }
+    if devices:
+        policy["entities"]["device_ids"] = {
+            device_id: {"read": True, "control": True, "edit": False}
+            for device_id in devices
+        }
+    if not policy["entities"]:
+        policy["entities"]["entity_ids"] = {}
+    return policy
 
 
 def assert_not_privileged(user: object) -> None:
@@ -73,34 +145,39 @@ def assert_not_privileged(user: object) -> None:
             raise TenantAccessError("refuse_admin")
 
 
-async def async_ensure_group(hass: object, entity_ids: list[str]) -> str:
-    """Create or update the tenant group and return its id."""
+async def async_ensure_group(
+    hass: object,
+    group_id: str,
+    entity_ids: list[str],
+    device_ids: list[str] | None = None,
+) -> str:
+    """Create or update one tenant group and return its id."""
     from homeassistant.auth import models as auth_models
 
-    policy = build_tenant_policy(entity_ids)
+    if group_id == ADMIN_GROUP_ID or not group_id.startswith("ms-lumio-"):
+        raise TenantAccessError("refuse_admin")
+    policy = build_tenant_policy(entity_ids, device_ids)
     auth = hass.auth  # type: ignore[attr-defined]
-    existing = await auth.async_get_group(TENANT_GROUP_ID)
+    existing = await auth.async_get_group(group_id)
     store = auth._store  # noqa: SLF001 — no public API creates a group
     if existing is None:
-        store._groups[TENANT_GROUP_ID] = auth_models.Group(  # noqa: SLF001
+        store._groups[group_id] = auth_models.Group(  # noqa: SLF001
             name=TENANT_GROUP_NAME,
             policy=policy,
-            id=TENANT_GROUP_ID,
+            id=group_id,
             system_generated=False,
         )
     else:
-        if existing.id == ADMIN_GROUP_ID or existing.system_generated:
-            # system_generated groups do not persist their policy.
-            if existing.id == ADMIN_GROUP_ID:
-                raise TenantAccessError("refuse_admin")
+        if existing.id == ADMIN_GROUP_ID:
+            raise TenantAccessError("refuse_admin")
         existing.policy = policy
         existing.system_generated = False
     store._async_schedule_save()  # noqa: SLF001
     for user in await auth.async_get_users():
-        if any(getattr(group, "id", None) == TENANT_GROUP_ID for group in user.groups):
+        if any(getattr(group, "id", None) == group_id for group in user.groups):
             user.invalidate_cache()
             assert_not_privileged(user)
-    return TENANT_GROUP_ID
+    return group_id
 
 
 async def async_ensure_user(
@@ -109,13 +186,16 @@ async def async_ensure_user(
     username: str,
     display_name: str,
     user_id: str | None,
-    password: str | None,
     rotate: bool,
+    local_only: bool,
     entity_ids: list[str],
+    device_ids: list[str] | None = None,
 ) -> dict[str, str | None]:
-    """Create or update a non-admin, local-only tenant.
+    """Create or update a non-admin tenant.
 
-    The returned password is set only when it was just generated.
+    ``local_only`` is false only while a stay explicitly allows remote login.
+    The returned password is set only when it was just generated. It is not
+    stored by this function.
     """
     from homeassistant.auth.providers.homeassistant import (
         InvalidUsername,
@@ -130,7 +210,9 @@ async def async_ensure_user(
         # Creating the first user makes them the owner. Never do that.
         raise TenantAccessError("no_owner")
 
-    await async_ensure_group(hass, entity_ids)
+    group_id = await async_ensure_group(
+        hass, group_id_for_username(username), entity_ids, device_ids
+    )
     provider = async_get_provider(hass)  # type: ignore[arg-type]
     user = await auth.async_get_user(user_id) if user_id else None
     if user is not None:
@@ -141,8 +223,8 @@ async def async_ensure_user(
         fresh_password = generate_password()
         user = await auth.async_create_user(
             display_name,
-            group_ids=[TENANT_GROUP_ID],
-            local_only=True,
+            group_ids=[group_id],
+            local_only=local_only,
         )
         try:
             assert_not_privileged(user)
@@ -150,7 +232,7 @@ async def async_ensure_user(
             if not user.is_owner:
                 await auth.async_remove_user(user)
             raise
-        if not user.local_only or not user.is_active:
+        if not user.is_active:
             raise TenantAccessError("user_flags")
         credentials = await provider.async_get_or_create_credentials(
             {"username": username}
@@ -168,7 +250,7 @@ async def async_ensure_user(
             await provider.async_change_password(username, fresh_password)
         if linked is None:
             await auth.async_link_user(user, credentials)
-    elif rotate or not password:
+    elif rotate:
         known_username = provider.async_get_username(user)
         if known_username is not None and known_username != username:
             raise TenantAccessError("username_mismatch")
@@ -184,8 +266,8 @@ async def async_ensure_user(
         user,
         name=display_name,
         is_active=True,
-        group_ids=[TENANT_GROUP_ID],
-        local_only=True,
+        group_ids=[group_id],
+        local_only=local_only,
     )
     assert_not_privileged(user)
     return {

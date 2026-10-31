@@ -21,6 +21,7 @@ from .const import (
     SERVICE_REGENERATE_ACCESS,
     SERVICE_REGENERATE_VOUCHER,
     SERVICE_RESEND,
+    SERVICE_STAY_SETTINGS,
     STORAGE_VERSION,
 )
 from .redact import SecretLogFilter
@@ -130,6 +131,7 @@ async def async_unload_entry(hass: Any, entry: Any) -> bool:
                 SERVICE_PRINT,
                 SERVICE_EXPORT_JOURNAL,
                 SERVICE_APPLY_DASHBOARD,
+                SERVICE_STAY_SETTINGS,
             ):
                 hass.services.async_remove(DOMAIN, service)
     return unloaded
@@ -194,6 +196,16 @@ def _async_register_services(hass: Any) -> None:
     from homeassistant.core import ServiceCall, SupportsResponse
 
     service_schema = vol.Schema({vol.Optional(ATTR_RESERVATION_KEY): str})
+    stay_schema = vol.Schema(
+        {
+            vol.Required(ATTR_RESERVATION_KEY): str,
+            vol.Optional("entity_ids"): [str],
+            vol.Optional("device_ids"): [str],
+            vol.Optional("allow_remote"): vol.In(["inherit", "local", "remote"]),
+            vol.Optional("confirm_sensitive"): bool,
+            vol.Optional("reset"): bool,
+        }
+    )
     if hass.services.has_service(DOMAIN, SERVICE_REGENERATE_VOUCHER):
         return
 
@@ -208,11 +220,14 @@ def _async_register_services(hass: Any) -> None:
         (SERVICE_PRINT, SupportsResponse.OPTIONAL),
         (SERVICE_EXPORT_JOURNAL, SupportsResponse.OPTIONAL),
         (SERVICE_APPLY_DASHBOARD, SupportsResponse.NONE),
+        (SERVICE_STAY_SETTINGS, SupportsResponse.OPTIONAL),
     ):
-        schema = vol.Schema({}) if service in {
-            SERVICE_APPLY_DASHBOARD,
-            SERVICE_EXPORT_JOURNAL,
-        } else service_schema
+        if service == SERVICE_STAY_SETTINGS:
+            schema = stay_schema
+        elif service in {SERVICE_APPLY_DASHBOARD, SERVICE_EXPORT_JOURNAL}:
+            schema = vol.Schema({})
+        else:
+            schema = service_schema
         hass.services.async_register(
             DOMAIN,
             service,

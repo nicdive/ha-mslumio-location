@@ -50,3 +50,48 @@ exporter_journal:
 appliquer_tableau:
   name: Appliquer le tableau de bord
   description: Recrée ou met à jour le tableau de bord ms-lumio.
+
+reglages_sejour:
+  name: Réglages d'un séjour
+  description: >
+    Remplace, pour une réservation, les entités ou appareils autorisés et
+    l'accès internet. Les listes envoyées remplacent le réglage global.
+    Le mot de passe n'est pas renvoyé ici.
+  fields:
+    reservation_key:
+      name: Réservation
+      description: Attribut reservation_id du capteur, ou UID du calendrier.
+      required: true
+      selector:
+        text:
+    entity_ids:
+      name: Entités
+      description: Tous domaines. Une caméra, serrure ou alarme exige la confirmation.
+      selector:
+        entity:
+          multiple: true
+    device_ids:
+      name: Appareils
+      description: Toutes les entités de ces appareils sont autorisées.
+      selector:
+        device:
+          multiple: true
+    allow_remote:
+      name: Accès internet
+      selector:
+        select:
+          options:
+            - label: Réglage global
+              value: inherit
+            - label: Réseau local seulement
+              value: local
+            - label: Internet pendant ce séjour
+              value: remote
+    confirm_sensitive:
+      name: Confirmer caméra, serrure ou alarme
+      selector:
+        boolean:
+    reset:
+      name: Revenir au réglage global
+      selector:
+        boolean:

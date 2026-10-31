@@ -1,7 +1,7 @@
 """Append-only CSV journal for the Synology archive.
 
-Rows contain the voucher code and the tenant password because that is the
-point of the archive. Nothing in this module writes those values to a logger.
+Rows keep the voucher code. They never keep a Home Assistant password.
+Nothing in this module writes a row to a logger.
 """
 
 from __future__ import annotations
@@ -19,11 +19,13 @@ COLUMNS: tuple[str, ...] = (
     "debut",
     "fin",
     "voucher_id",
+    "voucher_nom",
     "code",
-    "utilisateur_ha",
-    "mot_de_passe",
+    "mac",
     "detail",
 )
+
+_SECRET_HEADERS = {"mot_de_passe", "password", "utilisateur_ha"}
 
 
 class JournalPathError(ValueError):
@@ -71,6 +73,7 @@ class Journal:
 
     def _append(self, row: dict[str, str]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        _drop_password_columns(self.path)
         new_file = not self.path.exists() or self.path.stat().st_size == 0
         normalized = {column: row.get(column, "") for column in COLUMNS}
         if not normalized["horodatage"]:
@@ -80,3 +83,24 @@ class Journal:
             if new_file:
                 writer.writeheader()
             writer.writerow(normalized)
+
+
+def _drop_password_columns(path: Path) -> None:
+    """Rewrite an older journal so passwords do not stay on disk."""
+    if not path.exists() or path.stat().st_size == 0:
+        return
+    with path.open(encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        fieldnames = reader.fieldnames or []
+        if not _SECRET_HEADERS.intersection(fieldnames):
+            return
+        rows = []
+        for raw in reader:
+            cleaned = {column: raw.get(column, "") or "" for column in COLUMNS}
+            for secret in _SECRET_HEADERS:
+                raw.pop(secret, None)
+            rows.append(cleaned)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=COLUMNS, quoting=csv.QUOTE_MINIMAL)
+        writer.writeheader()
+        writer.writerows(rows)

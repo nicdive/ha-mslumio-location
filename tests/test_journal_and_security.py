@@ -12,8 +12,12 @@ from custom_components.ms_lumio.access import (
     assert_not_privileged,
     build_tenant_policy,
     generate_password,
+    group_id_for_username,
+    resolve_shared_access,
+    resolve_stay_access,
+    sensitive_entity_ids,
 )
-from custom_components.ms_lumio.const import FORBIDDEN_DOMAINS, TENANT_GROUP_ID
+from custom_components.ms_lumio.const import SENSITIVE_DOMAINS
 from custom_components.ms_lumio.dashboard import build_dashboard_config
 from custom_components.ms_lumio.journal import Journal, JournalPathError, resolve_journal_path
 from custom_components.ms_lumio.redact import SecretLogFilter, redact
@@ -35,9 +39,34 @@ def test_journal_stays_inside_config_or_media(tmp_path: Path):
 
 
 @pytest.mark.asyncio
-async def test_csv_contains_the_code_and_nothing_is_logged(tmp_path: Path, caplog):
+async def test_csv_keeps_the_code_and_drops_passwords(tmp_path: Path, caplog):
     journal = Journal(tmp_path / "ms_lumio" / "journal.csv")
+    legacy = tmp_path / "legacy.csv"
+    legacy.write_text(
+        "horodatage,action,reservation_id,locataire,debut,fin,voucher_id,code,"
+        "utilisateur_ha,mot_de_passe,detail\n"
+        "2026-07-01T00:00:00+00:00,voucher_cree,stay-0,Ada,2026-07-10,2026-07-17,"
+        "voucher-0,OLDCODE,loc-ada,s3cret-password,note\n",
+        encoding="utf-8",
+    )
+    old = Journal(legacy)
     with caplog.at_level(logging.DEBUG):
+        await old.async_append(
+            {
+                "action": "voucher_cree",
+                "reservation_id": "stay-1",
+                "locataire": "Jean Dupont",
+                "debut": "2026-07-10",
+                "fin": "2026-07-17",
+                "voucher_id": "voucher-1",
+                "voucher_nom": "Jean Dupont 2026-07-10/2026-07-17",
+                "code": "ABCD12",
+                "mac": "aa:bb:cc:dd:ee:ff",
+                "mot_de_passe": "another-secret",
+                "utilisateur_ha": "loc-jean",
+                "detail": "",
+            }
+        )
         await journal.async_append(
             {
                 "action": "voucher_cree",
@@ -46,22 +75,25 @@ async def test_csv_contains_the_code_and_nothing_is_logged(tmp_path: Path, caplo
                 "debut": "2026-07-10",
                 "fin": "2026-07-17",
                 "voucher_id": "voucher-1",
+                "voucher_nom": "Jean Dupont 2026-07-10/2026-07-17",
                 "code": "ABCD12",
-                "utilisateur_ha": "loc-jean",
-                "mot_de_passe": "s3cret-password",
-                "detail": "",
+                "mac": "",
+                "mot_de_passe": "should-not-stick",
             }
         )
-    text = journal.path.read_text(encoding="utf-8")
-    assert "ABCD12" in text
-    assert "s3cret-password" in text
-    assert "Jean Dupont" in text
+    fresh = journal.path.read_text(encoding="utf-8")
+    migrated = legacy.read_text(encoding="utf-8")
+    assert "ABCD12" in fresh
+    assert "Jean Dupont" in fresh
+    assert "should-not-stick" not in fresh
+    assert "mot_de_passe" not in fresh
+    assert "s3cret-password" not in migrated
+    assert "another-secret" not in migrated
+    assert "OLDCODE" in migrated
+    assert "aa:bb:cc:dd:ee:ff" in migrated
+    assert "mot_de_passe" not in migrated.splitlines()[0]
     assert "ABCD12" not in caplog.text
     assert "s3cret-password" not in caplog.text
-    await journal.async_append({"action": "voucher_supprime", "reservation_id": "stay-1"})
-    lines = journal.path.read_text(encoding="utf-8").strip().splitlines()
-    assert len(lines) == 3
-    assert lines[0].startswith("horodatage")
 
 
 def test_diagnostics_and_logs_redact_secrets():
@@ -105,18 +137,47 @@ def test_diagnostics_and_logs_redact_secrets():
     assert "**REDACTED**" in message
 
 
-def test_tenant_policy_excludes_cameras_locks_and_admin():
+def test_tenant_policy_is_explicit_and_sensitive_domains_are_flagged():
     policy = build_tenant_policy(
-        ["climate.salon", "cover.chambre", "light.entree"]
+        ["climate.salon", "media_player.salon", "switch.prise"],
+        ["device-1"],
     )
     entities = policy["entities"]["entity_ids"]
-    assert set(entities) == {"climate.salon", "cover.chambre", "light.entree"}
-    assert entities["climate.salon"] == {"read": True, "control": True, "edit": False}
-    for domain in ("camera", "lock", "alarm_control_panel"):
-        with pytest.raises(TenantAccessError):
-            build_tenant_policy([f"{domain}.entree"])
-    assert "camera" in FORBIDDEN_DOMAINS
-    assert TENANT_GROUP_ID != ADMIN_GROUP_ID
+    assert set(entities) == {"climate.salon", "media_player.salon", "switch.prise"}
+    assert entities["switch.prise"] == {"read": True, "control": True, "edit": False}
+    assert policy["entities"]["device_ids"]["device-1"]["edit"] is False
+    assert "all" not in policy["entities"]
+    assert "domains" not in policy["entities"]
+    empty = build_tenant_policy([], [])
+    assert empty["entities"]["entity_ids"] == {}
+    flagged = sensitive_entity_ids(
+        ["light.salon", "camera.entree", "lock.porte", "alarm_control_panel.maison"]
+    )
+    assert flagged == ["camera.entree", "lock.porte", "alarm_control_panel.maison"]
+    confirmed = build_tenant_policy(["camera.entree"])
+    assert "camera.entree" in confirmed["entities"]["entity_ids"]
+    assert SENSITIVE_DOMAINS == {"camera", "lock", "alarm_control_panel"}
+    assert group_id_for_username("loc-jean") != ADMIN_GROUP_ID
+    assert group_id_for_username("Locataire") == "ms-lumio-locataire"
+    entities_only, devices_only, remote = resolve_stay_access(
+        "stay",
+        overrides={"stay": {"entity_ids": ["cover.x"], "allow_remote": True}},
+        entity_ids=["light.global"],
+        device_ids=["device-global"],
+        allow_remote=False,
+    )
+    assert entities_only == ["cover.x"]
+    assert devices_only == []
+    assert remote is True
+    shared_entities, _, shared_remote = resolve_shared_access(
+        ["a", "b"],
+        overrides={"b": {"entity_ids": ["fan.chambre"], "allow_remote": True}},
+        entity_ids=["light.salon"],
+        device_ids=[],
+        allow_remote=False,
+    )
+    assert shared_entities == ["light.salon", "fan.chambre"]
+    assert shared_remote is True
 
     class _Admin:
         is_owner = False
@@ -133,17 +194,16 @@ def test_tenant_policy_excludes_cameras_locks_and_admin():
 
 def test_dashboard_only_lists_selected_entities():
     config = build_dashboard_config(
-        ["climate.salon"],
-        ["cover.sejour"],
-        ["light.salon"],
+        ["climate.salon", "cover.sejour", "light.salon", "media_player.salon"]
     )
     cards = config["views"][0]["cards"]
     dumped = str(cards)
     assert "climate.salon" in dumped
     assert "cover.sejour" in dumped
     assert "light.salon" in dumped
-    assert "camera" not in dumped
-    assert "lock" not in dumped
+    assert "media_player.salon" in dumped
+    assert "camera." not in dumped
+    assert "lock." not in dumped
 
 
 def test_sources_do_not_embed_a_credential():

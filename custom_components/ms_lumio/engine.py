@@ -12,6 +12,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from .access import resolve_shared_access, resolve_stay_access
 from .planning import StayPlan, SyncPlan, VoucherSpec
 from .redact import mask_code
 
@@ -46,8 +47,10 @@ class AccountDirectory(Protocol):
         username: str,
         display_name: str,
         user_id: str | None,
-        password: str | None,
         rotate: bool,
+        local_only: bool,
+        entity_ids: list[str],
+        device_ids: list[str],
     ) -> dict[str, str | None]:
         """Return user_id, username and password (password is None if unchanged)."""
 
@@ -83,8 +86,8 @@ def _journal_row(
     stay: dict[str, Any] | None,
     *,
     detail: str = "",
-    password: str = "",
 ) -> dict[str, str]:
+    """CSV row. Passwords are never written here."""
     stay = stay or {}
     return {
         "action": action,
@@ -93,9 +96,9 @@ def _journal_row(
         "debut": str(stay.get("check_in") or ""),
         "fin": str(stay.get("check_out") or ""),
         "voucher_id": str(stay.get("voucher_id") or ""),
+        "voucher_nom": str(stay.get("voucher_name") or ""),
         "code": str(stay.get("voucher_code") or ""),
-        "utilisateur_ha": str(stay.get("username") or ""),
-        "mot_de_passe": password,
+        "mac": str(stay.get("mac") or ""),
         "detail": detail,
     }
 
@@ -143,6 +146,10 @@ async def async_synchronize(
     emit_print_on_create: bool = False,
     on_progress: Callable[[dict[str, dict[str, Any]], dict[str, Any] | None], Awaitable[None]]
     | None = None,
+    allow_remote: bool = False,
+    entity_ids: list[str] | None = None,
+    device_ids: list[str] | None = None,
+    overrides: dict[str, dict] | None = None,
 ) -> CycleResult:
     """Converge stored state to the plan.
 
@@ -203,15 +210,25 @@ async def async_synchronize(
                 emit_print_on_create=emit_print_on_create,
             )
         if enable_access and accounts is not None and plan.shared_username is None:
+            entities, devices, remote = resolve_stay_access(
+                item.key,
+                overrides=overrides,
+                entity_ids=entity_ids or [],
+                device_ids=device_ids or [],
+                allow_remote=allow_remote,
+            )
             await _ensure_account(
                 record,
                 result,
                 accounts=accounts,
                 display_name=f"Locataire — {item.guest}",
-                rotate=item.key in rotate_keys or not record.get("password"),
+                rotate=item.key in rotate_keys or not record.get("user_id"),
+                local_only=not remote,
+                entity_ids=entities,
+                device_ids=devices,
             )
         if item.key in resend or item.key in to_print:
-            _queue_notification(result, record, password=str(record.get("password") or ""))
+            _queue_notification(result, record, password="")
         if item.key in to_print and record.get("voucher_code"):
             result.print_events.append(
                 {
@@ -227,12 +244,22 @@ async def async_synchronize(
         await _progress(on_progress, stays, result.shared_user)
 
     if enable_access and accounts is not None and plan.shared_username:
+        shared_entities, shared_devices, shared_remote = resolve_shared_access(
+            [item.key for item in plan.ensure],
+            overrides=overrides,
+            entity_ids=entity_ids or [],
+            device_ids=device_ids or [],
+            allow_remote=allow_remote,
+        )
         await _ensure_shared(
             result,
             accounts=accounts,
             username=plan.shared_username,
-            rotate=bool(rotate_keys) or not (shared or {}).get("password"),
+            rotate=bool(rotate_keys) or not (shared or {}).get("user_id"),
             display_name=_shared_display(plan),
+            local_only=not shared_remote,
+            entity_ids=shared_entities,
+            device_ids=shared_devices,
         )
         await _progress(on_progress, stays, result.shared_user)
     elif enable_access and accounts is not None and shared and shared.get("user_id"):
@@ -300,12 +327,14 @@ async def _ensure_voucher(
             "voucher_code"
         )
         record["voucher_name"] = spec.name
+        record["mac"] = str(getattr(current, "mac", "") or "")
         return
 
     created, adopted = await _replace_voucher(record, spec, vouchers, listed, recreate)
     record["voucher_id"] = created.id
     record["voucher_code"] = created.code
     record["voucher_name"] = spec.name
+    record["mac"] = str(getattr(created, "mac", "") or "")
     record["signature"] = signature
     action = "voucher_regenere" if recreate else "voucher_cree"
     if adopted and not recreate:
@@ -317,7 +346,7 @@ async def _ensure_voucher(
         result.created_vouchers += 1
         record["notified"] = False
     if not record.get("notified"):
-        _queue_notification(result, record, password=str(record.get("password") or ""))
+        _queue_notification(result, record, password="")
         record["notified"] = True
     if emit_print_on_create and created.code and action != "voucher_adopte":
         result.print_events.append(
@@ -394,25 +423,29 @@ async def _ensure_account(
     accounts: AccountDirectory,
     display_name: str,
     rotate: bool,
+    local_only: bool,
+    entity_ids: list[str],
+    device_ids: list[str],
 ) -> None:
     before = record.get("user_id")
+    record.pop("password", None)
     ensured = await accounts.async_ensure_user(
         username=str(record.get("username") or ""),
         display_name=display_name,
         user_id=record.get("user_id"),
-        password=record.get("password"),
         rotate=rotate,
+        local_only=local_only,
+        entity_ids=entity_ids,
+        device_ids=device_ids,
     )
     record["user_id"] = ensured.get("user_id")
     record["username"] = ensured.get("username") or record.get("username")
     new_password = ensured.get("password")
     if new_password:
-        record["password"] = new_password
         result.journal.append(
             _journal_row(
                 "acces_cree" if not before else "acces_regenere",
                 record,
-                password=str(new_password),
             )
         )
         result.events.append(
@@ -428,30 +461,34 @@ async def _ensure_shared(
     username: str,
     rotate: bool,
     display_name: str,
+    local_only: bool,
+    entity_ids: list[str],
+    device_ids: list[str],
 ) -> None:
     current = result.shared_user or {}
     ensured = await accounts.async_ensure_user(
         username=username,
         display_name=display_name,
         user_id=current.get("user_id"),
-        password=current.get("password"),
         rotate=rotate,
+        local_only=local_only,
+        entity_ids=entity_ids,
+        device_ids=device_ids,
     )
     updated = {
         "user_id": ensured.get("user_id"),
         "username": ensured.get("username") or username,
-        "password": ensured.get("password") or current.get("password"),
     }
     result.shared_user = updated
+    fresh_password = str(ensured.get("password") or "")
     for record in result.stays.values():
         record["username"] = updated["username"]
         # The shared account is stored once, on shared_user. A stay record
         # must not point at it, or ending that stay would delete the account
         # while another stay is still using it.
         record["user_id"] = None
-        if updated.get("password"):
-            record["password"] = updated["password"]
-    if ensured.get("password"):
+        record.pop("password", None)
+    if fresh_password:
         anchor = next(iter(result.stays.values()), {"key": "shared"})
         row_stay = {
             "key": "shared",
@@ -461,16 +498,11 @@ async def _ensure_shared(
             "username": updated["username"],
         }
         result.journal.append(
-            _journal_row(
-                "acces_cree",
-                row_stay,
-                password=str(ensured["password"]),
-                detail="compte partagé",
-            )
+            _journal_row("acces_cree", row_stay, detail="compte partagé")
         )
         result.events.append(_event_from("acces_cree", row_stay))
         for record in result.stays.values():
-            _queue_notification(result, record, password=str(updated["password"]))
+            _queue_notification(result, record, password=fresh_password)
 
 
 async def _revoke_stay(
@@ -510,7 +542,7 @@ async def _revoke_stay(
             result.journal.append(_journal_row("acces_supprime", record))
             result.events.append(_event_from("acces_supprime", record))
         record["user_id"] = None
-        record["password"] = None
+        record.pop("password", None)
     return True
 
 

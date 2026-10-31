@@ -189,6 +189,20 @@ def test_tls_verification_flag_and_envelopes():
         {"data": [{"id": "abc", "code": "ZZ", "name": "note"}]}
     )
     assert parsed[0].code == "ZZ"
+    assert parsed[0].mac == ""
+    with_mac = extract_vouchers(
+        {
+            "vouchers": [
+                {
+                    "id": "m1",
+                    "code": "MM",
+                    "name": "note",
+                    "macAddress": "aa:bb:cc:dd:ee:ff",
+                }
+            ]
+        }
+    )
+    assert with_mac[0].mac == "aa:bb:cc:dd:ee:ff"
 
 
 def test_api_key_is_not_part_of_the_url():

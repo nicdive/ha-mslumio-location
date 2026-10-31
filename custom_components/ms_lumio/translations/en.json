@@ -35,9 +35,10 @@
           "upload_mbps": "Upload (Mbit/s)",
           "extra_days": "Extra days after the stay",
           "access_mode": "Home Assistant accounts",
-          "climate_entities": "Heating",
-          "cover_entities": "Covers",
-          "light_entities": "Lights",
+          "tenant_entities": "Allowed entities",
+          "tenant_devices": "Allowed devices",
+          "confirm_sensitive": "I allow cameras, locks or alarms",
+          "allow_remote": "Internet access during the stay",
           "notify_service": "Notification (optional)",
           "journal_path": "CSV journal file",
           "title_blocklist": "Ignored titles",
@@ -55,6 +56,10 @@
           "upload_mbps": "Default: 100.",
           "extra_days": "Voucher duration is the stay plus this many days. Default: 1. UniFi starts that timer at the first use of the code, not at check-in.",
           "access_mode": "One account per stay, or a single guest account whose password rotates.",
+          "tenant_entities": "Any domain. Cameras, locks and alarms are not selected: adding them requires the confirmation below.",
+          "tenant_devices": "Every entity of the device is allowed, including ones added later. A device that contains a camera, lock or alarm requires confirmation.",
+          "confirm_sensitive": "Without this box, saving is refused when the selection contains a camera, lock or alarm.",
+          "allow_remote": "Off by default. The account is not local-only for the length of the stay. Home Assistant must already be reachable from outside; this integration opens nothing.",
           "notify_service": "e.g. notify.mobile_app_phone. Empty = persistent notification only.",
           "journal_path": "Relative to the config folder, or absolute under config/ or a media folder (Synology share).",
           "title_blocklist": "Comma-separated substrings that are not guests (blocked dates).",
@@ -78,6 +83,7 @@
       "ssl_error": "TLS certificate rejected. Disable verification for a self-signed certificate, on the local network only.",
       "no_sites": "No Network site, or the saved site no longer exists.",
       "calendar_missing": "Select a calendar entity.",
+      "sensitive_entities": "The selection contains a camera, lock or alarm. Check the confirmation to allow it, or remove those devices.",
       "invalid_path": "The journal file must stay inside the config directory or a media directory (mounted Synology share).",
       "unknown": "Unexpected error. Check the log: the API key is not written there."
     },
@@ -101,9 +107,10 @@
           "upload_mbps": "Upload (Mbit/s)",
           "extra_days": "Extra days after the stay",
           "access_mode": "Home Assistant accounts",
-          "climate_entities": "Heating",
-          "cover_entities": "Covers",
-          "light_entities": "Lights",
+          "tenant_entities": "Allowed entities",
+          "tenant_devices": "Allowed devices",
+          "confirm_sensitive": "I allow cameras, locks or alarms",
+          "allow_remote": "Internet access during the stay",
           "notify_service": "Notification (optional)",
           "journal_path": "CSV journal file",
           "title_blocklist": "Ignored titles",
@@ -121,6 +128,7 @@
     },
     "error": {
       "calendar_missing": "Select a calendar entity.",
+      "sensitive_entities": "The selection contains a camera, lock or alarm. Check the confirmation to allow it, or remove those devices.",
       "invalid_path": "The journal file must stay inside the config directory or a media directory."
     }
   },
@@ -185,6 +193,24 @@
     "appliquer_tableau": {
       "name": "Apply dashboard",
       "description": "Updates the ms-lumio dashboard."
+    },
+    "reglages_sejour": {
+      "name": "Stay settings",
+      "description": "Replaces the entity list and internet access for one reservation. Reset returns to the global setting.",
+      "fields": {
+        "reservation_key": {
+          "name": "Reservation",
+          "description": "reservation_id attribute of the sensor, or the calendar UID."
+        },
+        "entity_ids": {"name": "Entities"},
+        "device_ids": {"name": "Devices"},
+        "allow_remote": {
+          "name": "Internet access",
+          "description": "inherit = global setting, local = LAN only, remote = internet during this stay."
+        },
+        "confirm_sensitive": {"name": "Confirm camera, lock or alarm"},
+        "reset": {"name": "Use the global setting again"}
+      }
     }
   },
   "issues": {

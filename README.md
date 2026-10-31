@@ -3,7 +3,7 @@
 Intégration Home Assistant (custom component, installable via HACS) pour une maison en location courte durée. Elle relie un **calendrier de réservations** déjà présent dans Home Assistant à :
 
 1. des **vouchers hotspot UniFi** créés sur l'UDM, puis supprimés au départ, en cas d'annulation ou de séjour raccourci ;
-2. un **compte Home Assistant non administrateur** par séjour (ou un compte unique dont le mot de passe tourne), limité aux entités de chauffage, volets et éclairage ;
+2. un **compte Home Assistant non administrateur** par séjour (ou un compte unique dont le mot de passe tourne), limité aux entités et appareils choisis, en local par défaut ;
 3. un **journal** (événement Home Assistant + CSV) qui dit qui a reçu quoi, et quand.
 
 L'intégration ne remplace pas le portail captif : le locataire saisit le code sur la page hotspot UniFi, comme aujourd'hui. Elle ne crée aucune redirection de port et n'ouvre rien vers Internet.
@@ -20,7 +20,7 @@ Vérifié dans la documentation et dans les tests de ce dépôt (31 octobre 2026
 | Horloge du voucher | Même page « Generate Vouchers » | `timeLimitMinutes` démarre **à la première autorisation** sur le portail, pas à la date d'arrivée. Pas de date de fin absolue dans ce schéma |
 | Arrivée de l'API hotspot | [External Hotspot API](https://help.ui.com/hc/en-us/articles/31228198640023-External-Hotspot-API-for-Authorization-Clients) (Network 9.1, mars 2025) | L'intégration parle à l'API Integration locale, pas à l'ancienne API cookie |
 | Préfixe local | Documentation officielle (l'API tourne sur la console) + montages décrits par les clients UniFi OS (`/proxy/network/integration` puis `/integration`) | Les deux préfixes sont essayés. Le premier qui répond à `GET /v1/info` est retenu |
-| Comptes HA | Code `homeassistant/auth` (branche `dev`) : `async_create_user`, `async_remove_user`, `HassAuthProvider.async_add_auth` / `async_change_password` | Groupe `system-users` **non utilisé** : sa politique est « toutes les entités ». Groupe `system-admin` refusé. Utilisateur `local_only` |
+| Comptes HA | Code `homeassistant/auth` (branche `dev`) et `helpers/service.py`, `api`, `websocket_api`, `history` | Groupe `system-users` **non utilisé**. `local_only` par défaut, levé seulement si l'option internet du séjour est active. Les services qui visent une entité et `get_states` respectent la politique ; le journal, non (voir plus bas). |
 | Politique d'entités | [Permissions](https://developers.home-assistant.io/docs/auth_permissions/) | Politique `entities.entity_ids` avec `read` + `control`, sans `edit`. Il n'existe pas d'API publique pour créer un groupe : le groupe `ms-lumio-locataires` est écrit dans le magasin d'auth |
 | Calendrier | `CalendarEvent` (`uid`, fin exclusive des événements journée entière) | N'importe quelle entité `calendar` |
 
@@ -32,8 +32,8 @@ Une référence tierce de l'API v10.3 montrait d'autres champs (`durationMinutes
 2. Création réelle d'un voucher et lecture du `code` (enveloppe `vouchers` ou `data`).
 3. Saisie du code sur le portail hotspot, et contrôle que la durée part au premier usage.
 4. Suppression au départ et après annulation (le code ne doit plus être accepté).
-5. Connexion du compte locataire depuis le VLAN hotspot vers `https://<ip-ha>:8123`, et échec via Nabu Casa.
-6. Le locataire ne voit ni ne commande caméras, serrures, alarmes (l'interface et un appel de service). L'historique et le journal HA ne sont pas un contrôle d'accès complet : le vérifier.
+5. Connexion du compte locataire depuis le VLAN hotspot vers `https://<ip-ha>:8123`. Sans l'option internet : échec via Nabu Casa. Avec l'option, et seulement si HA est déjà exposé : succès pendant le séjour, plus après le départ.
+6. Le locataire ne voit ni ne commande que les entités choisies (interface, `/api/states`, service sur une entité absente de la liste). Vérifier aussi le journal : le code lu ne le filtre pas.
 7. Règle de pare-feu : depuis le hotspot, seul le port 8123 de HA répond ; le reste du LAN ne répond pas.
 8. Redémarrage de HA : pas de second voucher ni de second compte pour le même séjour.
 
@@ -109,7 +109,8 @@ Le formulaire demande ensuite :
 | Débits | 100 / 100 Mbit/s | Convertis en kbit/s SI : 100 Mbit/s = 100000 kbit/s. |
 | Jours supplémentaires | 1 | Durée envoyée = longueur du séjour + 1 jour. |
 | Comptes | Un par séjour | Ou un compte `locataire` dont le mot de passe change quand plus aucun séjour n'est actif, puis au suivant. |
-| Chauffage, volets, éclairage | listes vides | Seules entités autorisées au locataire. |
+| Entités et appareils | listes vides | Tout domaine. Seules ces entités (et toutes les entités des appareils choisis) sont lisibles et commandables. Caméra, serrure et alarme exigent une case de confirmation. |
+| Accès internet | désactivé | Pendant le séjour seulement, le compte n'est plus « local uniquement ». Rien n'est ouvert sur le réseau : Home Assistant doit déjà être joignable de l'extérieur. |
 | Journal | `ms_lumio/journal.csv` | Sous le dossier de configuration, ou un dossier média. |
 | Titres ignorés | `not available`, `indisponible`, `fermé`, … | Les blocages Airbnb / Booking ne deviennent pas des vouchers. |
 | Impression | désactivée | Voir plus bas. |
@@ -150,14 +151,45 @@ mDNS (`homeassistant.local`) ne traverse en général pas le VLAN invité. Donne
 
 Pour chaque séjour (mode par défaut) :
 
-- utilisateur **non propriétaire**, **non administrateur**, **local uniquement** ;
-- groupe `ms-lumio-locataires`, politique limitée aux entités choisies (`climate`, `cover`, `light`, et quelques domaines du même ordre : `fan`, `switch`, `humidifier`, `water_heater`) ;
-- `camera`, `lock`, `alarm_control_panel`, `image`, `siren` sont rejetés s'ils sont proposés ;
-- au départ, à l'annulation ou au raccourcissement qui sort de la fenêtre : le compte est **supprimé** (mode par séjour) ou **désactivé** (compte unique, jusqu'au séjour suivant).
+- utilisateur **non propriétaire**, **non administrateur** ;
+- un groupe `ms-lumio-<identifiant>` propre à ce compte, pour que deux séjours ne partagent pas la même liste ;
+- politique limitée aux entités et aux appareils choisis dans les options (ou à la surcharge du séjour). `read` et `control` seulement, pas `edit`, pas tout un domaine, pas `all` ;
+- **local uniquement**, sauf si l'option d'accès internet est activée pour ce séjour ;
+- au départ, à l'annulation ou au raccourcissement qui sort de la fenêtre : le compte est **supprimé** (mode par séjour) ou **retiré** (compte unique). L'accès internet s'arrête en même temps. Un changement d'options est réappliqué au cycle suivant, y compris aux séjours déjà ouverts.
 
-Le mot de passe est généré dans Home Assistant (`token_urlsafe`, sous la limite bcrypt de 72 octets). Il n'est pas écrit dans les logs. Il part dans la notification persistante (visible des administrateurs) et dans le CSV.
+Le sélecteur d'entités n'a pas de filtre de domaine. Le sélecteur d'appareils autorise toutes les entités de l'appareil, y compris celles ajoutées plus tard. Caméra, serrure et alarme (`camera`, `lock`, `alarm_control_panel`) ne sont pas proposées par défaut. Si vous les cochez, ou si un appareil en contient, l'enregistrement est refusé tant que la case de confirmation n'est pas cochée.
 
-Limite connue, à traiter comme telle : Home Assistant n'a pas d'ACL complète. La politique de groupe est le mécanisme prévu (`entity_ids` est consulté avant le reste), mais toutes les API historiques ne filtrent pas de la même façon. Après installation, ouvrir une session locataire réelle et tenter d'atteindre une caméra, une serrure, les réglages et `/api/states`. Tant que ce contrôle n'est pas fait, ne pas considérer les caméras comme isolées. Le pare-feu ne remplace pas cet essai, et l'essai ne remplace pas le pare-feu.
+Surcharge par réservation : service `ms_lumio.reglages_sejour`, avec l'attribut `reservation_id` du capteur (ou l'UID du calendrier). Les listes envoyées **remplacent** le réglage global pour ce séjour. `allow_remote` vaut `inherit`, `local` ou `remote`. `reset` revient au global. En mode compte unique, une seule session ne peut pas avoir deux politiques : c'est l'**union** des séjours actifs, et l'internet est ouvert si le global ou l'un de ces séjours l'autorise.
+
+### Ce que le groupe restreint garantit
+
+Vérifié dans le code de Home Assistant Core (branche `dev`, lu pour cette modification), pas exécuté sur la maison :
+
+- `GET /api/states`, `GET /api/states/<entité>`, le websocket `get_states` et `subscribe_entities` ne renvoient que les entités pour lesquelles `check_entity(..., "read")` réussit. Un admin ou une politique `all` reçoit tout. Le compte locataire n'est ni l'un ni l'autre.
+- Un appel de service **qui vise une entité** passe par `homeassistant/helpers/service.py` : sans droit `control` sur cette entité, Home Assistant lève `Unauthorized`.
+- `POST /api/states/<entité>` (écrire un état à la main) est réservé aux administrateurs.
+- L'historique (`history/history_during_period` et `/api/history/period`) filtre les entités demandées avec le même droit de lecture (correctif core #169236).
+
+Ce que ça ne garantit pas :
+
+- Le **journal** (`logbook/get_events`, `/api/logbook`) ne consulte pas `check_entity` dans le code examiné. Un locataire qui sait appeler cette API peut voir des événements d'autres entités. À retester sur la version installée ; ne pas y mettre de secrets.
+- Les services **sans entité cible** (shell_command, rest_command, certains scripts) ne sont pas couverts par la politique, qui ne connaît que la catégorie `entities`. Ne sélectionnez pas un script ou une scène qui déverrouille une porte ou appelle un service large : une fois le script autorisé, son contenu s'exécute avec les droits de Home Assistant, pas avec ceux du locataire.
+- `get_services` décrit tous les services. Les voir n'est pas les exécuter.
+- Un appel **sans utilisateur** dans le contexte (automatisation) n'est pas filtré : ce n'est pas le locataire qui l'exécute.
+- Cette lecture de code ne remplace pas un essai réel : ouvrir une session locataire et tenter une caméra non choisie, `/api/states`, un service `light.turn_on` sur une lumière absente de la liste, et le journal.
+
+### Accès internet pendant le séjour
+
+L'option est **désactivée par défaut**, globalement et pour chaque réservation (`inherit`). Si vous l'activez, `local_only` passe à faux **uniquement tant que le séjour est ouvert**, puis le compte est supprimé ou redevient local. Le module n'ajoute aucune redirection de port, aucun proxy et n'active pas Nabu Casa.
+
+Home Assistant doit **déjà** être joignable de l'extérieur, par exemple :
+
+- Home Assistant Cloud (Nabu Casa), ou
+- un reverse proxy HTTPS que vous administrez déjà.
+
+Mesures à avoir en place avant d'activer l'option : mot de passe fort (celui généré ici l'est), `http.ip_ban_enabled` et `login_attempts_threshold` dans la configuration HTTP, MFA du compte propriétaire, et aucun droit d'administration pour le locataire. Le mot de passe n'est affiché qu'une fois, dans la notification administrateur.
+
+Le mot de passe est généré dans Home Assistant (`token_urlsafe`, sous la limite bcrypt de 72 octets). Il n'est pas écrit dans les logs, ni dans le CSV, ni dans le stockage du séjour. Il apparaît dans la notification admin, à noter tout de suite. Au départ, cette notification est retirée. Pour en obtenir un autre : `ms_lumio.regenerer_acces`.
 
 Tableau de bord : URL `ms-lumio`, titre **Séjour**, visible des non-administrateurs, cartes thermostat / volets / éclairage. L'intégration le crée si la collection Lovelace en mémoire est joignable (commande websocket `lovelace/dashboards/create`). Sinon une réparation l'indique. Créer alors un tableau de stockage d'URL `ms-lumio` (le tiret est obligatoire) et appeler `ms_lumio.appliquer_tableau`.
 
@@ -165,9 +197,9 @@ Mettre les autres tableaux (vue d'ensemble, caméras, serrures) en **réservé a
 
 ## Journal et Synology
 
-Fichier CSV, une ligne par action (`voucher_cree`, `voucher_adopte`, `voucher_regenere`, `voucher_supprime`, `acces_cree`, `acces_regenere`, `acces_supprime`, `acces_desactive`). Colonnes : horodatage, action, réservation, locataire, début, fin, id voucher, **code**, utilisateur, **mot de passe**, détail.
+Fichier CSV, une ligne par action (`voucher_cree`, `voucher_adopte`, `voucher_regenere`, `voucher_supprime`, `acces_cree`, `acces_regenere`, `acces_supprime`, `acces_desactive`). Colonnes : horodatage, action, réservation, locataire, début, fin, id voucher, nom du voucher, **code voucher**, MAC si le contrôleur la renvoie, détail. Le schéma voucher v11.0.97 ne documente pas de MAC : la colonne reste vide tant qu'une réponse n'en contient pas (`macAddress`, `mac`, ou une liste de clients).
 
-Ce fichier est l'archive. Il contient des secrets. Le poser sur un partage Synology monté dans Home Assistant, par exemple :
+Pas de mot de passe, pas d'identifiant de connexion. Un ancien fichier qui en contenait est réécrit sans ces colonnes à la prochaine ligne. Le code voucher reste dans le CSV : c'est le secret d'accès Wi-Fi à archiver. Le poser sur un partage Synology monté dans Home Assistant, par exemple :
 
 - monter le partage dans `/media/synology` (ou sous `/config/...`) ;
 - régler le chemin sur `/media/synology/ms-lumio/journal.csv`.
@@ -192,7 +224,8 @@ Tous exigent un administrateur lorsque l'appel porte un utilisateur. Une automat
 | --- | --- |
 | `ms_lumio.regenerer_voucher` | Nouveau code pour le séjour (l'ancien est supprimé). |
 | `ms_lumio.regenerer_acces` | Nouveau mot de passe. |
-| `ms_lumio.renvoyer_notification` | Renvoie code et mot de passe à l'administrateur. |
+| `ms_lumio.renvoyer_notification` | Renvoie le code. Le mot de passe n'est pas conservé : il faut le régénérer. |
+| `ms_lumio.reglages_sejour` | Surcharge les entités, les appareils et l'accès internet d'une réservation. |
 | `ms_lumio.imprimer_voucher` | Événement d'impression, réponse avec le code. |
 | `ms_lumio.exporter_journal` | Chemin du CSV. |
 | `ms_lumio.appliquer_tableau` | Réécrit les cartes du tableau `ms-lumio`. |
@@ -214,10 +247,11 @@ Sans UID calendrier, la clé est un condensat du nom et des dates : renommer le 
 
 - Clé API : entrée de configuration uniquement, filtre de logs en plus, diagnostics redactés, pas de redirection HTTP.
 - TLS vérifiable, décoché par défaut à cause du certificat d'usine, documenté ci-dessus.
-- Locataires : pas admin, pas owner, pas `system-users`, `local_only`, entités listées seulement.
+- Locataires : pas admin, pas owner, pas `system-users`. `local_only` sauf si l'accès internet du séjour est activé. Entités et appareils listés seulement.
 - Aucune exposition Internet ajoutée. La règle de pare-feu est à créer sur l'UDM ; l'intégration ne pousse pas de règle firewall (elle ne touche pas à cette partie de l'API).
-- Mots de passe et codes absents des logs et des événements ordinaires. Présents dans le CSV, la notification admin, et l'événement d'impression si vous l'activez.
-- Le capteur de code est lisible par qui a le droit de le lire. Il n'est pas donné au groupe locataire.
+- Mots de passe absents des logs, du CSV, du stockage des séjours et des événements. Présents seulement dans la notification admin, le temps de la noter.
+- Codes voucher dans le CSV et le capteur, masqués sur le bus. L'événement d'impression, s'il est activé, contient le code en clair.
+- Le capteur de code n'est pas dans la liste donnée au locataire, sauf si vous l'y ajoutez vous-même.
 
 ## Développement
 
@@ -226,14 +260,15 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-Les tests couvrent le client UniFi (contrôleur HTTP local, clé dans `X-API-KEY` et pas dans l'URL, repli de préfixe, pagination, 404, refus de redirection), le calcul des séjours, l'idempotence, l'adoption d'un voucher déjà nommé, l'annulation, le remplacement quand le séjour raccourcit, l'absence de révocation si le contrôleur ne répond pas, le CSV, le chemin de journal, la rédaction des diagnostics et le refus des domaines caméra / serrure.
+Les tests couvrent le client UniFi (contrôleur HTTP local, clé dans `X-API-KEY` et pas dans l'URL, repli de préfixe, pagination, 404, refus de redirection), le calcul des séjours, l'idempotence, l'adoption d'un voucher déjà nommé, l'annulation, le remplacement quand le séjour raccourcit, l'absence de révocation si le contrôleur ne répond pas, le CSV sans mot de passe (y compris la réécriture d'un ancien fichier), le chemin de journal, la rédaction des diagnostics, la politique limitée aux entités choisies et l'avertissement caméra / serrure / alarme.
 
 ## Limites connues
 
 - Horloge UniFi au premier usage du code, pas à l'arrivée. Un essai du code le jour de la création (J−3) consume trois jours. L'avance de création est réglable ; le jour supplémentaire ne compense pas un essai très anticipé.
 - Schéma v11 non confirmé sur un UDM Pro Max de cette maison. HTTP 400 = s'arrêter et lire l'OpenAPI locale.
-- Groupe locataire via une API interne de Home Assistant. À recontrôler après chaque montée de version majeure.
-- Pas d'ACL parfaite. Le test manuel locataire fait partie de la mise en service.
+- Groupe locataire via une API interne de Home Assistant. À recontrôler après chaque montée de version majeure, y compris le filtrage du journal.
+- Pas d'ACL sur les services sans entité ni, dans le code lu, sur le journal. Le test manuel locataire fait partie de la mise en service.
+- L'accès internet n'est qu'un drapeau `local_only`. Sans Nabu Casa ou un proxy déjà en place, le locataire distant n'arrive pas.
 - Le tableau Lovelace n'est créé que si la collection déjà chargée par HA est retrouvée. Sinon, création manuelle d'URL `ms-lumio`.
 - Un seul capteur de code : le séjour en cours, ou à défaut le prochain.
 - Compte partagé : un seul mot de passe pour les séjours qui se chevauchent.

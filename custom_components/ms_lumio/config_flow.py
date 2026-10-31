@@ -14,6 +14,8 @@ from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
     BooleanSelector,
+    DeviceSelector,
+    DeviceSelectorConfig,
     EntitySelector,
     EntitySelectorConfig,
     NumberSelector,
@@ -29,10 +31,12 @@ from homeassistant.helpers.selector import (
 
 from .const import (
     CONF_ACCESS_MODE,
+    CONF_ALLOW_REMOTE,
     CONF_API_KEY,
     CONF_BASE_PATH,
     CONF_CALENDAR,
     CONF_CLIMATE_ENTITIES,
+    CONF_CONFIRM_SENSITIVE,
     CONF_COVER_ENTITIES,
     CONF_DEVICE_LIMIT,
     CONF_DOWNLOAD_MBPS,
@@ -48,6 +52,8 @@ from .const import (
     CONF_PRINT_EVENT,
     CONF_SITE_ID,
     CONF_SITE_NAME,
+    CONF_TENANT_DEVICES,
+    CONF_TENANT_ENTITIES,
     CONF_TITLE_BLOCKLIST,
     CONF_UPLOAD_MBPS,
     CONF_VERIFY_SSL,
@@ -64,6 +70,7 @@ from .const import (
     DOMAIN,
     ACCESS_PER_STAY,
 )
+from .access import sensitive_entity_ids
 from .journal import JournalPathError, resolve_journal_path
 from .unifi import (
     UnifiAuthError,
@@ -95,6 +102,17 @@ def _number(min_value: int, max_value: int) -> NumberSelector:
             mode=NumberSelectorMode.BOX,
         )
     )
+
+
+def _default_entities(defaults: Mapping[str, Any]) -> list[str]:
+    """Keep a previous climate/cover/light selection visible after the upgrade."""
+    selected = list(defaults.get(CONF_TENANT_ENTITIES) or [])
+    if selected:
+        return selected
+    legacy: list[str] = []
+    for key in (CONF_CLIMATE_ENTITIES, CONF_COVER_ENTITIES, CONF_LIGHT_ENTITIES):
+        legacy.extend(defaults.get(key) or [])
+    return legacy
 
 
 def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
@@ -132,17 +150,21 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
                 )
             ),
             vol.Optional(
-                CONF_CLIMATE_ENTITIES,
-                default=defaults.get(CONF_CLIMATE_ENTITIES, []),
-            ): EntitySelector(
-                EntitySelectorConfig(domain="climate", multiple=True)
-            ),
+                CONF_TENANT_ENTITIES,
+                default=_default_entities(defaults),
+            ): EntitySelector(EntitySelectorConfig(multiple=True)),
             vol.Optional(
-                CONF_COVER_ENTITIES, default=defaults.get(CONF_COVER_ENTITIES, [])
-            ): EntitySelector(EntitySelectorConfig(domain="cover", multiple=True)),
-            vol.Optional(
-                CONF_LIGHT_ENTITIES, default=defaults.get(CONF_LIGHT_ENTITIES, [])
-            ): EntitySelector(EntitySelectorConfig(domain="light", multiple=True)),
+                CONF_TENANT_DEVICES,
+                default=defaults.get(CONF_TENANT_DEVICES, []),
+            ): DeviceSelector(DeviceSelectorConfig(multiple=True)),
+            vol.Required(
+                CONF_CONFIRM_SENSITIVE,
+                default=False,
+            ): BooleanSelector(),
+            vol.Required(
+                CONF_ALLOW_REMOTE,
+                default=defaults.get(CONF_ALLOW_REMOTE, False),
+            ): BooleanSelector(),
             vol.Optional(
                 CONF_NOTIFY_SERVICE, default=defaults.get(CONF_NOTIFY_SERVICE, "")
             ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
@@ -189,8 +211,18 @@ def _clean_options(user_input: Mapping[str, Any]) -> dict[str, Any]:
     ):
         if key in cleaned and cleaned[key] is not None:
             cleaned[key] = int(cleaned[key])
+    legacy = []
     for key in (CONF_CLIMATE_ENTITIES, CONF_COVER_ENTITIES, CONF_LIGHT_ENTITIES):
-        cleaned[key] = list(cleaned.get(key) or [])
+        legacy.extend(cleaned.get(key) or [])
+    selected = list(cleaned.get(CONF_TENANT_ENTITIES) or [])
+    if not selected and legacy:
+        selected = legacy
+    cleaned[CONF_TENANT_ENTITIES] = selected
+    cleaned[CONF_TENANT_DEVICES] = list(cleaned.get(CONF_TENANT_DEVICES) or [])
+    cleaned[CONF_ALLOW_REMOTE] = bool(cleaned.get(CONF_ALLOW_REMOTE, False))
+    cleaned.pop(CONF_CONFIRM_SENSITIVE, None)
+    for key in (CONF_CLIMATE_ENTITIES, CONF_COVER_ENTITIES, CONF_LIGHT_ENTITIES):
+        cleaned.pop(key, None)
     cleaned[CONF_NOTIFY_SERVICE] = str(cleaned.get(CONF_NOTIFY_SERVICE) or "").strip()
     return {key: value for key, value in cleaned.items() if key not in _CONNECTION_KEYS}
 
@@ -313,7 +345,11 @@ class MsLumioConfigFlow(ConfigFlow, domain=DOMAIN):
         """Collect the calendar, voucher limits and tenant entities."""
         if user_input is not None:
             options = _clean_options(user_input)
-            error = _house_error(self.hass, options)
+            error = _house_error(
+                self.hass,
+                options,
+                confirmed=bool(user_input.get(CONF_CONFIRM_SENSITIVE)),
+            )
             if error:
                 return self.async_show_form(
                     step_id="house",
@@ -431,7 +467,11 @@ class MsLumioOptionsFlow(OptionsFlow):
         """Show the house options."""
         if user_input is not None:
             options = _clean_options(user_input)
-            error = _house_error(self.hass, options)
+            error = _house_error(
+                self.hass,
+                options,
+                confirmed=bool(user_input.get(CONF_CONFIRM_SENSITIVE)),
+            )
             if error:
                 return self.async_show_form(
                     step_id="init",
@@ -445,12 +485,40 @@ class MsLumioOptionsFlow(OptionsFlow):
         )
 
 
-def _house_error(hass: Any, options: Mapping[str, Any]) -> str | None:
-    """Validate the calendar and the journal path before saving."""
+def _sensitive_device_entities(hass: Any, device_ids: list[str]) -> list[str]:
+    """Entity ids of cameras, locks or alarms that belong to the chosen devices."""
+    if not device_ids:
+        return []
+    try:
+        from homeassistant.helpers import entity_registry as er
+    except ImportError:
+        return []
+    registry = er.async_get(hass)
+    wanted = set(device_ids)
+    found: list[str] = []
+    for entry in registry.entities.values():
+        if entry.device_id in wanted and entry.domain in {"camera", "lock", "alarm_control_panel"}:
+            found.append(entry.entity_id)
+    return found
+
+
+def _house_error(
+    hass: Any,
+    options: Mapping[str, Any],
+    *,
+    confirmed: bool,
+) -> str | None:
+    """Validate the calendar, the journal path and sensitive entities."""
     from pathlib import Path
 
     if not options.get(CONF_CALENDAR):
         return "calendar_missing"
+    sensitive = sensitive_entity_ids(list(options.get(CONF_TENANT_ENTITIES) or []))
+    sensitive.extend(
+        _sensitive_device_entities(hass, list(options.get(CONF_TENANT_DEVICES) or []))
+    )
+    if sensitive and not confirmed:
+        return "sensitive_entities"
     media: list[Path] = []
     media_dirs = getattr(hass.config, "media_dirs", None) or {}
     if isinstance(media_dirs, dict):

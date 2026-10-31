@@ -20,6 +20,7 @@ from .const import (
     CONF_API_KEY,
     CONF_BASE_PATH,
     CONF_CALENDAR,
+    CONF_ALLOW_REMOTE,
     CONF_CLIMATE_ENTITIES,
     CONF_COVER_ENTITIES,
     CONF_DEVICE_LIMIT,
@@ -31,6 +32,8 @@ from .const import (
     CONF_JOURNAL_PATH,
     CONF_LEAD_DAYS,
     CONF_LIGHT_ENTITIES,
+    CONF_TENANT_DEVICES,
+    CONF_TENANT_ENTITIES,
     CONF_LOOKAHEAD_DAYS,
     CONF_MAX_STAY_DAYS,
     CONF_NOTIFY_SERVICE,
@@ -86,11 +89,7 @@ class _AccountBridge:
     async def async_ensure_user(self, **kwargs: Any) -> dict[str, str | None]:
         from .access import async_ensure_user
 
-        return await async_ensure_user(
-            self._runtime.hass,
-            entity_ids=self._runtime.tenant_entity_ids(),
-            **kwargs,
-        )
+        return await async_ensure_user(self._runtime.hass, **kwargs)
 
     async def async_revoke_user(self, user_id: str) -> None:
         from .access import async_revoke_user
@@ -123,18 +122,26 @@ class LumioRuntime:
         self._force_access: set[str] = set()
         self._resend: set[str] = set()
         self._print: set[str] = set()
+        self._overrides: dict[str, dict[str, Any]] = {}
         self._lock = asyncio.Lock()
         self.coordinator: DataUpdateCoordinator[dict[str, Any]] | None = None
         self._accounts = _AccountBridge(self)
         self._dashboard_signature: str | None = None
 
     def tenant_entity_ids(self) -> list[str]:
-        """Entities the tenant group is allowed to read and control."""
+        """Entities selected for tenants, including the previous three lists."""
         options = self.entry.options
-        entities: list[str] = []
+        selected = list(options.get(CONF_TENANT_ENTITIES) or [])
+        if selected:
+            return selected
+        legacy: list[str] = []
         for key in (CONF_CLIMATE_ENTITIES, CONF_COVER_ENTITIES, CONF_LIGHT_ENTITIES):
-            entities.extend(options.get(key) or [])
-        return entities
+            legacy.extend(options.get(key) or [])
+        return legacy
+
+    def tenant_device_ids(self) -> list[str]:
+        """Devices whose entities the tenant may use."""
+        return list(self.entry.options.get(CONF_TENANT_DEVICES) or [])
 
     async def async_load(self) -> None:
         """Load the private stay store."""
@@ -146,7 +153,11 @@ class LumioRuntime:
             self._stays = stays
         shared = raw.get("shared_user")
         if isinstance(shared, dict):
-            self._shared = shared
+            self._shared = _scrub_secrets(shared)
+        overrides = raw.get("overrides")
+        if isinstance(overrides, dict):
+            self._overrides = overrides
+        self._stays = {key: _scrub_secrets(value) for key, value in self._stays.items()}
         self._refresh_log_filter()
 
     async def _persist(
@@ -154,18 +165,21 @@ class LumioRuntime:
         stays: dict[str, dict[str, Any]],
         shared: dict[str, Any] | None,
     ) -> None:
-        self._stays = stays
-        self._shared = shared
-        await self.store.async_save({"stays": stays, "shared_user": shared})
+        self._stays = {key: _scrub_secrets(value) for key, value in stays.items()}
+        self._shared = _scrub_secrets(shared) if isinstance(shared, dict) else shared
+        await self.store.async_save(
+            {
+                "stays": self._stays,
+                "shared_user": self._shared,
+                "overrides": self._overrides,
+            }
+        )
         self._refresh_log_filter()
 
     def _refresh_log_filter(self) -> None:
         secrets = [str(self.entry.data.get(CONF_API_KEY) or "")]
         for record in self._stays.values():
             secrets.append(str(record.get("voucher_code") or ""))
-            secrets.append(str(record.get("password") or ""))
-        if self._shared:
-            secrets.append(str(self._shared.get("password") or ""))
         self.log_filter.update(secrets, owner=self.entry.entry_id)
 
     def _option_int(self, key: str, default: int) -> int:
@@ -245,6 +259,10 @@ class LumioRuntime:
                 resend_keys=set(self._resend),
                 emit_print_on_create=bool(options.get(CONF_PRINT_EVENT, False)),
                 on_progress=self._persist,
+                allow_remote=bool(options.get(CONF_ALLOW_REMOTE, False)),
+                entity_ids=self.tenant_entity_ids(),
+                device_ids=self.tenant_device_ids(),
+                overrides=self._overrides,
             )
         except UnifiAuthError as err:
             raise ConfigEntryAuthFailed from err
@@ -291,6 +309,15 @@ class LumioRuntime:
             lines.append(f"Utilisateur Home Assistant : {note['username']}")
         if note.get("password"):
             lines.append(f"Mot de passe : {note['password']}")
+            lines.append(
+                "Ce mot de passe n'est pas archivé. Notez-le maintenant : "
+                "il disparaît avec cette notification."
+            )
+        elif note.get("username"):
+            lines.append(
+                "Le mot de passe n'est pas conservé. "
+                "Régénérez l'accès pour en afficher un nouveau."
+            )
         lines.append("Tableau de bord : /ms-lumio")
         message = "\n".join(lines)
         notification_id = f"ms_lumio_{note.get('reservation_id') or 'sejour'}"
@@ -326,17 +353,12 @@ class LumioRuntime:
     async def _async_dashboard(self) -> None:
         from homeassistant.helpers import issue_registry as ir
 
-        options = self.entry.options
-        signature = repr(self.tenant_entity_ids())
+        entities = self._dashboard_entity_ids()
+        signature = repr(entities)
         if signature == self._dashboard_signature:
             return
         try:
-            created = await async_ensure_dashboard(
-                self.hass,
-                climate=list(options.get(CONF_CLIMATE_ENTITIES) or []),
-                covers=list(options.get(CONF_COVER_ENTITIES) or []),
-                lights=list(options.get(CONF_LIGHT_ENTITIES) or []),
-            )
+            created = await async_ensure_dashboard(self.hass, entities)
         except Exception:  # noqa: BLE001 — dashboard failure must not revoke access
             _LOGGER.warning("Tableau de bord MS Lumio non mis à jour")
             created = False
@@ -353,6 +375,72 @@ class LumioRuntime:
                 translation_key="dashboard_missing",
                 translation_placeholders={"url_path": "ms-lumio"},
             )
+
+    def _dashboard_entity_ids(self) -> list[str]:
+        """Entities to show, plus every entity of a selected device."""
+        entities = list(self.tenant_entity_ids())
+        devices = set(self.tenant_device_ids())
+        if not devices:
+            return entities
+        try:
+            from homeassistant.helpers import entity_registry as er
+
+            registry = er.async_get(self.hass)
+        except Exception:  # noqa: BLE001 — registry is optional for the cards
+            return entities
+        for entry in registry.entities.values():
+            if entry.device_id not in devices or entry.disabled_by is not None:
+                continue
+            if entry.entity_id not in entities:
+                entities.append(entry.entity_id)
+        return entities
+
+    def _device_sensitive(self, device_ids: list[str]) -> list[str]:
+        if not device_ids:
+            return []
+        try:
+            from homeassistant.helpers import entity_registry as er
+
+            registry = er.async_get(self.hass)
+        except Exception:  # noqa: BLE001
+            return []
+        from .const import SENSITIVE_DOMAINS
+
+        wanted = set(device_ids)
+        return [
+            entry.entity_id
+            for entry in registry.entities.values()
+            if entry.device_id in wanted and entry.domain in SENSITIVE_DOMAINS
+        ]
+
+    def _apply_stay_settings(self, data: dict[str, Any]) -> None:
+        """Store a per-reservation override. Empty lists replace the global choice."""
+        from .access import sensitive_entity_ids
+
+        key = str(data.get("reservation_key") or "").strip()
+        if not key:
+            raise UpdateFailed("unknown_reservation")
+        if data.get("reset"):
+            self._overrides.pop(key, None)
+            return
+        current = dict(self._overrides.get(key) or {})
+        if "entity_ids" in data:
+            current["entity_ids"] = list(data.get("entity_ids") or [])
+        if "device_ids" in data:
+            current["device_ids"] = list(data.get("device_ids") or [])
+        if "allow_remote" in data:
+            mode = str(data.get("allow_remote") or "inherit")
+            if mode == "remote":
+                current["allow_remote"] = True
+            elif mode == "local":
+                current["allow_remote"] = False
+            else:
+                current.pop("allow_remote", None)
+        sensitive = sensitive_entity_ids(list(current.get("entity_ids") or []))
+        sensitive.extend(self._device_sensitive(list(current.get("device_ids") or [])))
+        if sensitive and not data.get("confirm_sensitive"):
+            raise UpdateFailed("sensitive_entities")
+        self._overrides[key] = current
 
     def _resolve_key(self, key: str | None) -> str:
         if key:
@@ -374,7 +462,9 @@ class LumioRuntime:
         action = call.service
         async with self._lock:
             resolved = None
-            if action not in {"appliquer_tableau", "exporter_journal"}:
+            if action == "reglages_sejour":
+                self._apply_stay_settings(call.data)
+            elif action not in {"appliquer_tableau", "exporter_journal"}:
                 resolved = self._resolve_key(key)
             if action == "regenerer_voucher" and resolved:
                 self._force_voucher.add(resolved)
@@ -419,6 +509,14 @@ class LumioRuntime:
                 else self.coordinator.data,
             }
         )
+
+
+def _scrub_secrets(record: dict[str, Any]) -> dict[str, Any]:
+    """Drop any password that an older version stored next to the stay."""
+    cleaned = dict(record)
+    cleaned.pop("password", None)
+    cleaned.pop("mot_de_passe", None)
+    return cleaned
 
 
 def _snapshot(

@@ -119,6 +119,9 @@ async def test_second_cycle_does_not_duplicate_voucher_or_account():
     assert unifi.deleted == []
     assert second.stays[plan.ensure[0].key]["voucher_id"] == "id-1"
     assert second.notifications == []
+    assert "pw-" not in str(first.journal)
+    assert "pw-" not in str(second.journal)
+    assert first.notifications[0]["password"].startswith("pw-")
 
 
 @pytest.mark.asyncio
@@ -288,3 +291,51 @@ async def test_regenerate_issues_a_new_code():
     assert again.stays[key]["voucher_code"] == "CODE2"
     assert any(row["action"] == "voucher_regenere" for row in again.journal)
     assert again.print_events == []
+
+
+@pytest.mark.asyncio
+async def test_remote_access_and_entity_override_reach_the_account():
+    class Recording(FakeAccounts):
+        def __init__(self) -> None:
+            super().__init__()
+            self.calls: list[dict] = []
+
+        async def async_ensure_user(self, **kwargs: object) -> dict[str, str | None]:
+            self.calls.append(dict(kwargs))
+            return await super().async_ensure_user(**kwargs)
+
+    accounts = Recording()
+    plan = _plan(datetime(2026, 7, 8, tzinfo=UTC))
+    key = plan.ensure[0].key
+    first = await async_synchronize(
+        plan,
+        {},
+        None,
+        vouchers=None,
+        accounts=accounts,
+        enable_vouchers=False,
+        enable_access=True,
+        allow_remote=True,
+        entity_ids=["light.salon"],
+        device_ids=["dev-1"],
+    )
+    assert accounts.calls[-1]["local_only"] is False
+    assert accounts.calls[-1]["entity_ids"] == ["light.salon"]
+    assert accounts.calls[-1]["device_ids"] == ["dev-1"]
+    second = await async_synchronize(
+        plan,
+        first.stays,
+        None,
+        vouchers=None,
+        accounts=accounts,
+        enable_vouchers=False,
+        enable_access=True,
+        allow_remote=True,
+        entity_ids=["light.salon"],
+        device_ids=["dev-1"],
+        overrides={key: {"entity_ids": ["cover.x"], "allow_remote": False}},
+    )
+    assert accounts.calls[-1]["local_only"] is True
+    assert accounts.calls[-1]["entity_ids"] == ["cover.x"]
+    assert accounts.calls[-1]["device_ids"] == []
+    assert "pw-" not in str(second.journal)

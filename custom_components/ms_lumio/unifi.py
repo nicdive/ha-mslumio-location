@@ -61,6 +61,7 @@ class Voucher:
     authorized_guest_limit: int | None = None
     rx_rate_limit_kbps: int | None = None
     tx_rate_limit_kbps: int | None = None
+    mac: str = ""
 
 
 @dataclass(frozen=True)
@@ -103,7 +104,34 @@ def _voucher_from_payload(payload: dict[str, Any]) -> Voucher | None:
         authorized_guest_limit=_optional_int(payload.get("authorizedGuestLimit")),
         rx_rate_limit_kbps=_optional_int(payload.get("rxRateLimitKbps")),
         tx_rate_limit_kbps=_optional_int(payload.get("txRateLimitKbps")),
+        mac=_macs_from_payload(payload),
     )
+
+
+def _macs_from_payload(payload: dict[str, Any]) -> str:
+    """Collect MAC addresses when the controller sends them.
+
+    The voucher schema published for Network v11.0.97 has no MAC field.
+    The column stays empty unless a response includes one anyway.
+    """
+    found: list[str] = []
+
+    def add(value: Any) -> None:
+        if isinstance(value, str) and value and value not in found:
+            found.append(value)
+
+    for key in ("macAddress", "mac", "clientMac"):
+        add(payload.get(key))
+    for key in ("macAddresses", "clientMacs", "authorizedClients"):
+        raw = payload.get(key)
+        if not isinstance(raw, list):
+            continue
+        for item in raw:
+            if isinstance(item, str):
+                add(item)
+            elif isinstance(item, dict):
+                add(item.get("macAddress") or item.get("mac"))
+    return ",".join(found)
 
 
 def _optional_int(value: Any) -> int | None:

@@ -14,29 +14,33 @@ from typing import Any
 from .const import DASHBOARD_ICON, DASHBOARD_TITLE, DASHBOARD_URL
 
 
-def build_dashboard_config(
-    climate: list[str],
-    covers: list[str],
-    lights: list[str],
-) -> dict[str, Any]:
+def build_dashboard_config(entity_ids: list[str]) -> dict[str, Any]:
     """Return a storage-mode Lovelace config limited to the selected entities."""
+    climate = [entity for entity in entity_ids if entity.startswith("climate.")]
+    covers = [entity for entity in entity_ids if entity.startswith("cover.")]
+    lights = [entity for entity in entity_ids if entity.startswith("light.")]
+    others = [
+        entity
+        for entity in entity_ids
+        if entity not in climate and entity not in covers and entity not in lights
+    ]
     cards: list[dict[str, Any]] = [
         {
             "type": "markdown",
             "content": (
-                "Bienvenue. Ce tableau permet de régler le chauffage, "
-                "les volets et l'éclairage du séjour."
+                "Bienvenue. Ce tableau montre uniquement les équipements "
+                "autorisés pour le séjour."
             ),
         }
     ]
     for entity_id in climate:
         cards.append({"type": "thermostat", "entity": entity_id})
     if covers:
-        cards.append({"type": "entities", "title": "Volets", "entities": list(covers)})
+        cards.append({"type": "entities", "title": "Volets", "entities": covers})
     if lights:
-        cards.append(
-            {"type": "entities", "title": "Éclairage", "entities": list(lights)}
-        )
+        cards.append({"type": "entities", "title": "Éclairage", "entities": lights})
+    if others:
+        cards.append({"type": "entities", "title": "Équipements", "entities": others})
     return {
         "views": [
             {
@@ -64,18 +68,12 @@ def find_dashboard_collection(hass: object):
     return getattr(owner, "storage_collection", None)
 
 
-async def async_ensure_dashboard(
-    hass: object,
-    *,
-    climate: list[str],
-    covers: list[str],
-    lights: list[str],
-) -> bool:
+async def async_ensure_dashboard(hass: object, entity_ids: list[str]) -> bool:
     """Create ``ms-lumio`` if needed and save its cards. False if Lovelace is unavailable."""
     collection = find_dashboard_collection(hass)
     if collection is None:
         return False
-    config = build_dashboard_config(climate, covers, lights)
+    config = build_dashboard_config(entity_ids)
     existing = None
     for item in collection.async_items():
         if item.get("url_path") == DASHBOARD_URL:

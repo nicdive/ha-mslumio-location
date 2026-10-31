@@ -27,6 +27,10 @@ CONF_ACCESS_MODE: Final = "access_mode"
 CONF_CLIMATE_ENTITIES: Final = "climate_entities"
 CONF_COVER_ENTITIES: Final = "cover_entities"
 CONF_LIGHT_ENTITIES: Final = "light_entities"
+CONF_TENANT_ENTITIES: Final = "tenant_entities"
+CONF_TENANT_DEVICES: Final = "tenant_devices"
+CONF_ALLOW_REMOTE: Final = "allow_remote"
+CONF_CONFIRM_SENSITIVE: Final = "confirm_sensitive"
 CONF_NOTIFY_SERVICE: Final = "notify_service"
 CONF_JOURNAL_PATH: Final = "journal_path"
 CONF_PRINT_EVENT: Final = "print_event"
@@ -73,23 +77,9 @@ TENANT_GROUP_ID: Final = "ms-lumio-locataires"
 TENANT_GROUP_NAME: Final = "MS Lumio locataires"
 SHARED_USERNAME: Final = "locataire"
 
-# Domains a tenant may control. Anything else is rejected, including
-# cameras, locks and alarm panels even if someone selects them.
-ALLOWED_DOMAINS: Final = frozenset(
-    {"climate", "cover", "light", "fan", "switch", "humidifier", "water_heater"}
-)
-FORBIDDEN_DOMAINS: Final = frozenset(
-    {
-        "camera",
-        "lock",
-        "alarm_control_panel",
-        "image",
-        "siren",
-        "notify",
-        "person",
-        "device_tracker",
-    }
-)
+# Not selected by default. The owner can add them only after an explicit
+# confirmation in the options form or the per-stay service.
+SENSITIVE_DOMAINS: Final = frozenset({"camera", "lock", "alarm_control_panel"})
 
 DASHBOARD_URL: Final = "ms-lumio"
 DASHBOARD_TITLE: Final = "Séjour"
@@ -107,6 +97,7 @@ SERVICE_RESEND: Final = "renvoyer_notification"
 SERVICE_PRINT: Final = "imprimer_voucher"
 SERVICE_EXPORT_JOURNAL: Final = "exporter_journal"
 SERVICE_APPLY_DASHBOARD: Final = "appliquer_tableau"
+SERVICE_STAY_SETTINGS: Final = "reglages_sejour"
 
 ATTR_RESERVATION_KEY: Final = "reservation_key"
 
