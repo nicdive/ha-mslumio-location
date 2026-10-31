@@ -1,0 +1,52 @@
+regenerer_voucher:
+  name: Régénérer le voucher
+  description: >
+    Supprime le voucher UniFi du séjour et en crée un nouveau.
+    Réservé aux administrateurs. Le code complet n'est pas écrit dans le journal HA.
+  fields:
+    reservation_key:
+      name: Réservation
+      description: Clé de réservation. Vide = séjour affiché par le capteur.
+      example: airbnb-uid|2026-07-01
+      selector:
+        text:
+
+regenerer_acces:
+  name: Régénérer l'accès Home Assistant
+  description: >
+    Change le mot de passe du locataire. Le nouveau mot de passe est envoyé
+    dans la notification et le CSV, jamais dans les logs.
+  fields:
+    reservation_key:
+      name: Réservation
+      description: Clé de réservation. Vide = séjour affiché par le capteur.
+      selector:
+        text:
+
+renvoyer_notification:
+  name: Renvoyer la notification
+  description: Renvoie le code et, s'il est connu, le mot de passe à l'administrateur.
+  fields:
+    reservation_key:
+      name: Réservation
+      selector:
+        text:
+
+imprimer_voucher:
+  name: Imprimer le voucher
+  description: >
+    Émet l'événement ms_lumio_print_voucher avec le code en clair, pour une
+    automatisation d'impression. Cet événement peut apparaître dans les traces.
+  fields:
+    reservation_key:
+      name: Réservation
+      selector:
+        text:
+
+exporter_journal:
+  name: Exporter le journal
+  description: Retourne le chemin du CSV (le fichier est déjà à jour).
+
+appliquer_tableau:
+  name: Appliquer le tableau de bord
+  description: Recrée ou met à jour le tableau de bord ms-lumio.

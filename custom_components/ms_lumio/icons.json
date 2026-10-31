@@ -1,0 +1,17 @@
+{
+  "entity": {
+    "sensor": {
+      "voucher_code": {
+        "default": "mdi:ticket-confirmation"
+      }
+    }
+  },
+  "services": {
+    "regenerer_voucher": {"service": "mdi:ticket-confirmation"},
+    "regenerer_acces": {"service": "mdi:account-key"},
+    "renvoyer_notification": {"service": "mdi:bell-ring"},
+    "imprimer_voucher": {"service": "mdi:printer"},
+    "exporter_journal": {"service": "mdi:file-download"},
+    "appliquer_tableau": {"service": "mdi:view-dashboard"}
+  }
+}

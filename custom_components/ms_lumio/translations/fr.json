@@ -1,0 +1,196 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Contrôleur UniFi",
+        "description": "Clé API locale de l'UDM (Network, Integrations). Elle reste dans l'entrée de configuration et n'est ni journalisée ni exportée dans les diagnostics.",
+        "data": {
+          "host": "Adresse de l'UDM",
+          "port": "Port HTTPS",
+          "api_key": "Clé API",
+          "verify_ssl": "Vérifier le certificat TLS"
+        },
+        "data_description": {
+          "host": "Adresse IP ou nom du UDM Pro Max, sur le réseau local.",
+          "port": "443 par défaut.",
+          "api_key": "Créée dans UniFi Network > Settings > Control Plane > Integrations, ou sur unifi.ui.com. Affichée une seule fois.",
+          "verify_ssl": "Décochez uniquement pour le certificat auto-signé d'usine. La clé circule alors sans authentification du serveur : à réserver au LAN."
+        }
+      },
+      "site": {
+        "title": "Site UniFi",
+        "description": "Site Network dont le hotspot émet les vouchers.",
+        "data": {
+          "site_id": "Site"
+        }
+      },
+      "house": {
+        "title": "Maison et locataires",
+        "description": "Le calendrier fournit les séjours (titre = nom du locataire). Les entités choisies sont les seules que le compte locataire peut lire et commander.",
+        "data": {
+          "calendar_entity": "Calendrier des réservations",
+          "lead_days": "Jours avant l'arrivée",
+          "device_limit": "Appareils par voucher",
+          "download_mbps": "Débit descendant (Mbit/s)",
+          "upload_mbps": "Débit montant (Mbit/s)",
+          "extra_days": "Jours supplémentaires après le séjour",
+          "access_mode": "Comptes Home Assistant",
+          "climate_entities": "Chauffage",
+          "cover_entities": "Volets",
+          "light_entities": "Éclairage",
+          "notify_service": "Notification (optionnelle)",
+          "journal_path": "Fichier journal CSV",
+          "title_blocklist": "Titres ignorés",
+          "max_stay_days": "Durée max d'un séjour (jours)",
+          "lookahead_days": "Horizon du calendrier (jours)",
+          "enable_vouchers": "Créer les vouchers UniFi",
+          "enable_access": "Créer les comptes locataires",
+          "print_event": "Événement d'impression à la création"
+        },
+        "data_description": {
+          "calendar_entity": "N'importe quelle entité calendar (ICS Airbnb, Booking, Google, local).",
+          "lead_days": "Le voucher est créé ce nombre de jours avant l'arrivée. Défaut : 3.",
+          "device_limit": "Nombre d'appareils autorisés par le même code. Défaut : 10.",
+          "download_mbps": "Converti en kbit/s pour l'API (100 Mbit/s = 100000 kbit/s). Défaut : 100.",
+          "upload_mbps": "Défaut : 100.",
+          "extra_days": "La durée du voucher est le séjour plus ce nombre de jours. Défaut : 1. UniFi démarre ce compteur à la première utilisation du code, pas à l'arrivée.",
+          "access_mode": "Un compte par séjour, ou un compte « locataire » dont le mot de passe change.",
+          "notify_service": "Ex. notify.mobile_app_telephone. Vide = notification persistante seulement.",
+          "journal_path": "Relatif au dossier config, ou absolu sous config/ ou un dossier média (partage Synology).",
+          "title_blocklist": "Sous-chaînes, séparées par des virgules, qui ne sont pas des locataires (dates bloquées).",
+          "print_event": "Si activé, le code en clair part sur le bus (ms_lumio_print_voucher) et peut finir dans les traces. Laisser désactivé sauf pour une imprimante."
+        }
+      },
+      "reconfigure": {
+        "title": "Reconnecter l'UDM",
+        "description": "La nouvelle clé remplace l'ancienne. Elle n'est pas écrite dans le journal.",
+        "data": {
+          "host": "Adresse de l'UDM",
+          "port": "Port HTTPS",
+          "api_key": "Clé API",
+          "verify_ssl": "Vérifier le certificat TLS"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "L'UDM ne répond pas. Vérifiez l'adresse, le port et que l'API Integration est activée (Network 9.1+, chemin /proxy/network/integration).",
+      "invalid_auth": "Clé API refusée (HTTP 401/403).",
+      "ssl_error": "Certificat TLS refusé. Décochez la vérification pour un certificat auto-signé, uniquement en local.",
+      "no_sites": "Aucun site Network, ou le site enregistré n'existe plus.",
+      "calendar_missing": "Choisissez une entité calendrier.",
+      "invalid_path": "Le fichier journal doit rester dans le dossier de configuration ou un dossier média (partage Synology monté).",
+      "unknown": "Erreur inattendue. Consultez le journal, sans y chercher la clé : elle n'y est pas écrite."
+    },
+    "abort": {
+      "already_configured": "Ce contrôleur et ce site sont déjà configurés.",
+      "reauth_successful": "Clé API mise à jour.",
+      "reconfigure_successful": "Connexion UniFi mise à jour.",
+      "wrong_account": "Le site ne correspond pas à cette entrée."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "MS Lumio",
+        "description": "La clé API ne se modifie pas ici. Utilisez Reconfigurer pour la changer.",
+        "data": {
+          "calendar_entity": "Calendrier des réservations",
+          "lead_days": "Jours avant l'arrivée",
+          "device_limit": "Appareils par voucher",
+          "download_mbps": "Débit descendant (Mbit/s)",
+          "upload_mbps": "Débit montant (Mbit/s)",
+          "extra_days": "Jours supplémentaires après le séjour",
+          "access_mode": "Comptes Home Assistant",
+          "climate_entities": "Chauffage",
+          "cover_entities": "Volets",
+          "light_entities": "Éclairage",
+          "notify_service": "Notification (optionnelle)",
+          "journal_path": "Fichier journal CSV",
+          "title_blocklist": "Titres ignorés",
+          "max_stay_days": "Durée max d'un séjour (jours)",
+          "lookahead_days": "Horizon du calendrier (jours)",
+          "enable_vouchers": "Créer les vouchers UniFi",
+          "enable_access": "Créer les comptes locataires",
+          "print_event": "Événement d'impression à la création"
+        },
+        "data_description": {
+          "extra_days": "Durée du voucher = séjour + ces jours. Le compteur UniFi part à la première saisie du code.",
+          "print_event": "Place le code en clair sur le bus. À n'activer que pour l'impression."
+        }
+      }
+    },
+    "error": {
+      "calendar_missing": "Choisissez une entité calendrier.",
+      "invalid_path": "Le fichier journal doit rester dans le dossier de configuration ou un dossier média."
+    }
+  },
+  "selector": {
+    "access_mode": {
+      "options": {
+        "per_stay": "Un compte par séjour",
+        "shared": "Compte locataire unique (mot de passe tournant)"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "voucher_code": {
+        "name": "Code voucher"
+      }
+    }
+  },
+  "services": {
+    "regenerer_voucher": {
+      "name": "Régénérer le voucher",
+      "description": "Supprime le voucher du séjour et en crée un nouveau.",
+      "fields": {
+        "reservation_key": {
+          "name": "Réservation",
+          "description": "Vide = séjour affiché par le capteur."
+        }
+      }
+    },
+    "regenerer_acces": {
+      "name": "Régénérer l'accès Home Assistant",
+      "description": "Change le mot de passe du locataire et le renvoie à l'administrateur.",
+      "fields": {
+        "reservation_key": {
+          "name": "Réservation",
+          "description": "Vide = séjour affiché par le capteur."
+        }
+      }
+    },
+    "renvoyer_notification": {
+      "name": "Renvoyer la notification",
+      "description": "Renvoie le code Wi-Fi et le mot de passe à l'administrateur.",
+      "fields": {
+        "reservation_key": {
+          "name": "Réservation"
+        }
+      }
+    },
+    "imprimer_voucher": {
+      "name": "Imprimer le voucher",
+      "description": "Émet ms_lumio_print_voucher avec le code en clair.",
+      "fields": {
+        "reservation_key": {
+          "name": "Réservation"
+        }
+      }
+    },
+    "exporter_journal": {
+      "name": "Exporter le journal",
+      "description": "Retourne le chemin du CSV."
+    },
+    "appliquer_tableau": {
+      "name": "Appliquer le tableau de bord",
+      "description": "Met à jour le tableau de bord ms-lumio."
+    }
+  },
+  "issues": {
+    "dashboard_missing": {
+      "title": "Tableau de bord locataire absent",
+      "description": "L'intégration n'a pas pu créer le tableau « {url_path} ». Créez un tableau de bord de stockage avec l'URL ms-lumio (un tiret est obligatoire), visible des non-administrateurs, puis appelez le service ms_lumio.appliquer_tableau. Les autres tableaux (caméras, serrures) doivent être réservés aux administrateurs."
+    }
+  }
+}

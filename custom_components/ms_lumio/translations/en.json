@@ -1,0 +1,196 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "UniFi controller",
+        "description": "Local API key of the UDM (Network, Integrations). It stays in the config entry and is neither logged nor included in diagnostics.",
+        "data": {
+          "host": "UDM address",
+          "port": "HTTPS port",
+          "api_key": "API key",
+          "verify_ssl": "Verify the TLS certificate"
+        },
+        "data_description": {
+          "host": "IP address or hostname of the UDM Pro Max, on the local network.",
+          "port": "443 by default.",
+          "api_key": "Created in UniFi Network > Settings > Control Plane > Integrations, or at unifi.ui.com. Shown only once.",
+          "verify_ssl": "Turn this off only for the factory self-signed certificate. The key is then sent without server authentication: local network only."
+        }
+      },
+      "site": {
+        "title": "UniFi site",
+        "description": "Network site whose hotspot issues the vouchers.",
+        "data": {
+          "site_id": "Site"
+        }
+      },
+      "house": {
+        "title": "House and guests",
+        "description": "The calendar supplies the stays (title = guest name). The selected entities are the only ones the guest account can read and control.",
+        "data": {
+          "calendar_entity": "Reservation calendar",
+          "lead_days": "Days before arrival",
+          "device_limit": "Devices per voucher",
+          "download_mbps": "Download (Mbit/s)",
+          "upload_mbps": "Upload (Mbit/s)",
+          "extra_days": "Extra days after the stay",
+          "access_mode": "Home Assistant accounts",
+          "climate_entities": "Heating",
+          "cover_entities": "Covers",
+          "light_entities": "Lights",
+          "notify_service": "Notification (optional)",
+          "journal_path": "CSV journal file",
+          "title_blocklist": "Ignored titles",
+          "max_stay_days": "Maximum stay length (days)",
+          "lookahead_days": "Calendar lookahead (days)",
+          "enable_vouchers": "Create UniFi vouchers",
+          "enable_access": "Create guest accounts",
+          "print_event": "Print event on creation"
+        },
+        "data_description": {
+          "calendar_entity": "Any calendar entity (Airbnb, Booking, Google or local ICS).",
+          "lead_days": "The voucher is created this many days before arrival. Default: 3.",
+          "device_limit": "Devices allowed to use the same code. Default: 10.",
+          "download_mbps": "Converted to kbit/s for the API (100 Mbit/s = 100000 kbit/s). Default: 100.",
+          "upload_mbps": "Default: 100.",
+          "extra_days": "Voucher duration is the stay plus this many days. Default: 1. UniFi starts that timer at the first use of the code, not at check-in.",
+          "access_mode": "One account per stay, or a single guest account whose password rotates.",
+          "notify_service": "e.g. notify.mobile_app_phone. Empty = persistent notification only.",
+          "journal_path": "Relative to the config folder, or absolute under config/ or a media folder (Synology share).",
+          "title_blocklist": "Comma-separated substrings that are not guests (blocked dates).",
+          "print_event": "When enabled, the cleartext code is published on ms_lumio_print_voucher and may end up in traces. Leave off unless you print."
+        }
+      },
+      "reconfigure": {
+        "title": "Reconnect the UDM",
+        "description": "The new key replaces the previous one. It is not written to the log.",
+        "data": {
+          "host": "UDM address",
+          "port": "HTTPS port",
+          "api_key": "API key",
+          "verify_ssl": "Verify the TLS certificate"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "The UDM did not respond. Check the address, the port, and that the Integration API is enabled (Network 9.1+, path /proxy/network/integration).",
+      "invalid_auth": "API key rejected (HTTP 401/403).",
+      "ssl_error": "TLS certificate rejected. Disable verification for a self-signed certificate, on the local network only.",
+      "no_sites": "No Network site, or the saved site no longer exists.",
+      "calendar_missing": "Select a calendar entity.",
+      "invalid_path": "The journal file must stay inside the config directory or a media directory (mounted Synology share).",
+      "unknown": "Unexpected error. Check the log: the API key is not written there."
+    },
+    "abort": {
+      "already_configured": "This controller and site are already configured.",
+      "reauth_successful": "API key updated.",
+      "reconfigure_successful": "UniFi connection updated.",
+      "wrong_account": "The site does not match this entry."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "MS Lumio",
+        "description": "The API key is not edited here. Use Reconfigure to change it.",
+        "data": {
+          "calendar_entity": "Reservation calendar",
+          "lead_days": "Days before arrival",
+          "device_limit": "Devices per voucher",
+          "download_mbps": "Download (Mbit/s)",
+          "upload_mbps": "Upload (Mbit/s)",
+          "extra_days": "Extra days after the stay",
+          "access_mode": "Home Assistant accounts",
+          "climate_entities": "Heating",
+          "cover_entities": "Covers",
+          "light_entities": "Lights",
+          "notify_service": "Notification (optional)",
+          "journal_path": "CSV journal file",
+          "title_blocklist": "Ignored titles",
+          "max_stay_days": "Maximum stay length (days)",
+          "lookahead_days": "Calendar lookahead (days)",
+          "enable_vouchers": "Create UniFi vouchers",
+          "enable_access": "Create guest accounts",
+          "print_event": "Print event on creation"
+        },
+        "data_description": {
+          "extra_days": "Voucher duration = stay + these days. UniFi starts the timer when the code is first redeemed.",
+          "print_event": "Publishes the cleartext code on the bus. Enable only for printing."
+        }
+      }
+    },
+    "error": {
+      "calendar_missing": "Select a calendar entity.",
+      "invalid_path": "The journal file must stay inside the config directory or a media directory."
+    }
+  },
+  "selector": {
+    "access_mode": {
+      "options": {
+        "per_stay": "One account per stay",
+        "shared": "Single guest account (rotating password)"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "voucher_code": {
+        "name": "Voucher code"
+      }
+    }
+  },
+  "services": {
+    "regenerer_voucher": {
+      "name": "Regenerate voucher",
+      "description": "Deletes the stay voucher and creates a new one.",
+      "fields": {
+        "reservation_key": {
+          "name": "Reservation",
+          "description": "Empty = the stay shown by the sensor."
+        }
+      }
+    },
+    "regenerer_acces": {
+      "name": "Regenerate Home Assistant access",
+      "description": "Changes the guest password and sends it to the administrator.",
+      "fields": {
+        "reservation_key": {
+          "name": "Reservation",
+          "description": "Empty = the stay shown by the sensor."
+        }
+      }
+    },
+    "renvoyer_notification": {
+      "name": "Resend notification",
+      "description": "Sends the Wi-Fi code and the password to the administrator again.",
+      "fields": {
+        "reservation_key": {
+          "name": "Reservation"
+        }
+      }
+    },
+    "imprimer_voucher": {
+      "name": "Print voucher",
+      "description": "Fires ms_lumio_print_voucher with the cleartext code.",
+      "fields": {
+        "reservation_key": {
+          "name": "Reservation"
+        }
+      }
+    },
+    "exporter_journal": {
+      "name": "Export journal",
+      "description": "Returns the CSV path."
+    },
+    "appliquer_tableau": {
+      "name": "Apply dashboard",
+      "description": "Updates the ms-lumio dashboard."
+    }
+  },
+  "issues": {
+    "dashboard_missing": {
+      "title": "Guest dashboard missing",
+      "description": "The integration could not create the dashboard “{url_path}”. Create a storage dashboard with URL ms-lumio (a hyphen is required), visible to non-admins, then call ms_lumio.appliquer_tableau. Other dashboards (cameras, locks) should be admin-only."
+    }
+  }
+}
