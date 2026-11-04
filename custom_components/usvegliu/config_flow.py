@@ -44,6 +44,7 @@ from .const import (
     CONF_ENABLE_VOUCHERS,
     CONF_EXTRA_DAYS,
     CONF_GUEST_BASE_URL,
+    CONF_WIFI_SSID,
     CONF_ALARM_CODE,
     CONF_HOUSE_MODE_ENTITY,
     CONF_OUTDOOR_TEMPERATURE,
@@ -178,6 +179,10 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
                 CONF_GUEST_BASE_URL,
                 default=defaults.get(CONF_GUEST_BASE_URL, ""),
             ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            vol.Optional(
+                CONF_WIFI_SSID,
+                default=defaults.get(CONF_WIFI_SSID, ""),
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
             **_optional_entity_field(
                 CONF_HOUSE_MODE_ENTITY,
                 defaults,
@@ -248,6 +253,7 @@ def _clean_options(user_input: Mapping[str, Any]) -> dict[str, Any]:
         cleaned.pop(key, None)
     cleaned[CONF_NOTIFY_SERVICE] = str(cleaned.get(CONF_NOTIFY_SERVICE) or "").strip()
     cleaned[CONF_GUEST_BASE_URL] = str(cleaned.get(CONF_GUEST_BASE_URL) or "").strip()
+    cleaned[CONF_WIFI_SSID] = str(cleaned.get(CONF_WIFI_SSID) or "").strip()
     cleaned[CONF_HOUSE_MODE_ENTITY] = str(
         cleaned.get(CONF_HOUSE_MODE_ENTITY) or ""
     ).strip()

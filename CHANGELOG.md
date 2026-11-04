@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.3] — 2026-11-04
+
+### Ajouté
+- Web app Maison : section **Informations** (nom du réseau Wi-Fi et code voucher du séjour). Le SSID se renseigne dans les options Usvegliu. La section pourra accueillir d'autres consignes plus tard.
+
+[0.6.3]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.3
+
 ## [0.6.2] — 2026-11-04
 
 ### Corrigé

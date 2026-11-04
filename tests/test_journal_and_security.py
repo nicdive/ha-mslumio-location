@@ -626,6 +626,27 @@ def test_admin_roster_sensor_lists_stays_and_passwords():
     assert "code_compte" not in http
 
 
+def test_guest_snapshot_exposes_wifi_and_voucher():
+    root = Path(__file__).resolve().parents[1] / "custom_components" / "usvegliu"
+    const = (root / "const.py").read_text(encoding="utf-8")
+    http = (root / "http.py").read_text(encoding="utf-8")
+    js = (root / "www" / "app.js").read_text(encoding="utf-8")
+    flow = (root / "config_flow.py").read_text(encoding="utf-8")
+    coord = (root / "coordinator.py").read_text(encoding="utf-8")
+    assert 'CONF_WIFI_SSID: Final = "wifi_ssid"' in const
+    assert "CONF_WIFI_SSID" in flow
+    assert "def wifi_ssid" in coord
+    assert '"informations"' in http
+    assert "runtime.wifi_ssid()" in http
+    assert 'record.get("voucher_code")' in http
+    assert "voucher_revoked" in http
+    assert "function infoSection" in js
+    assert "Informations" in js
+    assert "Réseau Wi-Fi" in js
+    assert "Code Wi-Fi" in js
+    assert "data-act=\"copy\"" in js
+
+
 def test_guest_app_javascript_parses():
     import subprocess
 
@@ -667,6 +688,11 @@ def test_guest_stream_is_server_sent_events():
     assert "/guest/command" in text
     assert "Lumière" in js
     assert "Accès" in js
+    assert "Informations" in js
+    assert "infoSection" in js
+    assert "wifi_ssid" in text
+    assert "voucher_code" in text
+    assert "informations" in text
     assert "metrics" in js
     assert "atmosphere" in js
     assert "Allumée" in js

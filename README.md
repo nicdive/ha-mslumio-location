@@ -132,6 +132,7 @@ Le formulaire demande ensuite :
 | Titres ignorés | `not available`, `indisponible`, `fermé`, … | Les blocages Airbnb / Booking ne deviennent pas des vouchers. |
 | Impression | désactivée | Voir plus bas. |
 | URL publique web app | vide | Origine du lien locataire (`https://www.usvegliu.fr`). Vide = URL interne de HA (`/usvegliu/s/…`). |
+| Nom du réseau Wi-Fi | vide | SSID affiché au locataire dans **Informations**. |
 | Switch chauffage / climatisation | vide | Interrupteur du propriétaire. **Allumé = climatisation**, **éteint = chauffage**. Le locataire le lit, il ne le commande pas. |
 | Température extérieure / piscine / pH | vide | Capteurs affichés en tête de la web app, lecture seule. |
 | Code alarme | vide | Si le panneau HA exige un code. Reste sur le serveur. |
@@ -309,6 +310,7 @@ La web app **Maison** est servie par le même Home Assistant. Le locataire n'ouv
 Elle affiche, dans une page unique :
 
 - température extérieure, piscine et pH (lecture seule) ;
+- **Informations** : nom du réseau Wi-Fi (option Usvegliu) et code voucher du séjour ;
 - les `climate.*` autorisés (marche / arrêt, consigne, ventilation) — **Pièces**, **Régler** et cadran ; titre **Chauffage** ou **Climatisation** selon le switch du propriétaire ; rouge / bleu seulement si le thermostat travaille ;
 - lumières MyHome et scénarios (`light.*`, `scene.*`) ;
 - porte Nuki, garage, portail, alarme, et volets s'ils sont autorisés.
