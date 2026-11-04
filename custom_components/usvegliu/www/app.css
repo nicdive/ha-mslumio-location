@@ -65,6 +65,111 @@ h1 {
   line-height: 40px;
 }
 
+.section {
+  margin: 0 0 40px;
+}
+
+.section-title {
+  margin: 0 0 16px;
+  text-align: center;
+  font-family: var(--serif);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 34px;
+}
+
+.metrics {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  margin: 0 0 36px;
+  text-align: center;
+}
+
+.metric-value {
+  font-family: var(--serif);
+  font-size: 28px;
+  line-height: 32px;
+  letter-spacing: -0.03em;
+}
+
+.metric-unit {
+  font-size: 14px;
+  margin-left: 2px;
+  color: var(--muted);
+}
+
+.metric-label {
+  margin-top: 6px;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.scenes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  gap: 14px;
+  margin: 22px 0 0;
+}
+
+.scenes button {
+  padding-bottom: 4px;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  border-bottom: 1px solid var(--ink);
+}
+
+.access {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid var(--ring);
+  padding: 16px 4px;
+}
+
+.access-copy {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.access-name {
+  font-family: var(--serif);
+  font-size: 22px;
+  line-height: 26px;
+}
+
+.access-status {
+  margin-top: 4px;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.access.triggered .access-status {
+  color: var(--heat);
+}
+
+.access-action {
+  flex-shrink: 0;
+  min-width: 108px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 20px;
+  border: 1.5px solid var(--ink);
+  font-family: var(--serif);
+  font-size: 16px;
+}
+
+.access-action.filled {
+  background: var(--ink);
+  color: var(--bg);
+}
+
 .sub {
   text-align: center;
   color: var(--muted);

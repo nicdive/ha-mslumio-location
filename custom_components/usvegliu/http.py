@@ -17,8 +17,23 @@ from homeassistant.components.http import HomeAssistantView
 
 from .const import DOMAIN
 from .guest_session import (
+    GUEST_KIND_ALARM,
+    GUEST_KIND_CLIMATE,
+    GUEST_KIND_GARAGE,
+    GUEST_KIND_GATE,
+    GUEST_KIND_LIGHT,
+    GUEST_KIND_LOCK,
+    GUEST_KIND_OUTDOOR,
+    GUEST_KIND_POOL_PH,
+    GUEST_KIND_POOL_TEMP,
+    GUEST_KIND_SCENE,
+    GUEST_KIND_SHUTTER,
+    alarm_view_state,
+    classify_guest_entity,
     climate_activity,
     climate_is_on,
+    cover_is_moving,
+    cover_is_open,
     house_mode_label,
     infer_fan_speed,
     map_fan_modes,
@@ -29,7 +44,31 @@ from .guest_session import (
 _LOGGER = logging.getLogger(__name__)
 _WWW = Path(__file__).resolve().parent / "www"
 _HTTP_FLAG = f"{DOMAIN}_http"
-_GUEST_DOMAINS = frozenset({"climate", "lock"})
+_GUEST_DOMAINS = frozenset(
+    {
+        "climate",
+        "lock",
+        "alarm_control_panel",
+        "light",
+        "scene",
+        "script",
+        "cover",
+        "switch",
+        "sensor",
+        "weather",
+    }
+)
+_COMMAND_KINDS = frozenset(
+    {
+        GUEST_KIND_LOCK,
+        GUEST_KIND_ALARM,
+        GUEST_KIND_LIGHT,
+        GUEST_KIND_SCENE,
+        GUEST_KIND_GARAGE,
+        GUEST_KIND_GATE,
+        GUEST_KIND_SHUTTER,
+    }
+)
 
 
 def async_setup_http(hass: Any) -> None:
@@ -43,6 +82,7 @@ def async_setup_http(hass: Any) -> None:
     hass.http.register_view(GuestStreamView())
     hass.http.register_view(GuestClimateView())
     hass.http.register_view(GuestLockView())
+    hass.http.register_view(GuestCommandView())
     register = getattr(hass.http, "async_register_static_paths", None)
     if callable(register):
         hass.async_create_task(
@@ -155,6 +195,31 @@ def _house_mode(hass: Any, runtime: Any, climates: list[str]) -> str:
     return resolve_house_mode(_switch_state(hass, runtime), climate_modes)
 
 
+def _as_float(value: Any) -> float | None:
+    try:
+        if value is None or value == "":
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _entity_kind(hass: Any, entity_id: str) -> str | None:
+    state = hass.states.get(entity_id)
+    if state is None:
+        domain = entity_id.split(".", 1)[0] if "." in entity_id else ""
+        if domain not in _GUEST_DOMAINS:
+            return None
+        return classify_guest_entity(entity_id)
+    attrs = state.attributes
+    return classify_guest_entity(
+        entity_id,
+        device_class=attrs.get("device_class"),
+        name=str(attrs.get("friendly_name") or entity_id),
+        unit=attrs.get("unit_of_measurement"),
+    )
+
+
 def _serialize_lock(hass: Any, entity_id: str) -> dict[str, Any] | None:
     state = hass.states.get(entity_id)
     if state is None:
@@ -168,11 +233,127 @@ def _serialize_lock(hass: Any, entity_id: str) -> dict[str, Any] | None:
     }
 
 
+def _serialize_light(hass: Any, entity_id: str) -> dict[str, Any] | None:
+    state = hass.states.get(entity_id)
+    if state is None:
+        return None
+    brightness = _as_float(state.attributes.get("brightness"))
+    return {
+        "entity_id": entity_id,
+        "name": str(state.attributes.get("friendly_name") or entity_id),
+        "group": _area_name(hass, entity_id),
+        "on": str(state.state).casefold() == "on",
+        "brightness": None if brightness is None else int(brightness),
+    }
+
+
+def _serialize_scene(hass: Any, entity_id: str) -> dict[str, Any] | None:
+    state = hass.states.get(entity_id)
+    if state is None:
+        return None
+    return {
+        "entity_id": entity_id,
+        "name": str(state.attributes.get("friendly_name") or entity_id),
+    }
+
+
+def _serialize_cover(hass: Any, entity_id: str, kind: str) -> dict[str, Any] | None:
+    state = hass.states.get(entity_id)
+    if state is None:
+        return None
+    status = str(state.state)
+    return {
+        "entity_id": entity_id,
+        "name": str(state.attributes.get("friendly_name") or entity_id),
+        "kind": kind,
+        "open": cover_is_open(status),
+        "moving": cover_is_moving(status),
+        "state": status,
+    }
+
+
+def _serialize_alarm(hass: Any, entity_id: str) -> dict[str, Any] | None:
+    state = hass.states.get(entity_id)
+    if state is None:
+        return None
+    raw = str(state.state)
+    return {
+        "entity_id": entity_id,
+        "name": str(state.attributes.get("friendly_name") or entity_id),
+        "state": alarm_view_state(raw),
+        "raw": raw,
+    }
+
+
+def _serialize_metric(
+    hass: Any, entity_id: str, kind: str, label: str
+) -> dict[str, Any] | None:
+    state = hass.states.get(entity_id)
+    if state is None:
+        return None
+    value: Any = state.state
+    unit = str(state.attributes.get("unit_of_measurement") or "")
+    domain = entity_id.split(".", 1)[0]
+    if domain == "weather" or state.attributes.get("temperature") is not None and kind == GUEST_KIND_OUTDOOR:
+        value = state.attributes.get("temperature", value)
+        unit = str(state.attributes.get("temperature_unit") or unit or "°C")
+    number = _as_float(value)
+    if number is None:
+        return None
+    pretty_unit = "°" if "°" in unit or unit.casefold() in {"c", "f", "celsius"} else unit
+    if kind == GUEST_KIND_POOL_PH:
+        pretty_unit = ""
+    return {
+        "entity_id": entity_id,
+        "kind": kind,
+        "label": label,
+        "value": number,
+        "unit": pretty_unit,
+    }
+
+
+def _group_entities(hass: Any, entity_ids: list[str]) -> dict[str, list[str]]:
+    grouped: dict[str, list[str]] = {}
+    for entity_id in entity_ids:
+        domain = entity_id.split(".", 1)[0] if "." in entity_id else ""
+        if domain not in _GUEST_DOMAINS:
+            continue
+        if hass.states.get(entity_id) is None:
+            continue
+        kind = _entity_kind(hass, entity_id)
+        if not kind:
+            continue
+        grouped.setdefault(kind, []).append(entity_id)
+    return grouped
+
+
+def _ids(grouped: dict[str, list[str]], kind: str) -> list[str]:
+    return list(grouped.get(kind) or [])
+
+
 def _snapshot(hass: Any, runtime: Any, record: dict[str, Any]) -> dict[str, Any]:
-    """Stay header plus every allowed climate and lock."""
+    """Stay header plus every allowed guest-facing entity."""
     allowed = runtime.allowed_entity_ids(record)
-    climates, locks = _partition(hass, allowed)
+    grouped = _group_entities(hass, allowed)
+    climates = _ids(grouped, GUEST_KIND_CLIMATE)
     house_mode = _house_mode(hass, runtime, climates)
+    telemetry = runtime.telemetry_entity_ids()
+    metrics: list[dict[str, Any]] = []
+    outdoor_id = telemetry.get("outdoor") or next(iter(_ids(grouped, GUEST_KIND_OUTDOOR)), None)
+    pool_id = telemetry.get("pool_temp") or next(
+        iter(_ids(grouped, GUEST_KIND_POOL_TEMP)), None
+    )
+    ph_id = telemetry.get("pool_ph") or next(iter(_ids(grouped, GUEST_KIND_POOL_PH)), None)
+    for entity_id, kind, label in (
+        (outdoor_id, GUEST_KIND_OUTDOOR, "Extérieur"),
+        (pool_id, GUEST_KIND_POOL_TEMP, "Piscine"),
+        (ph_id, GUEST_KIND_POOL_PH, "pH"),
+    ):
+        if not entity_id:
+            continue
+        item = _serialize_metric(hass, entity_id, kind, label)
+        if item:
+            metrics.append(item)
     return {
         "guest": record.get("guest") or "",
         "check_in": record.get("check_in") or "",
@@ -180,33 +361,54 @@ def _snapshot(hass: Any, runtime: Any, record: dict[str, Any]) -> dict[str, Any]
         "preview": bool(record.get("preview")),
         "mode": house_mode,
         "mode_label": house_mode_label(house_mode),
+        "metrics": metrics,
         "climates": [
             item
             for entity_id in climates
             if (item := _serialize_climate(hass, entity_id, house_mode=house_mode))
         ],
+        "lights": [
+            item
+            for entity_id in _ids(grouped, GUEST_KIND_LIGHT)
+            if (item := _serialize_light(hass, entity_id))
+        ],
+        "scenes": [
+            item
+            for entity_id in _ids(grouped, GUEST_KIND_SCENE)
+            if (item := _serialize_scene(hass, entity_id))
+        ],
         "locks": [
             item
-            for entity_id in locks
+            for entity_id in _ids(grouped, GUEST_KIND_LOCK)
             if (item := _serialize_lock(hass, entity_id))
+        ],
+        "garages": [
+            item
+            for entity_id in _ids(grouped, GUEST_KIND_GARAGE)
+            if (item := _serialize_cover(hass, entity_id, GUEST_KIND_GARAGE))
+        ],
+        "gates": [
+            item
+            for entity_id in _ids(grouped, GUEST_KIND_GATE)
+            if (item := _serialize_cover(hass, entity_id, GUEST_KIND_GATE))
+        ],
+        "shutters": [
+            item
+            for entity_id in _ids(grouped, GUEST_KIND_SHUTTER)
+            if (item := _serialize_cover(hass, entity_id, GUEST_KIND_SHUTTER))
+        ],
+        "alarms": [
+            item
+            for entity_id in _ids(grouped, GUEST_KIND_ALARM)
+            if (item := _serialize_alarm(hass, entity_id))
         ],
     }
 
 
 def _partition(hass: Any, entity_ids: list[str]) -> tuple[list[str], list[str]]:
-    climates: list[str] = []
-    locks: list[str] = []
-    for entity_id in entity_ids:
-        domain = entity_id.split(".", 1)[0] if "." in entity_id else ""
-        if domain not in _GUEST_DOMAINS:
-            continue
-        if hass.states.get(entity_id) is None:
-            continue
-        if domain == "climate":
-            climates.append(entity_id)
-        else:
-            locks.append(entity_id)
-    return climates, locks
+    """Climate and lock ids. Kept for the original guest endpoints."""
+    grouped = _group_entities(hass, entity_ids)
+    return _ids(grouped, GUEST_KIND_CLIMATE), _ids(grouped, GUEST_KIND_LOCK)
 
 
 def _hass(request: Any) -> Any:
@@ -313,11 +515,7 @@ class GuestStreamView(HomeAssistantView):
                 notify("expired")
                 return
             entity_id = (event.data or {}).get("entity_id")
-            watched = set(runtime.allowed_entity_ids(current))
-            mode_entity = runtime.house_mode_entity_id()
-            if mode_entity:
-                watched.add(mode_entity)
-            if entity_id and entity_id in watched:
+            if entity_id and entity_id in runtime.guest_watch_ids(current):
                 notify("state")
 
         unsub = hass.bus.async_listen("state_changed", listener)
@@ -463,3 +661,102 @@ class GuestLockView(HomeAssistantView):
             return _json_error(self, 502, "command_failed")
         payload = _serialize_lock(hass, entity_id)
         return self.json(payload or {"entity_id": entity_id})
+
+
+class GuestCommandView(HomeAssistantView):
+    """Lights, scenes, covers, garage, gate, alarm — stay allow-list only."""
+
+    requires_auth = False
+    cors_allowed = True
+    url = f"/api/{DOMAIN}/guest/command"
+    name = f"api:{DOMAIN}:guest_command"
+
+    async def post(self, request: Any) -> Any:
+        hass, runtime, record = await _bound(request)
+        if runtime is None:
+            return _json_error(self, 503, "not_loaded")
+        if record is None:
+            return _json_error(self, 401, "invalid_token")
+        try:
+            body = await request.json()
+        except Exception:  # noqa: BLE001
+            return _json_error(self, 400, "bad_json")
+        entity_id = str(body.get("entity_id") or "")
+        action = str(body.get("action") or "")
+        allowed = runtime.allowed_entity_ids(record)
+        if entity_id not in allowed:
+            return _json_error(self, 403, "forbidden")
+        kind = _entity_kind(hass, entity_id)
+        if kind not in _COMMAND_KINDS:
+            return _json_error(self, 403, "forbidden")
+        try:
+            await _async_guest_command(hass, runtime, entity_id, kind, action)
+        except ValueError:
+            return _json_error(self, 400, "bad_action")
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception("Guest command failed")
+            return _json_error(self, 502, "command_failed")
+        return self.json(_serialize_command_result(hass, entity_id, kind) or {"entity_id": entity_id})
+
+
+async def _async_guest_command(
+    hass: Any, runtime: Any, entity_id: str, kind: str, action: str
+) -> None:
+    domain = entity_id.split(".", 1)[0]
+    data: dict[str, Any] = {"entity_id": entity_id}
+    if kind == GUEST_KIND_LIGHT:
+        if action not in {"on", "off", "toggle"}:
+            raise ValueError("bad_action")
+        service = {"on": "turn_on", "off": "turn_off", "toggle": "toggle"}[action]
+        await hass.services.async_call(domain, service, data, blocking=True)
+        return
+    if kind == GUEST_KIND_SCENE:
+        if action != "activate":
+            raise ValueError("bad_action")
+        await hass.services.async_call(domain, "turn_on", data, blocking=True)
+        return
+    if kind in {GUEST_KIND_GARAGE, GUEST_KIND_GATE, GUEST_KIND_SHUTTER}:
+        if domain == "switch":
+            if action not in {"open", "close", "toggle"}:
+                raise ValueError("bad_action")
+            service = {"open": "turn_on", "close": "turn_off", "toggle": "toggle"}[action]
+            await hass.services.async_call("switch", service, data, blocking=True)
+            return
+        if action not in {"open", "close", "stop"}:
+            raise ValueError("bad_action")
+        service = {
+            "open": "open_cover",
+            "close": "close_cover",
+            "stop": "stop_cover",
+        }[action]
+        await hass.services.async_call("cover", service, data, blocking=True)
+        return
+    if kind == GUEST_KIND_LOCK:
+        if action not in {"lock", "unlock"}:
+            raise ValueError("bad_action")
+        await hass.services.async_call("lock", action, data, blocking=True)
+        return
+    if kind == GUEST_KIND_ALARM:
+        if action not in {"arm", "disarm"}:
+            raise ValueError("bad_action")
+        service = "alarm_arm_away" if action == "arm" else "alarm_disarm"
+        code = runtime.alarm_code()
+        if code:
+            data["code"] = code
+        await hass.services.async_call("alarm_control_panel", service, data, blocking=True)
+        return
+    raise ValueError("bad_action")
+
+
+def _serialize_command_result(hass: Any, entity_id: str, kind: str) -> dict[str, Any] | None:
+    if kind == GUEST_KIND_LIGHT:
+        return _serialize_light(hass, entity_id)
+    if kind == GUEST_KIND_SCENE:
+        return _serialize_scene(hass, entity_id)
+    if kind in {GUEST_KIND_GARAGE, GUEST_KIND_GATE, GUEST_KIND_SHUTTER}:
+        return _serialize_cover(hass, entity_id, kind)
+    if kind == GUEST_KIND_LOCK:
+        return _serialize_lock(hass, entity_id)
+    if kind == GUEST_KIND_ALARM:
+        return _serialize_alarm(hass, entity_id)
+    return {"entity_id": entity_id}

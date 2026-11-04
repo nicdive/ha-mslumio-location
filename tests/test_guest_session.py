@@ -4,9 +4,12 @@ from datetime import datetime, timedelta, timezone
 
 from custom_components.usvegliu.guest_session import (
     PREVIEW_KEY,
+    alarm_view_state,
     build_preview_record,
+    classify_guest_entity,
     climate_activity,
     climate_is_on,
+    cover_is_open,
     ensure_guest_token,
     find_record_by_token,
     house_mode_from_state,
@@ -176,6 +179,37 @@ def test_climate_activity_follows_setpoint_gap():
         climate_activity(on=False, house_mode="heat", measured=18, setpoint=22)
         == "off"
     )
+
+
+def test_guest_entity_classification():
+    assert classify_guest_entity("climate.salon") == "climate"
+    assert classify_guest_entity("lock.entree") == "lock"
+    assert classify_guest_entity("alarm_control_panel.maison") == "alarm"
+    assert classify_guest_entity("light.cuisine") == "light"
+    assert classify_guest_entity("scene.soiree") == "scene"
+    assert classify_guest_entity("script.tout_eteindre") == "scene"
+    assert (
+        classify_guest_entity("cover.garage", device_class="garage") == "garage"
+    )
+    assert classify_guest_entity("cover.portail_sud", name="Portail") == "gate"
+    assert classify_guest_entity("cover.chambre", device_class="shutter") == "shutter"
+    assert (
+        classify_guest_entity("sensor.jardin", device_class="temperature", name="Extérieur")
+        == "outdoor"
+    )
+    assert (
+        classify_guest_entity(
+            "sensor.piscine_temp", device_class="temperature", name="Piscine"
+        )
+        == "pool_temp"
+    )
+    assert classify_guest_entity("sensor.piscine_ph", unit="pH", name="pH piscine") == (
+        "pool_ph"
+    )
+    assert classify_guest_entity("switch.prise_salon") is None
+    assert alarm_view_state("armed_away") == "armed"
+    assert alarm_view_state("disarmed") == "disarmed"
+    assert cover_is_open("opening") is True
 
 
 def test_public_url_uses_s_path():

@@ -44,7 +44,11 @@ from .const import (
     CONF_ENABLE_VOUCHERS,
     CONF_EXTRA_DAYS,
     CONF_GUEST_BASE_URL,
+    CONF_ALARM_CODE,
     CONF_HOUSE_MODE_ENTITY,
+    CONF_OUTDOOR_TEMPERATURE,
+    CONF_POOL_PH,
+    CONF_POOL_TEMPERATURE,
     CONF_JOURNAL_PATH,
     CONF_LEAD_DAYS,
     CONF_LIGHT_ENTITIES,
@@ -174,7 +178,19 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
                 CONF_GUEST_BASE_URL,
                 default=defaults.get(CONF_GUEST_BASE_URL, ""),
             ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
-            **_house_mode_field(defaults),
+            **_optional_entity_field(
+                CONF_HOUSE_MODE_ENTITY,
+                defaults,
+                ["switch", "input_boolean", "select", "input_select"],
+            ),
+            **_optional_entity_field(
+                CONF_OUTDOOR_TEMPERATURE, defaults, ["sensor", "weather"]
+            ),
+            **_optional_entity_field(CONF_POOL_TEMPERATURE, defaults, ["sensor"]),
+            **_optional_entity_field(CONF_POOL_PH, defaults, ["sensor"]),
+            vol.Optional(
+                CONF_ALARM_CODE, default=""
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
             vol.Required(
                 CONF_JOURNAL_PATH,
                 default=defaults.get(CONF_JOURNAL_PATH, DEFAULT_JOURNAL_PATH),
@@ -235,21 +251,25 @@ def _clean_options(user_input: Mapping[str, Any]) -> dict[str, Any]:
     cleaned[CONF_HOUSE_MODE_ENTITY] = str(
         cleaned.get(CONF_HOUSE_MODE_ENTITY) or ""
     ).strip()
+    for key in (
+        CONF_OUTDOOR_TEMPERATURE,
+        CONF_POOL_TEMPERATURE,
+        CONF_POOL_PH,
+    ):
+        cleaned[key] = str(cleaned.get(key) or "").strip()
+    cleaned[CONF_ALARM_CODE] = str(cleaned.get(CONF_ALARM_CODE) or "").strip()
     return {key: value for key, value in cleaned.items() if key not in _CONNECTION_KEYS}
 
 
-def _house_mode_field(defaults: Mapping[str, Any]) -> dict[Any, Any]:
-    """Optional owner switch: on = climatisation, off = chauffage."""
-    selector = EntitySelector(
-        EntitySelectorConfig(
-            domain=["switch", "input_boolean", "select", "input_select"],
-            multiple=False,
-        )
-    )
-    current = str(defaults.get(CONF_HOUSE_MODE_ENTITY) or "").strip()
+def _optional_entity_field(
+    key: str, defaults: Mapping[str, Any], domains: list[str]
+) -> dict[Any, Any]:
+    """Optional single-entity selector that keeps a previous choice."""
+    selector = EntitySelector(EntitySelectorConfig(domain=domains, multiple=False))
+    current = str(defaults.get(key) or "").strip()
     if current:
-        return {vol.Optional(CONF_HOUSE_MODE_ENTITY, default=current): selector}
-    return {vol.Optional(CONF_HOUSE_MODE_ENTITY): selector}
+        return {vol.Optional(key, default=current): selector}
+    return {vol.Optional(key): selector}
 
 
 class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -492,6 +512,10 @@ class UsvegliuOptionsFlow(OptionsFlow):
         """Show the house options."""
         if user_input is not None:
             options = _clean_options(user_input)
+            if not options.get(CONF_ALARM_CODE):
+                options[CONF_ALARM_CODE] = str(
+                    self.config_entry.options.get(CONF_ALARM_CODE) or ""
+                )
             error = _house_error(
                 self.hass,
                 options,

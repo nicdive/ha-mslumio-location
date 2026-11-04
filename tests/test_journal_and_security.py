@@ -367,6 +367,11 @@ def test_guest_stream_is_server_sent_events():
     assert "cooling" in js
     assert "house_mode_entity_id" in text
     assert "mode_label" in text
+    assert "/guest/command" in text
+    assert "Lumière" in js
+    assert "Accès" in js
+    assert "metrics" in js
+    assert "alarm_code" in text
 
 
 def test_sources_do_not_embed_a_credential():

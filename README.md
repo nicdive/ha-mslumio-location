@@ -133,6 +133,8 @@ Le formulaire demande ensuite :
 | Impression | désactivée | Voir plus bas. |
 | URL publique web app | vide | Origine du lien locataire (`https://www.usvegliu.fr`). Vide = URL interne de HA (`/usvegliu/s/…`). |
 | Switch chauffage / climatisation | vide | Interrupteur du propriétaire. **Allumé = climatisation**, **éteint = chauffage**. Le locataire le lit, il ne le commande pas. |
+| Température extérieure / piscine / pH | vide | Capteurs affichés en tête de la web app, lecture seule. |
+| Code alarme | vide | Si le panneau HA exige un code. Reste sur le serveur. |
 
 Un second passage avec les mêmes dates ne crée pas un deuxième voucher ni un deuxième compte. Au redémarrage, un voucher qui porte déjà le nom `<locataire> <arrivée>/<départ>` est réutilisé ; un doublon de ce nom est supprimé.
 
@@ -293,12 +295,12 @@ Sans UID calendrier, la clé est un condensat du nom et des dates : renommer le 
 
 La web app **Maison** est servie par le même Home Assistant. Le locataire n'ouvre pas l'UI admin : un lien avec jeton suffit.
 
-Elle pilote, pour ce premier jet :
+Elle affiche, dans une page unique :
 
-- les `climate.*` autorisés (On/Off, consigne, ventilation 1/2/3) — vues **Pièces**, **Réglage** et cadran ;
-- le titre **Chauffage** ou **Climatisation** selon le switch saisonnier du propriétaire ;
-- un accent **rouge** si le thermostat chauffe (consigne > mesure), **bleu** s'il refroidit (consigne < mesure), neutre sinon ;
-- les `lock.*` autorisés (Nuki) — page **Entrée**.
+- température extérieure, piscine et pH (lecture seule) ;
+- les `climate.*` autorisés (On/Off, consigne, ventilation) — **Pièces**, **Réglage** et cadran ; titre **Chauffage** ou **Climatisation** selon le switch du propriétaire ; rouge / bleu seulement si le thermostat travaille ;
+- lumières MyHome et scénarios (`light.*`, `scene.*`) ;
+- porte Nuki, garage, portail, alarme, et volets s'ils sont autorisés.
 
 Le navigateur n'envoie que le jeton. Les commandes sont exécutées côté serveur après contrôle de la liste d'entités du séjour.
 
@@ -306,9 +308,9 @@ Le navigateur n'envoie que le jeton. Les commandes sont exécutées côté serve
 
 1. Mettre à jour le custom component (redémarrer Home Assistant).
 2. Options Usvegliu :
-   - **Entités autorisées** : les thermostats MH8 (`climate.…`) et, si vous voulez la porte, `lock.…` de Nuki.
-   - **Switch chauffage / climatisation** : l'interrupteur du propriétaire (allumé = clim, éteint = chauffage). Ne pas le mettre dans les entités locataire.
-   - Pour Nuki : cocher **J'autorise caméras, serrures ou alarmes**.
+   - **Entités autorisées** : thermostats MH8 (`climate.…`), lumières MyHome, scènes, `cover` garage/portail, et si besoin `lock.…` Nuki plus `alarm_control_panel`.
+   - **Switch chauffage / climatisation**, **température extérieure**, **piscine**, **pH** : lecture seule, à part des entités locataire.
+   - Pour Nuki / alarme : cocher **J'autorise caméras, serrures ou alarmes**. Un **code alarme** éventuel reste côté serveur.
    - **URL publique de la web app** : laisser **vide** sur le HA de test. Réserver `https://www.usvegliu.fr` au reverse proxy de production.
 3. Outils de développement → Services → `usvegliu.lien_maison` :
    - **Lien d'essai (24 h)** = oui, pour tester tout de suite sans événement calendrier ;
@@ -334,6 +336,7 @@ La web app écoute sur Home Assistant :
 | `/api/usvegliu/guest/stream` | état en temps réel (SSE) |
 | `/api/usvegliu/guest/climate` | commandes thermostat |
 | `/api/usvegliu/guest/lock` | Nuki |
+| `/api/usvegliu/guest/command` | lumières, scènes, garage, portail, alarme |
 
 Exemple pour `https://www.usvegliu.fr/s/…` vers HA en local :
 

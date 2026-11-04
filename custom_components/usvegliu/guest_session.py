@@ -281,6 +281,124 @@ def pick_hvac_on(available: list[str], preferred: str | None = None) -> str:
     return "heat"
 
 
+GUEST_KIND_CLIMATE = "climate"
+GUEST_KIND_LOCK = "lock"
+GUEST_KIND_ALARM = "alarm"
+GUEST_KIND_LIGHT = "light"
+GUEST_KIND_SCENE = "scene"
+GUEST_KIND_GARAGE = "garage"
+GUEST_KIND_GATE = "gate"
+GUEST_KIND_SHUTTER = "shutter"
+GUEST_KIND_OUTDOOR = "outdoor"
+GUEST_KIND_POOL_TEMP = "pool_temp"
+GUEST_KIND_POOL_PH = "pool_ph"
+
+_POOL_NEEDLES = ("piscine", "pool", "bassin")
+_OUTDOOR_NEEDLES = (
+    "extérieur",
+    "exterieur",
+    "outdoor",
+    "outside",
+    "jardin",
+    "terrasse",
+    "meteo",
+    "météo",
+    "weather",
+)
+_GARAGE_NEEDLES = ("garage",)
+_GATE_NEEDLES = ("portail", "portal", "gate", "portillon")
+_LIGHT_NEEDLES = ("lumière", "lumiere", "light", "eclairage", "éclairage")
+_PH_NEEDLES = ("ph", "p.h")
+_TEMP_UNITS = ("°c", "°f", "c", "f", "celsius", "fahrenheit")
+
+
+def _fold_name(*parts: str | None) -> str:
+    return " ".join(str(part or "") for part in parts).casefold()
+
+
+def _has_needle(haystack: str, needles: tuple[str, ...]) -> bool:
+    return any(needle in haystack for needle in needles)
+
+
+def classify_guest_entity(
+    entity_id: str,
+    *,
+    device_class: str | None = None,
+    name: str | None = None,
+    unit: str | None = None,
+) -> str | None:
+    """How the guest web app should present one allowed entity."""
+    domain = entity_id.split(".", 1)[0] if "." in entity_id else entity_id
+    label = _fold_name(entity_id, name)
+    klass = str(device_class or "").casefold()
+    measure = str(unit or "").casefold().replace(" ", "")
+    if domain == "climate":
+        return GUEST_KIND_CLIMATE
+    if domain == "lock":
+        return GUEST_KIND_LOCK
+    if domain == "alarm_control_panel":
+        return GUEST_KIND_ALARM
+    if domain == "light":
+        return GUEST_KIND_LIGHT
+    if domain in {"scene", "script"}:
+        return GUEST_KIND_SCENE
+    if domain == "cover":
+        if klass in {"garage", "garage_door"} or _has_needle(label, _GARAGE_NEEDLES):
+            return GUEST_KIND_GARAGE
+        if klass == "gate" or _has_needle(label, _GATE_NEEDLES):
+            return GUEST_KIND_GATE
+        return GUEST_KIND_SHUTTER
+    if domain == "switch":
+        if _has_needle(label, _GARAGE_NEEDLES):
+            return GUEST_KIND_GARAGE
+        if _has_needle(label, _GATE_NEEDLES):
+            return GUEST_KIND_GATE
+        if _has_needle(label, _LIGHT_NEEDLES):
+            return GUEST_KIND_LIGHT
+        return None
+    if domain == "weather":
+        return GUEST_KIND_OUTDOOR
+    if domain == "sensor":
+        if (
+            klass in {"ph", "volatile_acid"}
+            or measure == "ph"
+            or _has_needle(label, _PH_NEEDLES)
+        ):
+            return GUEST_KIND_POOL_PH
+        is_temp = klass == "temperature" or measure in _TEMP_UNITS
+        if not is_temp:
+            return None
+        if _has_needle(label, _POOL_NEEDLES):
+            return GUEST_KIND_POOL_TEMP
+        if _has_needle(label, _OUTDOOR_NEEDLES):
+            return GUEST_KIND_OUTDOOR
+        return None
+    return None
+
+
+def alarm_view_state(raw: str | None) -> str:
+    """Collapse Home Assistant alarm states for the guest UI."""
+    fold = str(raw or "").casefold()
+    if fold == "disarmed":
+        return "disarmed"
+    if fold == "triggered":
+        return "triggered"
+    if fold in {"pending", "arming", "armed_away_pending"}:
+        return "pending"
+    if fold.startswith("armed"):
+        return "armed"
+    return "disarmed"
+
+
+def cover_is_open(state: str | None) -> bool:
+    fold = str(state or "").casefold()
+    return fold in {"open", "opening", "on"}
+
+
+def cover_is_moving(state: str | None) -> bool:
+    return str(state or "").casefold() in {"opening", "closing"}
+
+
 def guest_path(token: str) -> str:
     """Path served by this integration (local HA test URL)."""
     return f"/{DOMAIN}/s/{token}"
