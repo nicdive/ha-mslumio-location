@@ -282,7 +282,7 @@
     },
     "owner_dashboard_missing": {
       "title": "Owner console missing",
-      "description": "The console is not the Location or Stay dashboard. Settings → Dashboards → +, new empty dashboard. Title: Usvegliu propriétaire (Home Assistant then generates URL {url_path}). Admin-only, show in sidebar. Then Developer tools → Actions → usvegliu.appliquer_tableau. Open /{url_path} or the Console sidebar item."
+      "description": "The console is not the Location or Stay dashboard. Settings → Dashboards → +, new empty dashboard. Title: Usvegliu propriétaire (Home Assistant then generates URL {url_path}). Do not mark it admin-only: Users with control rights must see it. Show in sidebar. Then Developer tools → Actions → usvegliu.appliquer_tableau. Open /{url_path} or the Console sidebar item."
     }
   }
 }

@@ -77,20 +77,28 @@ def frontend_core_with_tenant_panel(existing: dict[str, Any] | None) -> dict[str
     return core
 
 
-async def async_set_tenant_default_panel(
+def frontend_sidebar_with_console(
+    existing: dict[str, Any] | None, *, hidden: bool
+) -> dict[str, Any]:
+    """Show or hide the owner Console in a user's sidebar."""
+    sidebar = dict(existing or {})
+    hidden_panels = [
+        str(panel) for panel in (sidebar.get("hiddenPanels") or []) if panel
+    ]
+    if hidden and OWNER_DASHBOARD_URL not in hidden_panels:
+        hidden_panels.append(OWNER_DASHBOARD_URL)
+    if not hidden:
+        hidden_panels = [panel for panel in hidden_panels if panel != OWNER_DASHBOARD_URL]
+    sidebar["hiddenPanels"] = hidden_panels
+    return sidebar
+
+
+async def _async_user_store(
     hass: object,
-    user_id: str | None,
+    user_id: str,
     *,
     load_store: Any | None = None,
-) -> None:
-    """Land a tenant on ``usvegliu-sejour`` after login.
-
-    Home Assistant 2026 opens the Home dashboard. That view walks areas and
-    can stay on « Chargement des données… » for a user who may only read a
-    handful of entities.
-    """
-    if not user_id:
-        return
+):
     loader = load_store
     if loader is None:
         try:
@@ -98,15 +106,94 @@ async def async_set_tenant_default_panel(
                 async_user_store as loader,
             )
         except ImportError:
-            return
+            return None
+    return await loader(hass, user_id)
+
+
+async def async_set_tenant_default_panel(
+    hass: object,
+    user_id: str | None,
+    *,
+    load_store: Any | None = None,
+) -> None:
+    """Land a tenant on ``usvegliu-sejour`` after login and hide Console.
+
+    Home Assistant 2026 opens the Home dashboard. That view walks areas and
+    can stay on « Chargement des données… » for a user who may only read a
+    handful of entities.
+    """
+    if not user_id:
+        return
     try:
-        store = await loader(hass, user_id)
-        core = frontend_core_with_tenant_panel(store.data.get("core"))
-        if store.data.get("core") == core:
+        store = await _async_user_store(hass, user_id, load_store=load_store)
+        if store is None:
             return
-        await store.async_set_item("core", core)
+        core = frontend_core_with_tenant_panel(store.data.get("core"))
+        sidebar = frontend_sidebar_with_console(store.data.get("sidebar"), hidden=True)
+        if store.data.get("core") != core:
+            await store.async_set_item("core", core)
+        if store.data.get("sidebar") != sidebar:
+            await store.async_set_item("sidebar", sidebar)
     except Exception:  # noqa: BLE001 — frontend storage is not worth aborting access
         _LOGGER.debug("Tableau par défaut locataire non enregistré", exc_info=True)
+
+
+async def async_reveal_owner_console(
+    hass: object,
+    user_id: str | None,
+    *,
+    load_store: Any | None = None,
+) -> None:
+    """Make Console visible in the sidebar for a manager account."""
+    if not user_id:
+        return
+    try:
+        store = await _async_user_store(hass, user_id, load_store=load_store)
+        if store is None:
+            return
+        sidebar = frontend_sidebar_with_console(store.data.get("sidebar"), hidden=False)
+        if store.data.get("sidebar") != sidebar:
+            await store.async_set_item("sidebar", sidebar)
+    except Exception:  # noqa: BLE001
+        _LOGGER.debug("Barre latérale Console non mise à jour", exc_info=True)
+
+
+async def async_apply_console_visibility(
+    hass: object,
+    *,
+    load_store: Any | None = None,
+    list_users: Any | None = None,
+) -> None:
+    """Hide Console from tenants; show it to admins and Users."""
+    from .access import is_tenant_user, user_can_manage_stays
+
+    users: list[Any] = []
+    if callable(list_users):
+        users = list(await list_users())
+    else:
+        auth = getattr(hass, "auth", None)
+        getter = getattr(auth, "async_get_users", None) if auth is not None else None
+        if not callable(getter):
+            return
+        try:
+            users = list(await getter())
+        except Exception:  # noqa: BLE001
+            _LOGGER.debug("Liste des utilisateurs indisponible", exc_info=True)
+            return
+    for user in users:
+        if getattr(user, "system_generated", False):
+            continue
+        user_id = getattr(user, "id", None)
+        if not user_id:
+            continue
+        if is_tenant_user(user):
+            await async_set_tenant_default_panel(
+                hass, str(user_id), load_store=load_store
+            )
+        elif user_can_manage_stays(user):
+            await async_reveal_owner_console(
+                hass, str(user_id), load_store=load_store
+            )
 
 
 def _jinja_quote(value: str) -> str:
@@ -527,9 +614,9 @@ async def _async_save_named_dashboard(
     dashboard = _find_dashboard(dashboards, url)
     collection = find_dashboard_collection(hass)
 
-    if dashboard is None and collection is not None:
+    if collection is not None:
         existing = _collection_item_for_url(collection, url)
-        if existing is None:
+        if existing is None and dashboard is None:
             try:
                 await collection.async_create_item(
                     {
@@ -543,7 +630,7 @@ async def _async_save_named_dashboard(
                 )
             except Exception:  # noqa: BLE001 — already exists or API drift
                 _LOGGER.debug("Création du tableau %s ignorée", url, exc_info=True)
-        elif (
+        elif existing is not None and (
             bool(existing.get("require_admin")) != bool(require_admin)
             or not existing.get("show_in_sidebar", True)
         ):
@@ -558,7 +645,7 @@ async def _async_save_named_dashboard(
             except Exception:  # noqa: BLE001
                 _LOGGER.debug("Mise à jour du tableau %s ignorée", url, exc_info=True)
         dashboards = _dashboard_map(hass)
-        dashboard = _find_dashboard(dashboards, url)
+        dashboard = _find_dashboard(dashboards, url) or dashboard
 
     if dashboard is None:
         dashboard = await _async_attach_storage_dashboard(
@@ -606,13 +693,18 @@ async def async_ensure_owner_dashboard(
     *,
     sejours_entity_id: str,
 ) -> dict[str, Any]:
-    """Create the admin console dashboard and save its cards."""
+    """Create the owner console dashboard and save its cards."""
     config = build_owner_dashboard_config(stays, sejours_entity_id=sejours_entity_id)
-    return await _async_save_named_dashboard(
+    result = await _async_save_named_dashboard(
         hass,
         url=OWNER_DASHBOARD_URL,
         title=OWNER_DASHBOARD_TITLE,
         icon=OWNER_DASHBOARD_ICON,
-        require_admin=True,
+        require_admin=False,
         config=config,
     )
+    try:
+        await async_apply_console_visibility(hass)
+    except Exception:  # noqa: BLE001 — sidebar prefs must not block the cards
+        _LOGGER.debug("Visibilité Console non appliquée", exc_info=True)
+    return result

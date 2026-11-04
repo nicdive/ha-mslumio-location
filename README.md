@@ -214,7 +214,7 @@ Le mot de passe est généré dans Home Assistant (`token_urlsafe`, sous la limi
 
 Tableau locataire : URL `usvegliu-sejour`, titre **Séjour**, visible des non-administrateurs, cartes thermostat / volets / éclairage. Accueil du compte locataire (`default_panel`).
 
-Tableau propriétaire : URL `usvegliu-proprietaire`, titre **Console**, **réservé aux administrateurs**. Un séjour par carte : dates, compte HA, mot de passe, code Wi-Fi, lien Maison, et quatre actions (nouveau mot de passe, révoquer le compte, nouveau code Wi-Fi, révoquer le Wi-Fi). Les identifiants sont lus en direct sur le capteur **Séjours actifs** (rien de secret dans le YAML Lovelace).
+Tableau propriétaire : URL `usvegliu-proprietaire`, titre **Console**. Visible des **administrateurs** et des comptes **Utilisateur** (droits de contrôle), pas des locataires. Un séjour par carte : dates, compte HA, mot de passe, code Wi-Fi, lien Maison, et quatre actions (nouveau mot de passe, révoquer le compte, nouveau code Wi-Fi, révoquer le Wi-Fi). Les identifiants sont lus en direct sur le capteur **Séjours actifs** (rien de secret dans le YAML Lovelace).
 
 L'intégration crée les deux tableaux si la collection Lovelace est joignable. Sinon : créer les URL `usvegliu-sejour` et `usvegliu-proprietaire` (tiret obligatoire) puis `usvegliu.appliquer_tableau`.
 
@@ -222,13 +222,13 @@ L'intégration crée les deux tableaux si la collection Lovelace est joignable. 
 
 Ce n'est **pas** le tableau **Séjour** (locataire) ni un tableau créé à la main sous un autre nom. Dans Home Assistant 2026, le bouton **+** des tableaux de bord ne reprend pas le titre comme URL : « Location » devient `dashboard-location`, donc l'intégration n'y écrit rien.
 
-1. Mettre à jour Usvegliu (0.5.7+), redémarrer Home Assistant.
+1. Mettre à jour Usvegliu (0.5.8+), redémarrer Home Assistant.
 2. Outils de développement → Actions → `usvegliu.appliquer_tableau` → Exécuter.
 3. Dans la barre latérale, ouvrir **Console**, ou l'URL `/usvegliu-proprietaire`.
 
-Si **Console** n'apparaît toujours pas : Paramètres → Tableaux de bord → **+** → nouveau tableau vide. Titre `Usvegliu propriétaire` (Home Assistant génère alors l'URL `usvegliu-proprietaire`). Réserver aux administrateurs, afficher dans la barre. Puis rappeler `usvegliu.appliquer_tableau`. Un tableau **Location** vide peut être supprimé.
+Si **Console** n'apparaît toujours pas : Paramètres → Tableaux de bord → **+** → nouveau tableau vide. Titre `Usvegliu propriétaire` (Home Assistant génère alors l'URL `usvegliu-proprietaire`). **Ne pas** cocher « réservé aux administrateurs » (les comptes Utilisateur doivent la voir). Afficher dans la barre. Puis rappeler `usvegliu.appliquer_tableau`. Un tableau **Location** vide peut être supprimé.
 
-Mettre les autres tableaux (vue d'ensemble, caméras, serrures) en **réservé aux administrateurs**. L'intégration ne le fait pas toute seule, pour ne pas masquer l'interface de l'owner.
+Les locataires n'ont pas la Console dans la barre. Mettre les autres tableaux (vue d'ensemble, caméras, serrures) en **réservé aux administrateurs** si seul l'admin doit les voir. L'intégration ne le fait pas toute seule.
 
 ### Écran « Chargement des données… » après le mot de passe
 
@@ -264,7 +264,7 @@ L'impression n'est pas faite par l'intégration. Service `usvegliu.imprimer_vouc
 
 ## Services
 
-Tous exigent un administrateur lorsque l'appel porte un utilisateur. Une automatisation lancée sans utilisateur (contexte vide) passe : ne pas exposer ces services à un tableau locataire.
+Tous exigent un administrateur **ou** un compte Utilisateur (droits de contrôle) lorsque l'appel porte un utilisateur. Les locataires sont refusés. Une automatisation lancée sans utilisateur (contexte vide) passe.
 
 | Service | Effet |
 | --- | --- |

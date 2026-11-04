@@ -16,9 +16,11 @@ from __future__ import annotations
 import re
 import secrets
 
-from .const import GROUP_PREFIX, SENSITIVE_DOMAINS, TENANT_GROUP_NAME
+from .const import GROUP_PREFIX, SENSITIVE_DOMAINS, TENANT_GROUP_ID, TENANT_GROUP_NAME
 
 ADMIN_GROUP_ID = "system-admin"
+USERS_GROUP_ID = "system-users"
+READ_ONLY_GROUP_ID = "system-read-only"
 
 
 class TenantAccessError(Exception):
@@ -136,14 +138,53 @@ def build_tenant_policy(
     return policy
 
 
-def assert_not_privileged(user: object) -> None:
-    """Refuse to touch an owner or an administrator."""
+def user_group_ids(user: object) -> set[str]:
+    """Return the auth group ids attached to a Home Assistant user."""
+    groups = getattr(user, "groups", None) or []
+    return {
+        str(group_id)
+        for group in groups
+        if (group_id := getattr(group, "id", None))
+    }
+
+
+def is_tenant_user(user: object) -> bool:
+    """True when the account is a stay login created by Usvegliu."""
+    if user is None:
+        return False
+    return any(
+        group_id == TENANT_GROUP_ID or group_id.startswith(GROUP_PREFIX)
+        for group_id in user_group_ids(user)
+    )
+
+
+def user_can_manage_stays(user: object) -> bool:
+    """Admins and Users (control rights) may open the owner console.
+
+    Tenant accounts and read-only users cannot. Automations pass a separate
+    empty-context check in the service handler.
+    """
+    if user is None or getattr(user, "system_generated", False):
+        return False
+    if is_tenant_user(user):
+        return False
     if getattr(user, "is_owner", False) or getattr(user, "is_admin", False):
+        return True
+    groups = user_group_ids(user)
+    if ADMIN_GROUP_ID in groups or USERS_GROUP_ID in groups:
+        return True
+    if READ_ONLY_GROUP_ID in groups:
+        return False
+    return False
+
+
+def assert_not_privileged(user: object) -> None:
+    """Refuse to touch an owner, an administrator, or a Users account."""
+    if user_can_manage_stays(user):
         raise TenantAccessError("refuse_admin")
-    groups = getattr(user, "groups", []) or []
-    for group in groups:
-        if getattr(group, "id", None) == ADMIN_GROUP_ID:
-            raise TenantAccessError("refuse_admin")
+    groups = user_group_ids(user)
+    if ADMIN_GROUP_ID in groups:
+        raise TenantAccessError("refuse_admin")
 
 
 async def async_ensure_group(

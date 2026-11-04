@@ -8,17 +8,22 @@ import pytest
 
 from custom_components.usvegliu.access import (
     ADMIN_GROUP_ID,
+    READ_ONLY_GROUP_ID,
     TenantAccessError,
+    USERS_GROUP_ID,
     assert_not_privileged,
     build_tenant_policy,
     generate_password,
     group_id_for_username,
+    is_tenant_user,
     resolve_shared_access,
     resolve_stay_access,
     sensitive_entity_ids,
+    user_can_manage_stays,
 )
 from custom_components.usvegliu.const import SENSITIVE_DOMAINS
 from custom_components.usvegliu.dashboard import (
+    async_apply_console_visibility,
     async_ensure_dashboard,
     async_ensure_owner_dashboard,
     async_set_tenant_default_panel,
@@ -27,6 +32,7 @@ from custom_components.usvegliu.dashboard import (
     dashboard_card_count,
     find_dashboard_collection,
     frontend_core_with_tenant_panel,
+    frontend_sidebar_with_console,
 )
 from custom_components.usvegliu.journal import Journal, JournalPathError, resolve_journal_path
 from custom_components.usvegliu.redact import SecretLogFilter, redact
@@ -192,13 +198,44 @@ def test_tenant_policy_is_explicit_and_sensitive_domains_are_flagged():
     assert shared_entities == ["light.salon", "fan.chambre"]
     assert shared_remote is True
 
+    class _Group:
+        def __init__(self, group_id):
+            self.id = group_id
+
     class _Admin:
         is_owner = False
         is_admin = True
         groups = []
 
+    class _Manager:
+        is_owner = False
+        is_admin = False
+        system_generated = False
+        groups = [_Group(USERS_GROUP_ID)]
+
+    class _Tenant:
+        is_owner = False
+        is_admin = False
+        system_generated = False
+        groups = [_Group(group_id_for_username("ada"))]
+
+    class _ReadOnly:
+        is_owner = False
+        is_admin = False
+        system_generated = False
+        groups = [_Group(READ_ONLY_GROUP_ID)]
+
     with pytest.raises(TenantAccessError):
         assert_not_privileged(_Admin())
+    with pytest.raises(TenantAccessError):
+        assert_not_privileged(_Manager())
+    assert_not_privileged(_Tenant())
+    assert user_can_manage_stays(_Admin()) is True
+    assert user_can_manage_stays(_Manager()) is True
+    assert user_can_manage_stays(_Tenant()) is False
+    assert user_can_manage_stays(_ReadOnly()) is False
+    assert is_tenant_user(_Tenant()) is True
+    assert is_tenant_user(_Manager()) is False
 
     password = generate_password()
     assert len(password.encode()) < 72
@@ -257,6 +294,14 @@ async def test_tenant_default_panel_is_written_to_frontend_store():
     await async_set_tenant_default_panel(object(), "user-1", load_store=_load_store)
     assert saved["core"]["default_panel"] == "usvegliu-sejour"
     assert saved["core"]["language"] == "fr"
+    assert "usvegliu-proprietaire" in saved["sidebar"]["hiddenPanels"]
+
+
+def test_console_sidebar_is_hidden_only_for_tenants():
+    hidden = frontend_sidebar_with_console({"hiddenPanels": ["map"]}, hidden=True)
+    assert hidden["hiddenPanels"] == ["map", "usvegliu-proprietaire"]
+    shown = frontend_sidebar_with_console(hidden, hidden=False)
+    assert shown["hiddenPanels"] == ["map"]
 
 
 def test_owner_console_dashboard_has_live_credentials_and_actions():
@@ -386,8 +431,117 @@ async def test_owner_dashboard_is_created_from_websocket_collection():
     )
     assert result["ok"] is True
     assert collection.items[0]["url_path"] == "usvegliu-proprietaire"
-    assert collection.items[0]["require_admin"] is True
+    assert collection.items[0]["require_admin"] is False
     assert saved
+
+
+@pytest.mark.asyncio
+async def test_owner_dashboard_drops_admin_only_flag_on_existing_console():
+    updated: list[tuple] = []
+
+    class _Dash:
+        async def async_save(self, config):
+            return None
+
+    class _Collection:
+        def async_items(self):
+            return [
+                {
+                    "id": "usvegliu-proprietaire",
+                    "url_path": "usvegliu-proprietaire",
+                    "require_admin": True,
+                    "show_in_sidebar": True,
+                }
+            ]
+
+        async def async_update_item(self, item_id, data):
+            updated.append((item_id, data))
+
+        async def async_create_item(self, data):
+            raise AssertionError("should update, not create")
+
+    class _Websocket:
+        def __init__(self, collection):
+            self.storage_collection = collection
+
+        def ws_create_item(self):
+            return None
+
+    websocket = _Websocket(_Collection())
+
+    class _Hass:
+        data = {
+            "lovelace": {"dashboards": {"usvegliu-proprietaire": _Dash()}},
+            "websocket_api": {
+                "lovelace/dashboards/create": (websocket.ws_create_item, {})
+            },
+        }
+
+    result = await async_ensure_owner_dashboard(
+        _Hass(),
+        [{"guest": "Ada", "reservation_id": "stay-ada"}],
+        sejours_entity_id="sensor.usvegliu_sejours",
+    )
+    assert result["ok"] is True
+    assert updated == [
+        (
+            "usvegliu-proprietaire",
+            {"require_admin": False, "show_in_sidebar": True},
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_console_visibility_hides_from_tenants_not_managers():
+    saved: dict[str, dict] = {}
+
+    class _Group:
+        def __init__(self, group_id):
+            self.id = group_id
+
+    class _Store:
+        def __init__(self, user_id, hidden=None):
+            self.user_id = user_id
+            self.data: dict = {
+                "core": {},
+                "sidebar": {"hiddenPanels": list(hidden or [])},
+            }
+
+        async def async_set_item(self, key, value):
+            saved.setdefault(self.user_id, {})[key] = value
+            self.data = {**self.data, key: value}
+
+    stores = {
+        "tenant-1": _Store("tenant-1"),
+        "user-1": _Store("user-1", hidden=["usvegliu-proprietaire"]),
+    }
+
+    async def _load_store(hass, user_id):
+        return stores[user_id]
+
+    class _Tenant:
+        id = "tenant-1"
+        is_admin = False
+        is_owner = False
+        system_generated = False
+        groups = [_Group(group_id_for_username("ada"))]
+
+    class _Manager:
+        id = "user-1"
+        is_admin = False
+        is_owner = False
+        system_generated = False
+        groups = [_Group(USERS_GROUP_ID)]
+
+    async def _list_users():
+        return [_Tenant(), _Manager()]
+
+    await async_apply_console_visibility(
+        object(), load_store=_load_store, list_users=_list_users
+    )
+    assert saved["tenant-1"]["core"]["default_panel"] == "usvegliu-sejour"
+    assert "usvegliu-proprietaire" in saved["tenant-1"]["sidebar"]["hiddenPanels"]
+    assert "usvegliu-proprietaire" not in saved["user-1"]["sidebar"]["hiddenPanels"]
 
 
 def test_dashboard_collection_is_found_on_websocket_commands_object():

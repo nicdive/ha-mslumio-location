@@ -67,6 +67,7 @@ from .const import (
     STORAGE_VERSION,
     UPDATE_INTERVAL,
 )
+from .access import user_can_manage_stays
 from .dashboard import async_ensure_dashboard, async_ensure_owner_dashboard
 from .engine import async_synchronize
 from .guest_session import (
@@ -647,8 +648,8 @@ class UsvegliuRuntime:
         return str(current["key"])
 
     async def async_handle_service(self, call: ServiceCall) -> dict[str, Any]:
-        """Execute an admin service and return a response without extra secrets."""
-        await _async_require_admin(self.hass, call)
+        """Execute a manager service and return a response without extra secrets."""
+        await _async_require_manager(self.hass, call)
         key = call.data.get("reservation_key")
         action = call.service
         if action == "lien_maison":
@@ -815,12 +816,13 @@ def _notify_service_name(target: str) -> str:
     return target
 
 
-async def _async_require_admin(hass: HomeAssistant, call: ServiceCall) -> None:
+async def _async_require_manager(hass: HomeAssistant, call: ServiceCall) -> None:
+    """Allow admins and Users with control rights; refuse tenant logins."""
     user_id = call.context.user_id
     if not user_id:
         return
     user = await hass.auth.async_get_user(user_id)
-    if user is None or not user.is_admin:
+    if user is None or not user_can_manage_stays(user):
         raise Unauthorized()
 
 

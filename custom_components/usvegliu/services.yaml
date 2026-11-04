@@ -2,7 +2,8 @@ regenerer_voucher:
   name: Régénérer le voucher
   description: >
     Supprime le voucher UniFi du séjour et en crée un nouveau.
-    Réservé aux administrateurs. Le code complet n'est pas écrit dans le journal HA.
+    Administrateurs et utilisateurs avec droits. Pas les locataires.
+    Le code complet n'est pas écrit dans le journal HA.
   fields:
     reservation_key:
       name: Réservation
@@ -49,7 +50,7 @@ revoquer_acces:
 
 renvoyer_notification:
   name: Renvoyer la notification
-  description: Renvoie le code et, s'il est connu, le mot de passe à l'administrateur.
+  description: Renvoie le code et, s'il est connu, le mot de passe (admins et utilisateurs avec droits).
   fields:
     reservation_key:
       name: Réservation

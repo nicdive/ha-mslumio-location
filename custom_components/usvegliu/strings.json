@@ -292,7 +292,7 @@
     },
     "owner_dashboard_missing": {
       "title": "Console propriétaire absente",
-      "description": "La console n'est pas le tableau « Location » ni « Séjour ». Dans Paramètres → Tableaux de bord, bouton +, Nouveau tableau vide. Titre : Usvegliu propriétaire (Home Assistant génère alors l'URL {url_path}). Cochez réservé aux administrateurs et visible dans la barre latérale. Ensuite Outils de développement → Actions → usvegliu.appliquer_tableau. Ouvrez /{url_path} ou l'entrée Console dans la barre."
+      "description": "La console n'est pas le tableau « Location » ni « Séjour ». Dans Paramètres → Tableaux de bord, bouton +, Nouveau tableau vide. Titre : Usvegliu propriétaire (Home Assistant génère alors l'URL {url_path}). Ne pas réserver aux administrateurs : les comptes Utilisateur doivent la voir. Visible dans la barre latérale. Ensuite Outils de développement → Actions → usvegliu.appliquer_tableau. Ouvrez /{url_path} ou l'entrée Console dans la barre."
     }
   }
 }

@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.5.8] — 2026-11-04
+
+### Changé
+- La console propriétaire n'est plus réservée aux administrateurs. Les comptes **Utilisateur** (droits de contrôle) la voient et peuvent renouveler ou révoquer. Les comptes locataires Usvegliu ne la voient pas.
+
+[0.5.8]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.5.8
+
 ## [0.5.7] — 2026-11-04
 
 ### Corrigé
