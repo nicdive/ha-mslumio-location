@@ -17,10 +17,13 @@ from homeassistant.components.http import HomeAssistantView
 
 from .const import DOMAIN
 from .guest_session import (
+    climate_activity,
     climate_is_on,
+    house_mode_label,
     infer_fan_speed,
     map_fan_modes,
     pick_hvac_on,
+    resolve_house_mode,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -93,7 +96,9 @@ def _area_name(hass: Any, entity_id: str) -> str:
     return "Maison"
 
 
-def _serialize_climate(hass: Any, entity_id: str) -> dict[str, Any] | None:
+def _serialize_climate(
+    hass: Any, entity_id: str, *, house_mode: str
+) -> dict[str, Any] | None:
     state = hass.states.get(entity_id)
     if state is None:
         return None
@@ -110,18 +115,44 @@ def _serialize_climate(hass: Any, entity_id: str) -> dict[str, Any] | None:
         setpoint_f = float(setpoint) if setpoint is not None else None
     except (TypeError, ValueError):
         setpoint_f = None
+    on = climate_is_on(str(state.state))
     return {
         "entity_id": entity_id,
         "name": str(attrs.get("friendly_name") or entity_id),
         "group": _area_name(hass, entity_id),
         "measured": measured_f,
         "setpoint": setpoint_f,
-        "on": climate_is_on(str(state.state)),
+        "on": on,
         "hvac_mode": state.state,
+        "activity": climate_activity(
+            on=on,
+            house_mode=house_mode,
+            measured=measured_f,
+            setpoint=setpoint_f,
+        ),
         "fan": infer_fan_speed(attrs.get("fan_mode"), mapping),
         "min": float(attrs.get("min_temp") or 16),
         "max": float(attrs.get("max_temp") or 28),
     }
+
+
+def _switch_state(hass: Any, runtime: Any) -> str | None:
+    entity_id = runtime.house_mode_entity_id()
+    if not entity_id:
+        return None
+    state = hass.states.get(entity_id)
+    if state is None:
+        return None
+    return str(state.state)
+
+
+def _house_mode(hass: Any, runtime: Any, climates: list[str]) -> str:
+    climate_modes = []
+    for entity_id in climates:
+        state = hass.states.get(entity_id)
+        if state is not None:
+            climate_modes.append(str(state.state))
+    return resolve_house_mode(_switch_state(hass, runtime), climate_modes)
 
 
 def _serialize_lock(hass: Any, entity_id: str) -> dict[str, Any] | None:
@@ -141,15 +172,18 @@ def _snapshot(hass: Any, runtime: Any, record: dict[str, Any]) -> dict[str, Any]
     """Stay header plus every allowed climate and lock."""
     allowed = runtime.allowed_entity_ids(record)
     climates, locks = _partition(hass, allowed)
+    house_mode = _house_mode(hass, runtime, climates)
     return {
         "guest": record.get("guest") or "",
         "check_in": record.get("check_in") or "",
         "check_out": record.get("check_out") or "",
         "preview": bool(record.get("preview")),
+        "mode": house_mode,
+        "mode_label": house_mode_label(house_mode),
         "climates": [
             item
             for entity_id in climates
-            if (item := _serialize_climate(hass, entity_id))
+            if (item := _serialize_climate(hass, entity_id, house_mode=house_mode))
         ],
         "locks": [
             item
@@ -279,7 +313,11 @@ class GuestStreamView(HomeAssistantView):
                 notify("expired")
                 return
             entity_id = (event.data or {}).get("entity_id")
-            if entity_id and entity_id in runtime.allowed_entity_ids(current):
+            watched = set(runtime.allowed_entity_ids(current))
+            mode_entity = runtime.house_mode_entity_id()
+            if mode_entity:
+                watched.add(mode_entity)
+            if entity_id and entity_id in watched:
                 notify("state")
 
         unsub = hass.bus.async_listen("state_changed", listener)
@@ -343,10 +381,11 @@ class GuestClimateView(HomeAssistantView):
         fan_modes = [str(mode) for mode in (attrs.get("fan_modes") or [])]
         mapping = map_fan_modes(fan_modes)
         hvac_modes = [str(mode) for mode in (attrs.get("hvac_modes") or [])]
+        house_mode = _house_mode(hass, runtime, climates)
         try:
             if "on" in body:
                 if body["on"]:
-                    mode = pick_hvac_on(hvac_modes, str(state.state))
+                    mode = pick_hvac_on(hvac_modes, house_mode)
                     await hass.services.async_call(
                         "climate",
                         "set_hvac_mode",
@@ -383,7 +422,7 @@ class GuestClimateView(HomeAssistantView):
         except Exception:  # noqa: BLE001
             _LOGGER.exception("Guest climate command failed")
             return _json_error(self, 502, "command_failed")
-        payload = _serialize_climate(hass, entity_id)
+        payload = _serialize_climate(hass, entity_id, house_mode=house_mode)
         return self.json(payload or {"entity_id": entity_id})
 
 

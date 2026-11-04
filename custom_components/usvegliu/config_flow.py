@@ -44,6 +44,7 @@ from .const import (
     CONF_ENABLE_VOUCHERS,
     CONF_EXTRA_DAYS,
     CONF_GUEST_BASE_URL,
+    CONF_HOUSE_MODE_ENTITY,
     CONF_JOURNAL_PATH,
     CONF_LEAD_DAYS,
     CONF_LIGHT_ENTITIES,
@@ -173,6 +174,7 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
                 CONF_GUEST_BASE_URL,
                 default=defaults.get(CONF_GUEST_BASE_URL, ""),
             ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            **_house_mode_field(defaults),
             vol.Required(
                 CONF_JOURNAL_PATH,
                 default=defaults.get(CONF_JOURNAL_PATH, DEFAULT_JOURNAL_PATH),
@@ -230,7 +232,24 @@ def _clean_options(user_input: Mapping[str, Any]) -> dict[str, Any]:
         cleaned.pop(key, None)
     cleaned[CONF_NOTIFY_SERVICE] = str(cleaned.get(CONF_NOTIFY_SERVICE) or "").strip()
     cleaned[CONF_GUEST_BASE_URL] = str(cleaned.get(CONF_GUEST_BASE_URL) or "").strip()
+    cleaned[CONF_HOUSE_MODE_ENTITY] = str(
+        cleaned.get(CONF_HOUSE_MODE_ENTITY) or ""
+    ).strip()
     return {key: value for key, value in cleaned.items() if key not in _CONNECTION_KEYS}
+
+
+def _house_mode_field(defaults: Mapping[str, Any]) -> dict[Any, Any]:
+    """Optional owner switch: on = climatisation, off = chauffage."""
+    selector = EntitySelector(
+        EntitySelectorConfig(
+            domain=["switch", "input_boolean", "select", "input_select"],
+            multiple=False,
+        )
+    )
+    current = str(defaults.get(CONF_HOUSE_MODE_ENTITY) or "").strip()
+    if current:
+        return {vol.Optional(CONF_HOUSE_MODE_ENTITY, default=current): selector}
+    return {vol.Optional(CONF_HOUSE_MODE_ENTITY): selector}
 
 
 class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):

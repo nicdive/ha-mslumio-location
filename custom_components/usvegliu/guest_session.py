@@ -17,6 +17,14 @@ TOKEN_MIN_LENGTH = 16
 
 _OFF_HVAC = frozenset({"off", "idle"})
 _HVAC_ON_ORDER = ("heat", "cool", "heat_cool", "fan_only", "dry", "auto")
+HOUSE_HEAT = "heat"
+HOUSE_COOL = "cool"
+_COOL_STATES = frozenset(
+    {"on", "true", "1", "cool", "cooling", "climatisation", "clim", "cold"}
+)
+_HEAT_STATES = frozenset(
+    {"off", "false", "0", "heat", "heating", "chauffage", "hot"}
+)
 _FAN_ALIASES: dict[int, tuple[str, ...]] = {
     1: ("low", "low_breeze", "min", "1", "level_1", "level1", "doux"),
     2: ("medium", "mid", "middle", "med", "2", "level_2", "level2", "moyen"),
@@ -186,6 +194,75 @@ def climate_is_on(hvac_mode: str | None) -> bool:
     if not hvac_mode:
         return False
     return hvac_mode.casefold() not in _OFF_HVAC
+
+
+def house_mode_from_state(state: str | None) -> str | None:
+    """Map a house switch or select onto heat/cool.
+
+    Switch/boolean: on = climatisation, off = chauffage.
+    Select: chauffage/heat vs climatisation/cool.
+    """
+    if not state:
+        return None
+    fold = state.casefold().strip()
+    if fold in {"unavailable", "unknown", "none"}:
+        return None
+    if fold in _COOL_STATES:
+        return HOUSE_COOL
+    if fold in _HEAT_STATES:
+        return HOUSE_HEAT
+    return None
+
+
+def resolve_house_mode(
+    switch_state: str | None,
+    climate_modes: list[str] | None = None,
+) -> str:
+    """House-wide heat/cool. The owner switch wins over live climate modes."""
+    from_switch = house_mode_from_state(switch_state)
+    if from_switch:
+        return from_switch
+    on_modes = [
+        str(mode).casefold()
+        for mode in climate_modes or []
+        if climate_is_on(str(mode))
+    ]
+    heat = any(mode == HOUSE_HEAT for mode in on_modes)
+    cool = any(mode == HOUSE_COOL for mode in on_modes)
+    if heat and not cool:
+        return HOUSE_HEAT
+    if cool and not heat:
+        return HOUSE_COOL
+    return HOUSE_COOL
+
+
+def house_mode_label(mode: str) -> str:
+    """French title shown on the guest web app."""
+    return "Chauffage" if mode == HOUSE_HEAT else "Climatisation"
+
+
+def climate_activity(
+    *,
+    on: bool,
+    house_mode: str,
+    measured: float | None,
+    setpoint: float | None,
+) -> str:
+    """Whether this room is actively heating, cooling, or idle.
+
+    Red on the web app: heating and setpoint > measured.
+    Blue: cooling and setpoint < measured.
+    Otherwise idle (neutral).
+    """
+    if not on:
+        return "off"
+    if measured is None or setpoint is None:
+        return "idle"
+    if house_mode == HOUSE_HEAT and setpoint > measured:
+        return "heating"
+    if house_mode == HOUSE_COOL and setpoint < measured:
+        return "cooling"
+    return "idle"
 
 
 def pick_hvac_on(available: list[str], preferred: str | None = None) -> str:

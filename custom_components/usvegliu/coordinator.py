@@ -29,6 +29,7 @@ from .const import (
     CONF_ENABLE_VOUCHERS,
     CONF_EXTRA_DAYS,
     CONF_GUEST_BASE_URL,
+    CONF_HOUSE_MODE_ENTITY,
     CONF_HOST,
     CONF_JOURNAL_PATH,
     CONF_LEAD_DAYS,
@@ -159,6 +160,11 @@ class UsvegliuRuntime:
     def tenant_device_ids(self) -> list[str]:
         """Devices whose entities the tenant may use."""
         return list(self.entry.options.get(CONF_TENANT_DEVICES) or [])
+
+    def house_mode_entity_id(self) -> str | None:
+        """Owner switch for house-wide heat vs cool. Not a tenant entity."""
+        value = str(self.entry.options.get(CONF_HOUSE_MODE_ENTITY) or "").strip()
+        return value or None
 
     async def async_load(self) -> None:
         """Load the private stay store."""

@@ -132,6 +132,7 @@ Le formulaire demande ensuite :
 | Titres ignorés | `not available`, `indisponible`, `fermé`, … | Les blocages Airbnb / Booking ne deviennent pas des vouchers. |
 | Impression | désactivée | Voir plus bas. |
 | URL publique web app | vide | Origine du lien locataire (`https://www.usvegliu.fr`). Vide = URL interne de HA (`/usvegliu/s/…`). |
+| Switch chauffage / climatisation | vide | Interrupteur du propriétaire. **Allumé = climatisation**, **éteint = chauffage**. Le locataire le lit, il ne le commande pas. |
 
 Un second passage avec les mêmes dates ne crée pas un deuxième voucher ni un deuxième compte. Au redémarrage, un voucher qui porte déjà le nom `<locataire> <arrivée>/<départ>` est réutilisé ; un doublon de ce nom est supprimé.
 
@@ -295,6 +296,8 @@ La web app **Maison** est servie par le même Home Assistant. Le locataire n'ouv
 Elle pilote, pour ce premier jet :
 
 - les `climate.*` autorisés (On/Off, consigne, ventilation 1/2/3) — vues **Pièces**, **Réglage** et cadran ;
+- le titre **Chauffage** ou **Climatisation** selon le switch saisonnier du propriétaire ;
+- un accent **rouge** si le thermostat chauffe (consigne > mesure), **bleu** s'il refroidit (consigne < mesure), neutre sinon ;
 - les `lock.*` autorisés (Nuki) — page **Entrée**.
 
 Le navigateur n'envoie que le jeton. Les commandes sont exécutées côté serveur après contrôle de la liste d'entités du séjour.
@@ -304,6 +307,7 @@ Le navigateur n'envoie que le jeton. Les commandes sont exécutées côté serve
 1. Mettre à jour le custom component (redémarrer Home Assistant).
 2. Options Usvegliu :
    - **Entités autorisées** : les thermostats MH8 (`climate.…`) et, si vous voulez la porte, `lock.…` de Nuki.
+   - **Switch chauffage / climatisation** : l'interrupteur du propriétaire (allumé = clim, éteint = chauffage). Ne pas le mettre dans les entités locataire.
    - Pour Nuki : cocher **J'autorise caméras, serrures ou alarmes**.
    - **URL publique de la web app** : laisser **vide** sur le HA de test. Réserver `https://www.usvegliu.fr` au reverse proxy de production.
 3. Outils de développement → Services → `usvegliu.lien_maison` :

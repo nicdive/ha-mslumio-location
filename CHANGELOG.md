@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.5.5] — 2026-11-04
+
+### Ajouté
+- Web app Maison : titre **Chauffage** ou **Climatisation** selon le switch saisonnier du propriétaire. Rouge si la consigne est au-dessus de la mesure en chauffage, bleu si elle est en dessous en climatisation, neutre sinon.
+
+[0.5.5]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.5.5
+
 ## [0.5.4] — 2026-11-04
 
 ### Ajouté

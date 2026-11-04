@@ -47,7 +47,8 @@
           "enable_vouchers": "Create UniFi vouchers",
           "enable_access": "Create guest accounts",
           "print_event": "Print event on creation",
-          "guest_base_url": "Public web app URL"
+          "guest_base_url": "Public web app URL",
+          "house_mode_entity": "Heating / cooling switch"
         },
         "data_description": {
           "calendar_entity": "Any calendar entity (Airbnb, Booking, Google or local ICS).",
@@ -65,7 +66,8 @@
           "journal_path": "Relative to the config folder, or absolute under config/ or a media folder (Synology share).",
           "title_blocklist": "Comma-separated substrings that are not guests (blocked dates).",
           "print_event": "When enabled, the cleartext code is published on usvegliu_print_voucher and may end up in traces. Leave off unless you print.",
-          "guest_base_url": "Public origin, no path. e.g. https://www.usvegliu.fr — guest links become /s/<token>. Empty = Home Assistant internal URL."
+          "guest_base_url": "Public origin, no path. e.g. https://www.usvegliu.fr — guest links become /s/<token>. Empty = Home Assistant internal URL.",
+          "house_mode_entity": "Owner switch. On = cooling, off = heating. Guests can read it, they cannot toggle it."
         }
       },
       "reconfigure": {
@@ -121,13 +123,15 @@
           "enable_vouchers": "Create UniFi vouchers",
           "enable_access": "Create guest accounts",
           "print_event": "Print event on creation",
-          "guest_base_url": "Public web app URL"
+          "guest_base_url": "Public web app URL",
+          "house_mode_entity": "Heating / cooling switch"
         },
         "data_description": {
           "extra_days": "Voucher duration = stay + these days. UniFi starts the timer when the code is first redeemed.",
           "allow_remote": "Turn this on to try the HA account over Tailscale: a 100.x address is not local, so the frontend stays on Loading data.",
           "print_event": "Publishes the cleartext code on the bus. Enable only for printing.",
-          "guest_base_url": "e.g. https://www.usvegliu.fr. Empty = Home Assistant internal URL."
+          "guest_base_url": "e.g. https://www.usvegliu.fr. Empty = Home Assistant internal URL.",
+          "house_mode_entity": "On = cooling, off = heating. Guests can read it, they cannot toggle it."
         }
       }
     },
