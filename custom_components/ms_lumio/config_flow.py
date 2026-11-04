@@ -43,6 +43,7 @@ from .const import (
     CONF_ENABLE_ACCESS,
     CONF_ENABLE_VOUCHERS,
     CONF_EXTRA_DAYS,
+    CONF_GUEST_BASE_URL,
     CONF_JOURNAL_PATH,
     CONF_LEAD_DAYS,
     CONF_LIGHT_ENTITIES,
@@ -168,6 +169,10 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
             vol.Optional(
                 CONF_NOTIFY_SERVICE, default=defaults.get(CONF_NOTIFY_SERVICE, "")
             ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            vol.Optional(
+                CONF_GUEST_BASE_URL,
+                default=defaults.get(CONF_GUEST_BASE_URL, ""),
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
             vol.Required(
                 CONF_JOURNAL_PATH,
                 default=defaults.get(CONF_JOURNAL_PATH, DEFAULT_JOURNAL_PATH),
@@ -224,6 +229,7 @@ def _clean_options(user_input: Mapping[str, Any]) -> dict[str, Any]:
     for key in (CONF_CLIMATE_ENTITIES, CONF_COVER_ENTITIES, CONF_LIGHT_ENTITIES):
         cleaned.pop(key, None)
     cleaned[CONF_NOTIFY_SERVICE] = str(cleaned.get(CONF_NOTIFY_SERVICE) or "").strip()
+    cleaned[CONF_GUEST_BASE_URL] = str(cleaned.get(CONF_GUEST_BASE_URL) or "").strip()
     return {key: value for key, value in cleaned.items() if key not in _CONNECTION_KEYS}
 
 

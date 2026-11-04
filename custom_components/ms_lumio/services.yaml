@@ -95,3 +95,20 @@ reglages_sejour:
       name: Revenir au réglage global
       selector:
         boolean:
+
+lien_maison:
+  name: Lien maison
+  description: >
+    Renvoie l'URL de la web app locataire pour un séjour, ou crée un lien
+    d'essai de 24 h (sans calendrier) pour tester thermostats et Nuki.
+  fields:
+    reservation_key:
+      name: Réservation
+      description: Vide = séjour affiché par le capteur.
+      selector:
+        text:
+    essai:
+      name: Lien d'essai (24 h)
+      description: Ignore le calendrier et ouvre un accès temporaire aux entités choisies.
+      selector:
+        boolean:

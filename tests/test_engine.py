@@ -118,6 +118,9 @@ async def test_second_cycle_does_not_duplicate_voucher_or_account():
     assert accounts.created == 1
     assert unifi.deleted == []
     assert second.stays[plan.ensure[0].key]["voucher_id"] == "id-1"
+    token = first.stays[plan.ensure[0].key]["guest_token"]
+    assert len(token) >= 16
+    assert second.stays[plan.ensure[0].key]["guest_token"] == token
     assert second.notifications == []
     assert "pw-" not in str(first.journal)
     assert "pw-" not in str(second.journal)

@@ -105,6 +105,7 @@ def test_diagnostics_and_logs_redact_secrets():
                     "guest": "Jean Dupont",
                     "voucher_code": "ABCD12",
                     "password": "s3cret-password",
+                    "guest_token": "stay-token-secret",
                     "voucher_id": "voucher-1",
                 }
             ],
@@ -115,6 +116,7 @@ def test_diagnostics_and_logs_redact_secrets():
     assert payload["entry_data"]["host"] == "192.168.1.1"
     assert payload["stays"][0]["voucher_code"] == "**REDACTED**"
     assert payload["stays"][0]["password"] == "**REDACTED**"
+    assert payload["stays"][0]["guest_token"] == "**REDACTED**"
     assert payload["stays"][0]["guest"] == "**REDACTED**"
     assert payload["stays"][0]["voucher_id"] == "voucher-1"
     assert payload["empty"]["api_key"] == ""

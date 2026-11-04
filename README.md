@@ -114,6 +114,7 @@ Le formulaire demande ensuite :
 | Journal | `ms_lumio/journal.csv` | Sous le dossier de configuration, ou un dossier média. |
 | Titres ignorés | `not available`, `indisponible`, `fermé`, … | Les blocages Airbnb / Booking ne deviennent pas des vouchers. |
 | Impression | désactivée | Voir plus bas. |
+| URL publique web app | vide | Origine du lien locataire (`https://www.usvegliu.fr`). Vide = URL interne de HA (`/ms_lumio/s/…`). |
 
 Un second passage avec les mêmes dates ne crée pas un deuxième voucher ni un deuxième compte. Au redémarrage, un voucher qui porte déjà le nom `<locataire> <arrivée>/<départ>` est réutilisé ; un doublon de ce nom est supprimé.
 
@@ -252,6 +253,68 @@ Sans UID calendrier, la clé est un condensat du nom et des dates : renommer le 
 - Mots de passe absents des logs, du CSV, du stockage des séjours et des événements. Présents seulement dans la notification admin, le temps de la noter.
 - Codes voucher dans le CSV et le capteur, masqués sur le bus. L'événement d'impression, s'il est activé, contient le code en clair.
 - Le capteur de code n'est pas dans la liste donnée au locataire, sauf si vous l'y ajoutez vous-même.
+
+## Web app locataire (premier jet)
+
+La web app **Maison** est servie par le même Home Assistant. Le locataire n'ouvre pas l'UI admin : un lien avec jeton suffit.
+
+Elle pilote, pour ce premier jet :
+
+- les `climate.*` autorisés (On/Off, consigne, ventilation 1/2/3) — vues **Pièces**, **Réglage** et cadran ;
+- les `lock.*` autorisés (Nuki) — page **Entrée**.
+
+Le navigateur n'envoie que le jeton. Les commandes sont exécutées côté serveur après contrôle de la liste d'entités du séjour.
+
+### Configurer pour tester
+
+1. Mettre à jour le custom component (redémarrer Home Assistant).
+2. Options MS Lumio :
+   - **Entités autorisées** : les thermostats MH8 (`climate.…`) et, si vous voulez la porte, `lock.…` de Nuki.
+   - Pour Nuki : cocher **J'autorise caméras, serrures ou alarmes**.
+   - **URL publique de la web app** (optionnel) : `https://www.usvegliu.fr` si le reverse proxy est déjà en place. Sinon laisser vide.
+3. Outils de développement → Services → `ms_lumio.lien_maison` :
+   - **Lien d'essai (24 h)** = oui, pour tester tout de suite sans événement calendrier ;
+   - ou laisser vide pour le séjour en cours / le prochain déjà provisionné.
+4. La réponse du service contient `url` et `path`. Une notification persistante affiche aussi le lien.
+5. Ouvrir l'URL sur le téléphone (même réseau que HA pour un essai local) :
+   - local : `https://ha.mslumio.fr:8123/ms_lumio/s/<token>`
+   - public, après proxy : `https://www.usvegliu.fr/s/<token>`
+
+Le lien d'essai expire au bout de 24 h. Un séjour calendrier reste valable jusqu'au check-out ; le jeton est créé dès que le séjour est provisionné (y compris les jours avant l'arrivée).
+
+### Reverse proxy (même machine)
+
+La web app écoute sur Home Assistant :
+
+| Chemin HA | Usage |
+| --- | --- |
+| `/ms_lumio/s/<token>` | page locataire |
+| `/ms_lumio/static/` | CSS / JS |
+| `/api/ms_lumio/guest/state` | état |
+| `/api/ms_lumio/guest/climate` | commandes thermostat |
+| `/api/ms_lumio/guest/lock` | Nuki |
+
+Exemple pour `https://www.usvegliu.fr/s/…` vers HA en local :
+
+```nginx
+location /s/ {
+    proxy_pass https://127.0.0.1:8123/ms_lumio/s/;
+    proxy_set_header Host $host;
+    proxy_ssl_verify off;
+}
+location /ms_lumio/ {
+    proxy_pass https://127.0.0.1:8123/ms_lumio/;
+    proxy_set_header Host $host;
+    proxy_ssl_verify off;
+}
+location /api/ms_lumio/ {
+    proxy_pass https://127.0.0.1:8123/api/ms_lumio/;
+    proxy_set_header Host $host;
+    proxy_ssl_verify off;
+}
+```
+
+Le premier essai peut se faire **sans** ce proxy, directement sur `ha.mslumio.fr:8123`.
 
 ## Développement
 

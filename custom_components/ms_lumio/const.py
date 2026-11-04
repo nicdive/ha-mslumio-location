@@ -43,6 +43,8 @@ CONF_LOOKAHEAD_DAYS: Final = "lookahead_days"
 ACCESS_PER_STAY: Final = "per_stay"
 ACCESS_SHARED: Final = "shared"
 ACCESS_MODES: Final = (ACCESS_PER_STAY, ACCESS_SHARED)
+DEFAULT_ACCESS_MODE: Final = ACCESS_PER_STAY
+CONF_GUEST_BASE_URL: Final = "guest_base_url"
 
 DEFAULT_PORT: Final = 443
 DEFAULT_LEAD_DAYS: Final = 3
@@ -98,6 +100,7 @@ SERVICE_PRINT: Final = "imprimer_voucher"
 SERVICE_EXPORT_JOURNAL: Final = "exporter_journal"
 SERVICE_APPLY_DASHBOARD: Final = "appliquer_tableau"
 SERVICE_STAY_SETTINGS: Final = "reglages_sejour"
+SERVICE_GUEST_LINK: Final = "lien_maison"
 
 ATTR_RESERVATION_KEY: Final = "reservation_key"
 

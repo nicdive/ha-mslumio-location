@@ -22,6 +22,7 @@ from .const import (
     SERVICE_REGENERATE_VOUCHER,
     SERVICE_RESEND,
     SERVICE_STAY_SETTINGS,
+    SERVICE_GUEST_LINK,
     STORAGE_VERSION,
 )
 from .redact import SecretLogFilter
@@ -106,6 +107,9 @@ async def async_setup_entry(hass: Any, entry: Any) -> bool:
         _LOG_FILTER.clear(entry.entry_id)
         raise
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    from .http import async_setup_http
+
+    async_setup_http(hass)
     _async_register_services(hass)
     entry.async_on_unload(entry.add_update_listener(_async_reload))
     return True
@@ -132,6 +136,7 @@ async def async_unload_entry(hass: Any, entry: Any) -> bool:
                 SERVICE_EXPORT_JOURNAL,
                 SERVICE_APPLY_DASHBOARD,
                 SERVICE_STAY_SETTINGS,
+                SERVICE_GUEST_LINK,
             ):
                 hass.services.async_remove(DOMAIN, service)
     return unloaded
@@ -206,6 +211,12 @@ def _async_register_services(hass: Any) -> None:
             vol.Optional("reset"): bool,
         }
     )
+    guest_schema = vol.Schema(
+        {
+            vol.Optional(ATTR_RESERVATION_KEY): str,
+            vol.Optional("essai"): bool,
+        }
+    )
     if hass.services.has_service(DOMAIN, SERVICE_REGENERATE_VOUCHER):
         return
 
@@ -221,9 +232,12 @@ def _async_register_services(hass: Any) -> None:
         (SERVICE_EXPORT_JOURNAL, SupportsResponse.OPTIONAL),
         (SERVICE_APPLY_DASHBOARD, SupportsResponse.NONE),
         (SERVICE_STAY_SETTINGS, SupportsResponse.OPTIONAL),
+        (SERVICE_GUEST_LINK, SupportsResponse.OPTIONAL),
     ):
         if service == SERVICE_STAY_SETTINGS:
             schema = stay_schema
+        elif service == SERVICE_GUEST_LINK:
+            schema = guest_schema
         elif service in {SERVICE_APPLY_DASHBOARD, SERVICE_EXPORT_JOURNAL}:
             schema = vol.Schema({})
         else:

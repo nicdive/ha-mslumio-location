@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from .access import resolve_shared_access, resolve_stay_access
+from .guest_session import ensure_guest_token
 from .planning import StayPlan, SyncPlan, VoucherSpec
 from .redact import mask_code
 
@@ -199,6 +200,7 @@ async def async_synchronize(
         record["check_in"] = _iso(item.check_in)
         record["check_out"] = _iso(item.check_out)
         record["username"] = item.username
+        ensure_guest_token(record)
         if enable_vouchers and vouchers is not None and listed is not None:
             await _ensure_voucher(
                 record,
@@ -565,6 +567,7 @@ def _queue_notification(result: CycleResult, record: dict[str, Any], *, password
             "username": str(record.get("username") or ""),
             "password": password,
             "voucher_id": str(record.get("voucher_id") or ""),
+            "guest_token": str(record.get("guest_token") or ""),
         }
     )
 
