@@ -273,14 +273,16 @@ Le navigateur n'envoie que le jeton. Les commandes sont exécutées côté serve
 2. Options Usvegliu :
    - **Entités autorisées** : les thermostats MH8 (`climate.…`) et, si vous voulez la porte, `lock.…` de Nuki.
    - Pour Nuki : cocher **J'autorise caméras, serrures ou alarmes**.
-   - **URL publique de la web app** (optionnel) : `https://www.usvegliu.fr` si le reverse proxy est déjà en place. Sinon laisser vide.
+   - **URL publique de la web app** : laisser **vide** sur le HA de test. Réserver `https://www.usvegliu.fr` au reverse proxy de production.
 3. Outils de développement → Services → `usvegliu.lien_maison` :
    - **Lien d'essai (24 h)** = oui, pour tester tout de suite sans événement calendrier ;
    - ou laisser vide pour le séjour en cours / le prochain déjà provisionné.
 4. La réponse du service contient `url` et `path`. Une notification persistante affiche aussi le lien.
-5. Ouvrir l'URL sur le téléphone (même réseau que HA pour un essai local) :
-   - local : `https://ha.mslumio.fr:8123/usvegliu/s/<token>`
-   - public, après proxy : `https://www.usvegliu.fr/s/<token>`
+5. Ouvrir l'URL sur un téléphone **lui aussi sur Tailscale** (MagicDNS `ha` ne se résout que sur le tailnet) :
+   - lab : `http://ha:8123/usvegliu/s/<token>` (`/s/<token>` marche aussi) ;
+   - public, après proxy : `https://www.usvegliu.fr/s/<token>`.
+
+Si l'URL locale de Home Assistant (Paramètres → Système → Réseau) est déjà `http://ha:8123`, `lien_maison` compose ce lien tout seul. Tailscale ne change rien au jeton ni à l'API : pas de compte HA, pas de certificat client. HTTPS seulement si ce HA de test l'a déjà activé.
 
 Le lien d'essai expire au bout de 24 h. Un séjour calendrier reste valable jusqu'au check-out ; le jeton est créé dès que le séjour est provisionné (y compris les jours avant l'arrivée).
 
@@ -316,7 +318,7 @@ location /api/usvegliu/ {
 }
 ```
 
-Le premier essai peut se faire **sans** ce proxy, directement sur `ha.mslumio.fr:8123`.
+Le premier essai peut se faire **sans** ce proxy, directement sur `http://ha:8123` (Tailscale).
 
 ## Développement
 
