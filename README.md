@@ -45,10 +45,25 @@ Home Assistant 2025.1 ou plus récent.
 
 ### HACS
 
+Le dépôt doit être **public**. HACS n'installe pas un dépôt privé.
+
 1. HACS → ⋮ → *Dépôts personnalisés*.
 2. URL `https://github.com/nicdive/ha-mslumio-location`, catégorie **Intégration**.
-3. Télécharger **Usvegliu**, redémarrer Home Assistant.
-4. Paramètres → Appareils et services → Ajouter une intégration → **Usvegliu**.
+3. Télécharger **Usvegliu** en choisissant une **release** (`0.4.0` ou plus), pas seulement le commit de `main`.
+4. Redémarrer Home Assistant.
+5. Paramètres → Appareils et services → Ajouter une intégration → **Usvegliu**.
+
+## Versions
+
+SemVer dans `custom_components/usvegliu/manifest.json`, historisé dans [CHANGELOG.md](CHANGELOG.md). HACS affiche les [releases GitHub](https://github.com/nicdive/ha-mslumio-location/releases).
+
+Pour publier :
+
+1. Monter le `version` du `manifest.json`.
+2. Ajouter une section en tête du changelog.
+3. Commit sur `main`.
+4. Tag annoté `vX.Y.Z` (même numéro que le manifest) et `git push origin vX.Y.Z`.
+5. L'action **Release** crée la release GitHub. Sans elle : GitHub → Releases → *Create a new release* à partir du tag.
 
 ### Copie manuelle
 
