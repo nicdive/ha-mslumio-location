@@ -161,6 +161,55 @@
     return `<h2 class="panel-title">${escapeHtml(title)}</h2>`;
   }
 
+  function copyText(text) {
+    if (!text) return;
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).catch(() => copyFallback(text));
+      return;
+    }
+    copyFallback(text);
+  }
+
+  function copyFallback(text) {
+    const el = document.createElement("textarea");
+    el.value = text;
+    el.setAttribute("readonly", "");
+    el.style.position = "fixed";
+    el.style.left = "-9999px";
+    document.body.appendChild(el);
+    el.select();
+    try {
+      document.execCommand("copy");
+    } catch (err) {
+      /* ignore */
+    }
+    document.body.removeChild(el);
+  }
+
+  function infoRow(label, value, copyable) {
+    const tag = copyable ? "button" : "div";
+    const extra = copyable
+      ? ` type="button" data-act="copy" data-copy="${escapeAttr(value)}" aria-label="Copier ${escapeAttr(label)}"`
+      : "";
+    return `<${tag} class="info-row"${extra}>
+      <div class="info-label">${escapeHtml(label)}</div>
+      <div class="info-value">${escapeHtml(value)}</div>
+    </${tag}>`;
+  }
+
+  function infoSection() {
+    const info = (state && state.informations) || {};
+    const ssid = String(info.wifi_ssid || "").trim();
+    const revoked = Boolean(info.voucher_revoked);
+    const code = revoked ? "" : String(info.voucher_code || "").trim();
+    if (!ssid && !code && !revoked) return "";
+    const rows = [];
+    if (ssid) rows.push(infoRow("Réseau Wi-Fi", ssid, true));
+    if (revoked) rows.push(infoRow("Code Wi-Fi", "Révoqué", false));
+    else if (code) rows.push(infoRow("Code Wi-Fi", code, true));
+    return `<section class="panel">${sectionTitle("Informations")}${rows.join("")}</section>`;
+  }
+
   function metricsView() {
     const metrics = (state && state.metrics) || [];
     if (!metrics.length) return "";
@@ -386,7 +435,7 @@
   }
 
   function homeView() {
-    const body = `${metricsView()}${climateSection()}${lightsSection()}${accessSection()}`;
+    const body = `${metricsView()}${infoSection()}${climateSection()}${lightsSection()}${accessSection()}`;
     if (!body.trim()) {
       return `${masthead(false)}<p class="empty">Les équipements de votre séjour apparaîtront ici.</p>`;
     }
@@ -489,6 +538,10 @@
     if (act === "back") {
       screen = "home";
       render();
+      return;
+    }
+    if (act === "copy") {
+      copyText(button.getAttribute("data-copy") || "");
       return;
     }
     if (act === "mode") {

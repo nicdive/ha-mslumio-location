@@ -196,6 +196,43 @@ h1 {
   letter-spacing: -0.02em;
 }
 
+.info-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  padding: 14px 4px 16px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  background: transparent;
+}
+
+.info-row:last-child {
+  border-bottom: none;
+  padding-bottom: 4px;
+}
+
+.info-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.info-value {
+  font-family: var(--serif);
+  font-size: 26px;
+  line-height: 1.15;
+  letter-spacing: 0.04em;
+  word-break: break-word;
+}
+
+button.info-row:active:not(:disabled) {
+  opacity: 0.72;
+}
+
 .section {
   margin: 0 0 22px;
 }

@@ -31,6 +31,7 @@ from .const import (
     CONF_ENABLE_VOUCHERS,
     CONF_EXTRA_DAYS,
     CONF_GUEST_BASE_URL,
+    CONF_WIFI_SSID,
     CONF_ALARM_CODE,
     CONF_HOUSE_MODE_ENTITY,
     CONF_OUTDOOR_TEMPERATURE,
@@ -200,6 +201,10 @@ class UsvegliuRuntime:
     def alarm_code(self) -> str | None:
         code = str(self.entry.options.get(CONF_ALARM_CODE) or "").strip()
         return code or None
+
+    def wifi_ssid(self) -> str:
+        """Hotspot name shown to the guest. Empty until the owner fills it."""
+        return str(self.entry.options.get(CONF_WIFI_SSID) or "").strip()
 
     async def async_load(self) -> None:
         """Load the private stay store."""
@@ -500,6 +505,7 @@ class UsvegliuRuntime:
             "notify_service": str(options.get(CONF_NOTIFY_SERVICE) or ""),
             "print_event": bool(options.get(CONF_PRINT_EVENT, False)),
             "guest_base_url": str(options.get(CONF_GUEST_BASE_URL) or ""),
+            "wifi_ssid": self.wifi_ssid(),
         }
 
     async def _async_dashboard(self) -> None:

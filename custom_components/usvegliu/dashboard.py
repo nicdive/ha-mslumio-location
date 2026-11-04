@@ -340,6 +340,7 @@ def _settings_markdown(entity_id: str) -> str:
         "**{{ a.tenant_device_count }}**\n"
         "\n"
         "### Wi-Fi\n"
+        "- Réseau : `{{ a.wifi_ssid or '—' }}`\n"
         "- Appareils / voucher : **{{ a.device_limit }}**\n"
         "- Débit : **{{ a.download_mbps }}** / **{{ a.upload_mbps }}** Mbit/s\n"
         "\n"

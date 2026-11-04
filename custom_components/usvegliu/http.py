@@ -354,11 +354,18 @@ def _snapshot(hass: Any, runtime: Any, record: dict[str, Any]) -> dict[str, Any]
         item = _serialize_metric(hass, entity_id, kind, label)
         if item:
             metrics.append(item)
+    revoked = bool(record.get("voucher_revoked"))
+    voucher = "" if revoked else str(record.get("voucher_code") or "")
     return {
         "guest": record.get("guest") or "",
         "check_in": record.get("check_in") or "",
         "check_out": record.get("check_out") or "",
         "preview": bool(record.get("preview")),
+        "informations": {
+            "wifi_ssid": runtime.wifi_ssid(),
+            "voucher_code": voucher or None,
+            "voucher_revoked": revoked,
+        },
         "mode": house_mode,
         "mode_label": house_mode_label(house_mode),
         "metrics": metrics,
