@@ -20,6 +20,7 @@
     "renvoyer_notification": {"service": "mdi:bell-ring"},
     "imprimer_voucher": {"service": "mdi:printer"},
     "exporter_journal": {"service": "mdi:file-download"},
-    "appliquer_tableau": {"service": "mdi:view-dashboard"}
+    "appliquer_tableau": {"service": "mdi:view-dashboard"},
+    "relire_calendrier": {"service": "mdi:calendar-refresh"}
   }
 }

@@ -17,6 +17,7 @@ from .const import (
     PLATFORMS,
     SERVICE_APPLY_DASHBOARD,
     SERVICE_EXPORT_JOURNAL,
+    SERVICE_REFRESH_CALENDAR,
     SERVICE_PRINT,
     SERVICE_REGENERATE_ACCESS,
     SERVICE_REGENERATE_VOUCHER,
@@ -139,6 +140,7 @@ async def async_unload_entry(hass: Any, entry: Any) -> bool:
                 SERVICE_PRINT,
                 SERVICE_EXPORT_JOURNAL,
                 SERVICE_APPLY_DASHBOARD,
+                SERVICE_REFRESH_CALENDAR,
                 SERVICE_STAY_SETTINGS,
                 SERVICE_GUEST_LINK,
             ):
@@ -237,6 +239,7 @@ def _async_register_services(hass: Any) -> None:
         (SERVICE_PRINT, SupportsResponse.OPTIONAL),
         (SERVICE_EXPORT_JOURNAL, SupportsResponse.OPTIONAL),
         (SERVICE_APPLY_DASHBOARD, SupportsResponse.OPTIONAL),
+        (SERVICE_REFRESH_CALENDAR, SupportsResponse.OPTIONAL),
         (SERVICE_STAY_SETTINGS, SupportsResponse.OPTIONAL),
         (SERVICE_GUEST_LINK, SupportsResponse.OPTIONAL),
     ):
@@ -244,7 +247,11 @@ def _async_register_services(hass: Any) -> None:
             schema = stay_schema
         elif service == SERVICE_GUEST_LINK:
             schema = guest_schema
-        elif service in {SERVICE_APPLY_DASHBOARD, SERVICE_EXPORT_JOURNAL}:
+        elif service in {
+            SERVICE_APPLY_DASHBOARD,
+            SERVICE_EXPORT_JOURNAL,
+            SERVICE_REFRESH_CALENDAR,
+        }:
             schema = vol.Schema({})
         else:
             schema = service_schema

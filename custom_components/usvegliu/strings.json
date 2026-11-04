@@ -245,6 +245,10 @@
       "name": "Appliquer le tableau de bord",
       "description": "Met à jour le tableau locataire et la console propriétaire."
     },
+    "relire_calendrier": {
+      "name": "Relire le calendrier",
+      "description": "Relance un cycle tout de suite : calendrier, vouchers et comptes HA."
+    },
     "reglages_sejour": {
       "name": "Réglages d'un séjour",
       "description": "Remplace, pour une réservation, la liste d'entités et l'accès internet. Vide les listes envoyées. Réinitialiser revient au réglage global.",

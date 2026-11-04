@@ -277,6 +277,7 @@ Tous exigent un administrateur **ou** un compte Utilisateur (droits de contrôle
 | `usvegliu.imprimer_voucher` | Événement d'impression, réponse avec le code. |
 | `usvegliu.exporter_journal` | Chemin du CSV. |
 | `usvegliu.appliquer_tableau` | Réécrit **Séjour** et **Console**. |
+| `usvegliu.relire_calendrier` | Relit le calendrier tout de suite (sinon cycle de 15 min). |
 
 `reservation_key` vide = le séjour affiché par le capteur.
 

@@ -4,6 +4,16 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.2] — 2026-11-04
+
+### Corrigé
+- Web app Maison : la consigne ne rebondit plus d'un ou deux crans après des appuis rapides. L'affichage garde la valeur choisie jusqu'à ce que Home Assistant la confirme.
+
+### Ajouté
+- Console : bouton **Relire le calendrier** (`usvegliu.relire_calendrier`) pour lancer un cycle tout de suite, sans attendre 15 min.
+
+[0.6.2]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.2
+
 ## [0.6.1] — 2026-11-04
 
 ### Corrigé
