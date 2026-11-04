@@ -1,4 +1,4 @@
-"""Config flow for MS Lumio."""
+"""Config flow for Usvegliu."""
 
 from __future__ import annotations
 
@@ -233,8 +233,8 @@ def _clean_options(user_input: Mapping[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in cleaned.items() if key not in _CONNECTION_KEYS}
 
 
-class MsLumioConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for MS Lumio."""
+class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for Usvegliu."""
 
     VERSION = 1
 
@@ -362,7 +362,7 @@ class MsLumioConfigFlow(ConfigFlow, domain=DOMAIN):
                     data_schema=_house_schema(user_input),
                     errors={"base": error},
                 )
-            title = f"MS Lumio ({self._connection[CONF_SITE_NAME]})"
+            title = f"Usvegliu ({self._connection[CONF_SITE_NAME]})"
             return self.async_create_entry(
                 title=title,
                 data=self._connection,
@@ -459,12 +459,12 @@ class MsLumioConfigFlow(ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry: ConfigEntry) -> MsLumioOptionsFlow:
+    def async_get_options_flow(config_entry: ConfigEntry) -> UsvegliuOptionsFlow:
         """Return the options flow."""
-        return MsLumioOptionsFlow()
+        return UsvegliuOptionsFlow()
 
 
-class MsLumioOptionsFlow(OptionsFlow):
+class UsvegliuOptionsFlow(OptionsFlow):
     """Adjust calendar, limits and tenant entities. The API key stays put."""
 
     async def async_step_init(

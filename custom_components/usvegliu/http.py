@@ -41,11 +41,11 @@ def async_setup_http(hass: Any) -> None:
     if callable(register):
         hass.async_create_task(
             register(
-                [StaticPathConfig("/ms_lumio/static", str(_WWW), False)]
+                [StaticPathConfig(f"/{DOMAIN}/static", str(_WWW), False)]
             )
         )
     else:
-        hass.http.register_static_path("/ms_lumio/static", str(_WWW), cache_headers=False)
+        hass.http.register_static_path(f"/{DOMAIN}/static", str(_WWW), cache_headers=False)
     hass.data[_HTTP_FLAG] = True
 
 
@@ -55,7 +55,7 @@ def _runtime(hass: Any) -> Any | None:
 
 
 def _token_from(request: Any) -> str:
-    header = request.headers.get("X-Lumio-Token") or ""
+    header = request.headers.get("X-Usvegliu-Token") or ""
     if header:
         return header.strip()
     auth = request.headers.get("Authorization") or ""
@@ -182,9 +182,9 @@ class GuestPageView(HomeAssistantView):
 
     requires_auth = False
     cors_allowed = True
-    url = "/ms_lumio/s/{token}"
+    url = f"/{DOMAIN}/s/{{token}}"
     extra_urls = ["/s/{token}"]
-    name = "api:ms_lumio:guest_page"
+    name = f"api:{DOMAIN}:guest_page"
 
     async def get(self, request: Any, token: str) -> Any:
         from aiohttp import web
@@ -200,8 +200,8 @@ class GuestStateView(HomeAssistantView):
 
     requires_auth = False
     cors_allowed = True
-    url = "/api/ms_lumio/guest/state"
-    name = "api:ms_lumio:guest_state"
+    url = f"/api/{DOMAIN}/guest/state"
+    name = f"api:{DOMAIN}:guest_state"
 
     async def get(self, request: Any) -> Any:
         hass, runtime, record = await _bound(request)
@@ -236,8 +236,8 @@ class GuestClimateView(HomeAssistantView):
 
     requires_auth = False
     cors_allowed = True
-    url = "/api/ms_lumio/guest/climate"
-    name = "api:ms_lumio:guest_climate"
+    url = f"/api/{DOMAIN}/guest/climate"
+    name = f"api:{DOMAIN}:guest_climate"
 
     async def post(self, request: Any) -> Any:
         hass, runtime, record = await _bound(request)
@@ -309,8 +309,8 @@ class GuestLockView(HomeAssistantView):
 
     requires_auth = False
     cors_allowed = True
-    url = "/api/ms_lumio/guest/lock"
-    name = "api:ms_lumio:guest_lock"
+    url = f"/api/{DOMAIN}/guest/lock"
+    name = f"api:{DOMAIN}:guest_lock"
 
     async def post(self, request: Any) -> Any:
         hass, runtime, record = await _bound(request)

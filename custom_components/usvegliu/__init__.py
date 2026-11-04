@@ -1,4 +1,4 @@
-"""MS Lumio: vouchers UniFi and tenant access driven by a calendar.
+"""Usvegliu: vouchers UniFi and tenant access driven by a calendar.
 
 Home Assistant imports stay inside the setup functions so the pure modules
 (planning, UniFi client, journal) can be unit-tested without Home Assistant.
@@ -33,7 +33,7 @@ _FILTERS_INSTALLED = False
 
 
 async def async_setup_entry(hass: Any, entry: Any) -> bool:
-    """Set up MS Lumio from a config entry."""
+    """Set up Usvegliu from a config entry."""
     import aiohttp
 
     from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
@@ -41,7 +41,7 @@ async def async_setup_entry(hass: Any, entry: Any) -> bool:
     from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
     from .const import UPDATE_INTERVAL
-    from .coordinator import LumioRuntime, build_client, build_journal, store_key
+    from .coordinator import UsvegliuRuntime, build_client, build_journal, store_key
     from .unifi import UnifiAuthError, UnifiError
     _install_log_filter()
     _LOG_FILTER.update([str(entry.data.get(CONF_API_KEY) or "")], owner=entry.entry_id)
@@ -76,7 +76,7 @@ async def async_setup_entry(hass: Any, entry: Any) -> bool:
 
     journal = build_journal(hass, entry)
     store: Store = Store(hass, STORAGE_VERSION, store_key(entry.entry_id), private=True)
-    runtime = LumioRuntime(hass, entry, client, journal, store, _LOG_FILTER)
+    runtime = UsvegliuRuntime(hass, entry, client, journal, store, _LOG_FILTER)
     runtime.session = session
     await runtime.async_load()
 
@@ -256,7 +256,7 @@ def _runtime_for_call(hass: Any) -> Any:
     if not runtimes:
         from homeassistant.exceptions import HomeAssistantError
 
-        raise HomeAssistantError("ms_lumio_not_loaded")
+        raise HomeAssistantError("usvegliu_not_loaded")
     return runtimes[0]
 
 

@@ -9,7 +9,9 @@ from datetime import datetime, timedelta, timezone
 import secrets
 from typing import Any
 
-PREVIEW_KEY = "__ms_lumio_preview__"
+from .const import DOMAIN
+
+PREVIEW_KEY = "__usvegliu_preview__"
 PREVIEW_HOURS = 24
 TOKEN_MIN_LENGTH = 16
 
@@ -160,7 +162,7 @@ def pick_hvac_on(available: list[str], preferred: str | None = None) -> str:
 
 def guest_path(token: str) -> str:
     """Path served by this integration (local HA test URL)."""
-    return f"/ms_lumio/s/{token}"
+    return f"/{DOMAIN}/s/{token}"
 
 
 def public_guest_url(base_url: str | None, token: str) -> str:

@@ -2,7 +2,7 @@
 
 from datetime import datetime, timedelta, timezone
 
-from custom_components.ms_lumio.guest_session import (
+from custom_components.usvegliu.guest_session import (
     PREVIEW_KEY,
     build_preview_record,
     climate_is_on,
@@ -86,4 +86,4 @@ def test_public_url_uses_s_path():
     assert public_guest_url("https://www.usvegliu.fr", "Ab3") == (
         "https://www.usvegliu.fr/s/Ab3"
     )
-    assert public_guest_url("", "Ab3") == "/ms_lumio/s/Ab3"
+    assert public_guest_url("", "Ab3") == "/usvegliu/s/Ab3"

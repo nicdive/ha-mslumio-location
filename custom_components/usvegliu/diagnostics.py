@@ -7,12 +7,12 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
-from .coordinator import LumioRuntime
+from .coordinator import UsvegliuRuntime
 
 
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: object
 ) -> dict[str, Any]:
     """Return redacted diagnostics for a config entry."""
-    runtime: LumioRuntime = hass.data[DOMAIN][entry.entry_id]  # type: ignore[attr-defined]
+    runtime: UsvegliuRuntime = hass.data[DOMAIN][entry.entry_id]  # type: ignore[attr-defined]
     return runtime.diagnostics()

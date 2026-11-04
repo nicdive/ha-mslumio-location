@@ -1,4 +1,4 @@
-# MS Lumio
+# Usvegliu
 
 Intégration Home Assistant (custom component, installable via HACS) pour une maison en location courte durée. Elle relie un **calendrier de réservations** déjà présent dans Home Assistant à :
 
@@ -21,7 +21,7 @@ Vérifié dans la documentation et dans les tests de ce dépôt (31 octobre 2026
 | Arrivée de l'API hotspot | [External Hotspot API](https://help.ui.com/hc/en-us/articles/31228198640023-External-Hotspot-API-for-Authorization-Clients) (Network 9.1, mars 2025) | L'intégration parle à l'API Integration locale, pas à l'ancienne API cookie |
 | Préfixe local | Documentation officielle (l'API tourne sur la console) + montages décrits par les clients UniFi OS (`/proxy/network/integration` puis `/integration`) | Les deux préfixes sont essayés. Le premier qui répond à `GET /v1/info` est retenu |
 | Comptes HA | Code `homeassistant/auth` (branche `dev`) et `helpers/service.py`, `api`, `websocket_api`, `history` | Groupe `system-users` **non utilisé**. `local_only` par défaut, levé seulement si l'option internet du séjour est active. Les services qui visent une entité et `get_states` respectent la politique ; le journal, non (voir plus bas). |
-| Politique d'entités | [Permissions](https://developers.home-assistant.io/docs/auth_permissions/) | Politique `entities.entity_ids` avec `read` + `control`, sans `edit`. Il n'existe pas d'API publique pour créer un groupe : le groupe `ms-lumio-locataires` est écrit dans le magasin d'auth |
+| Politique d'entités | [Permissions](https://developers.home-assistant.io/docs/auth_permissions/) | Politique `entities.entity_ids` avec `read` + `control`, sans `edit`. Il n'existe pas d'API publique pour créer un groupe : le groupe `usvegliu-locataires` est écrit dans le magasin d'auth |
 | Calendrier | `CalendarEvent` (`uid`, fin exclusive des événements journée entière) | N'importe quelle entité `calendar` |
 
 Une référence tierce de l'API v10.3 montrait d'autres champs (`durationMinutes`, `expiresAt`). Elle **contredit** le portail développeur v11. Le code envoie le schéma v11. Si le contrôleur répond HTTP 400, aucun voucher n'est créé : comparer avec l'OpenAPI affichée sur la console (voir plus bas). Ne pas supposer que le schéma v11 est celui d'un Network 9.0 plus ancien.
@@ -47,12 +47,14 @@ Home Assistant 2025.1 ou plus récent.
 
 1. HACS → ⋮ → *Dépôts personnalisés*.
 2. URL `https://github.com/nicdive/ha-mslumio-location`, catégorie **Intégration**.
-3. Télécharger **MS Lumio**, redémarrer Home Assistant.
-4. Paramètres → Appareils et services → Ajouter une intégration → **MS Lumio**.
+3. Télécharger **Usvegliu**, redémarrer Home Assistant.
+4. Paramètres → Appareils et services → Ajouter une intégration → **Usvegliu**.
 
 ### Copie manuelle
 
-Copier `custom_components/ms_lumio` dans `/config/custom_components/ms_lumio`, redémarrer, puis ajouter l'intégration.
+Copier `custom_components/usvegliu` dans `/config/custom_components/usvegliu`, redémarrer, puis ajouter l'intégration.
+
+Si une ancienne copie `custom_components/ms_lumio` est déjà installée : la supprimer, retirer l'entrée **MS Lumio** dans Appareils et services, redémarrer, puis ajouter **Usvegliu**. Le domaine Home Assistant a changé (`usvegliu`) : les services s'appellent maintenant `usvegliu.…`.
 
 ## Clé API sur l'UDM Pro Max
 
@@ -60,7 +62,7 @@ La clé n'est saisie que dans le formulaire d'intégration. Elle est stockée da
 
 1. Ouvrir UniFi Network sur l'UDM (application locale, pas seulement unifi.ui.com).
 2. **Settings → Control Plane → Integrations** (l'intitulé a aussi été « Integrations » dans le menu de l'application ; sur Site Manager : **Settings → API Keys** sur [unifi.ui.com](https://unifi.ui.com)).
-3. Créer une clé. Elle ne s'affiche qu'une fois : la coller dans MS Lumio, pas dans un fichier du dépôt.
+3. Créer une clé. Elle ne s'affiche qu'une fois : la coller dans Usvegliu, pas dans un fichier du dépôt.
 4. Network 9.1 ou plus récent est nécessaire pour l'API hotspot. Le schéma de corps utilisé ici est celui publié pour Network 11.0.97. La page Integrations de la console montre l'OpenAPI **de votre version** : c'est la référence en cas de HTTP 400.
 
 L'intégration parle à l'UDM **sur le LAN** (`https://<ip-udm>/proxy/network/integration/v1/...`). Elle n'utilise pas le connecteur cloud `api.ui.com`.
@@ -111,10 +113,10 @@ Le formulaire demande ensuite :
 | Comptes | Un par séjour | Ou un compte `locataire` dont le mot de passe change quand plus aucun séjour n'est actif, puis au suivant. |
 | Entités et appareils | listes vides | Tout domaine. Seules ces entités (et toutes les entités des appareils choisis) sont lisibles et commandables. Caméra, serrure et alarme exigent une case de confirmation. |
 | Accès internet | désactivé | Pendant le séjour seulement, le compte n'est plus « local uniquement ». Rien n'est ouvert sur le réseau : Home Assistant doit déjà être joignable de l'extérieur. |
-| Journal | `ms_lumio/journal.csv` | Sous le dossier de configuration, ou un dossier média. |
+| Journal | `usvegliu/journal.csv` | Sous le dossier de configuration, ou un dossier média. |
 | Titres ignorés | `not available`, `indisponible`, `fermé`, … | Les blocages Airbnb / Booking ne deviennent pas des vouchers. |
 | Impression | désactivée | Voir plus bas. |
-| URL publique web app | vide | Origine du lien locataire (`https://www.usvegliu.fr`). Vide = URL interne de HA (`/ms_lumio/s/…`). |
+| URL publique web app | vide | Origine du lien locataire (`https://www.usvegliu.fr`). Vide = URL interne de HA (`/usvegliu/s/…`). |
 
 Un second passage avec les mêmes dates ne crée pas un deuxième voucher ni un deuxième compte. Au redémarrage, un voucher qui porte déjà le nom `<locataire> <arrivée>/<départ>` est réutilisé ; un doublon de ce nom est supprimé.
 
@@ -146,21 +148,21 @@ Ne pas :
 
 Le portail captif et les conditions d'utilisation restent ceux d'UniFi. Le voucher n'ouvre pas HA : c'est la règle ci-dessus qui ouvre uniquement le port 8123.
 
-mDNS (`homeassistant.local`) ne traverse en général pas le VLAN invité. Donner aux locataires l'URL en **adresse IP** (`http://192.168.x.x:8123/ms-lumio`), ou un nom DNS servi sur le hotspot.
+mDNS (`homeassistant.local`) ne traverse en général pas le VLAN invité. Donner aux locataires l'URL en **adresse IP** (`http://192.168.x.x:8123/usvegliu-sejour`), ou un nom DNS servi sur le hotspot.
 
 ## Accès Home Assistant des locataires
 
 Pour chaque séjour (mode par défaut) :
 
 - utilisateur **non propriétaire**, **non administrateur** ;
-- un groupe `ms-lumio-<identifiant>` propre à ce compte, pour que deux séjours ne partagent pas la même liste ;
+- un groupe `usvegliu-<identifiant>` propre à ce compte, pour que deux séjours ne partagent pas la même liste ;
 - politique limitée aux entités et aux appareils choisis dans les options (ou à la surcharge du séjour). `read` et `control` seulement, pas `edit`, pas tout un domaine, pas `all` ;
 - **local uniquement**, sauf si l'option d'accès internet est activée pour ce séjour ;
 - au départ, à l'annulation ou au raccourcissement qui sort de la fenêtre : le compte est **supprimé** (mode par séjour) ou **retiré** (compte unique). L'accès internet s'arrête en même temps. Un changement d'options est réappliqué au cycle suivant, y compris aux séjours déjà ouverts.
 
 Le sélecteur d'entités n'a pas de filtre de domaine. Le sélecteur d'appareils autorise toutes les entités de l'appareil, y compris celles ajoutées plus tard. Caméra, serrure et alarme (`camera`, `lock`, `alarm_control_panel`) ne sont pas proposées par défaut. Si vous les cochez, ou si un appareil en contient, l'enregistrement est refusé tant que la case de confirmation n'est pas cochée.
 
-Surcharge par réservation : service `ms_lumio.reglages_sejour`, avec l'attribut `reservation_id` du capteur (ou l'UID du calendrier). Les listes envoyées **remplacent** le réglage global pour ce séjour. `allow_remote` vaut `inherit`, `local` ou `remote`. `reset` revient au global. En mode compte unique, une seule session ne peut pas avoir deux politiques : c'est l'**union** des séjours actifs, et l'internet est ouvert si le global ou l'un de ces séjours l'autorise.
+Surcharge par réservation : service `usvegliu.reglages_sejour`, avec l'attribut `reservation_id` du capteur (ou l'UID du calendrier). Les listes envoyées **remplacent** le réglage global pour ce séjour. `allow_remote` vaut `inherit`, `local` ou `remote`. `reset` revient au global. En mode compte unique, une seule session ne peut pas avoir deux politiques : c'est l'**union** des séjours actifs, et l'internet est ouvert si le global ou l'un de ces séjours l'autorise.
 
 ### Ce que le groupe restreint garantit
 
@@ -190,9 +192,9 @@ Home Assistant doit **déjà** être joignable de l'extérieur, par exemple :
 
 Mesures à avoir en place avant d'activer l'option : mot de passe fort (celui généré ici l'est), `http.ip_ban_enabled` et `login_attempts_threshold` dans la configuration HTTP, MFA du compte propriétaire, et aucun droit d'administration pour le locataire. Le mot de passe n'est affiché qu'une fois, dans la notification administrateur.
 
-Le mot de passe est généré dans Home Assistant (`token_urlsafe`, sous la limite bcrypt de 72 octets). Il n'est pas écrit dans les logs, ni dans le CSV, ni dans le stockage du séjour. Il apparaît dans la notification admin, à noter tout de suite. Au départ, cette notification est retirée. Pour en obtenir un autre : `ms_lumio.regenerer_acces`.
+Le mot de passe est généré dans Home Assistant (`token_urlsafe`, sous la limite bcrypt de 72 octets). Il n'est pas écrit dans les logs, ni dans le CSV, ni dans le stockage du séjour. Il apparaît dans la notification admin, à noter tout de suite. Au départ, cette notification est retirée. Pour en obtenir un autre : `usvegliu.regenerer_acces`.
 
-Tableau de bord : URL `ms-lumio`, titre **Séjour**, visible des non-administrateurs, cartes thermostat / volets / éclairage. L'intégration le crée si la collection Lovelace en mémoire est joignable (commande websocket `lovelace/dashboards/create`). Sinon une réparation l'indique. Créer alors un tableau de stockage d'URL `ms-lumio` (le tiret est obligatoire) et appeler `ms_lumio.appliquer_tableau`.
+Tableau de bord : URL `usvegliu-sejour`, titre **Séjour**, visible des non-administrateurs, cartes thermostat / volets / éclairage. L'intégration le crée si la collection Lovelace en mémoire est joignable (commande websocket `lovelace/dashboards/create`). Sinon une réparation l'indique. Créer alors un tableau de stockage d'URL `usvegliu-sejour` (le tiret est obligatoire) et appeler `usvegliu.appliquer_tableau`.
 
 Mettre les autres tableaux (vue d'ensemble, caméras, serrures) en **réservé aux administrateurs**. L'intégration ne le fait pas toute seule, pour ne pas masquer l'interface de l'owner.
 
@@ -203,19 +205,19 @@ Fichier CSV, une ligne par action (`voucher_cree`, `voucher_adopte`, `voucher_re
 Pas de mot de passe, pas d'identifiant de connexion. Un ancien fichier qui en contenait est réécrit sans ces colonnes à la prochaine ligne. Le code voucher reste dans le CSV : c'est le secret d'accès Wi-Fi à archiver. Le poser sur un partage Synology monté dans Home Assistant, par exemple :
 
 - monter le partage dans `/media/synology` (ou sous `/config/...`) ;
-- régler le chemin sur `/media/synology/ms-lumio/journal.csv`.
+- régler le chemin sur `/media/synology/usvegliu-sejour/journal.csv`.
 
 Un chemin qui sort de la configuration et des dossiers média est refusé (`../etc/passwd` inclus). Aucun identifiant Synology n'est demandé : le montage est celui déjà fait par l'hôte.
 
-L'événement `ms_lumio_journal` reprend la même trace **sans** le code complet (deux derniers caractères seulement) et **sans** le mot de passe, pour ne pas le verser dans le journal et les traces.
+L'événement `usvegliu_journal` reprend la même trace **sans** le code complet (deux derniers caractères seulement) et **sans** le mot de passe, pour ne pas le verser dans le journal et les traces.
 
-Le magasin interne (`.storage/ms_lumio.<entrée>`) est privé. Il sert à ne pas recréer les accès au redémarrage. Le CSV reste la copie à archiver.
+Le magasin interne (`.storage/usvegliu.<entrée>`) est privé. Il sert à ne pas recréer les accès au redémarrage. Le CSV reste la copie à archiver.
 
 ## Notification et impression
 
-À chaque nouveau code ou mot de passe : notification persistante `MS Lumio — <locataire>`. Un service `notify.…` optionnel reçoit le même texte (beaucoup de notifiers recopient le message dans le log : ne l'activer que si ce log reste privé).
+À chaque nouveau code ou mot de passe : notification persistante `Usvegliu — <locataire>`. Un service `notify.…` optionnel reçoit le même texte (beaucoup de notifiers recopient le message dans le log : ne l'activer que si ce log reste privé).
 
-L'impression n'est pas faite par l'intégration. Service `ms_lumio.imprimer_voucher` (ou la case « événement d'impression », désactivée par défaut) : événement `ms_lumio_print_voucher` avec le code en clair, pour une automatisation qui imprime. Cet événement peut apparaître dans les traces d'automatisation. Le laisser désactivé si personne n'imprime.
+L'impression n'est pas faite par l'intégration. Service `usvegliu.imprimer_voucher` (ou la case « événement d'impression », désactivée par défaut) : événement `usvegliu_print_voucher` avec le code en clair, pour une automatisation qui imprime. Cet événement peut apparaître dans les traces d'automatisation. Le laisser désactivé si personne n'imprime.
 
 ## Services
 
@@ -223,13 +225,13 @@ Tous exigent un administrateur lorsque l'appel porte un utilisateur. Une automat
 
 | Service | Effet |
 | --- | --- |
-| `ms_lumio.regenerer_voucher` | Nouveau code pour le séjour (l'ancien est supprimé). |
-| `ms_lumio.regenerer_acces` | Nouveau mot de passe. |
-| `ms_lumio.renvoyer_notification` | Renvoie le code. Le mot de passe n'est pas conservé : il faut le régénérer. |
-| `ms_lumio.reglages_sejour` | Surcharge les entités, les appareils et l'accès internet d'une réservation. |
-| `ms_lumio.imprimer_voucher` | Événement d'impression, réponse avec le code. |
-| `ms_lumio.exporter_journal` | Chemin du CSV. |
-| `ms_lumio.appliquer_tableau` | Réécrit les cartes du tableau `ms-lumio`. |
+| `usvegliu.regenerer_voucher` | Nouveau code pour le séjour (l'ancien est supprimé). |
+| `usvegliu.regenerer_acces` | Nouveau mot de passe. |
+| `usvegliu.renvoyer_notification` | Renvoie le code. Le mot de passe n'est pas conservé : il faut le régénérer. |
+| `usvegliu.reglages_sejour` | Surcharge les entités, les appareils et l'accès internet d'une réservation. |
+| `usvegliu.imprimer_voucher` | Événement d'impression, réponse avec le code. |
+| `usvegliu.exporter_journal` | Chemin du CSV. |
+| `usvegliu.appliquer_tableau` | Réécrit les cartes du tableau `usvegliu-sejour`. |
 
 `reservation_key` vide = le séjour affiché par le capteur.
 
@@ -268,16 +270,16 @@ Le navigateur n'envoie que le jeton. Les commandes sont exécutées côté serve
 ### Configurer pour tester
 
 1. Mettre à jour le custom component (redémarrer Home Assistant).
-2. Options MS Lumio :
+2. Options Usvegliu :
    - **Entités autorisées** : les thermostats MH8 (`climate.…`) et, si vous voulez la porte, `lock.…` de Nuki.
    - Pour Nuki : cocher **J'autorise caméras, serrures ou alarmes**.
    - **URL publique de la web app** (optionnel) : `https://www.usvegliu.fr` si le reverse proxy est déjà en place. Sinon laisser vide.
-3. Outils de développement → Services → `ms_lumio.lien_maison` :
+3. Outils de développement → Services → `usvegliu.lien_maison` :
    - **Lien d'essai (24 h)** = oui, pour tester tout de suite sans événement calendrier ;
    - ou laisser vide pour le séjour en cours / le prochain déjà provisionné.
 4. La réponse du service contient `url` et `path`. Une notification persistante affiche aussi le lien.
 5. Ouvrir l'URL sur le téléphone (même réseau que HA pour un essai local) :
-   - local : `https://ha.mslumio.fr:8123/ms_lumio/s/<token>`
+   - local : `https://ha.mslumio.fr:8123/usvegliu/s/<token>`
    - public, après proxy : `https://www.usvegliu.fr/s/<token>`
 
 Le lien d'essai expire au bout de 24 h. Un séjour calendrier reste valable jusqu'au check-out ; le jeton est créé dès que le séjour est provisionné (y compris les jours avant l'arrivée).
@@ -288,27 +290,27 @@ La web app écoute sur Home Assistant :
 
 | Chemin HA | Usage |
 | --- | --- |
-| `/ms_lumio/s/<token>` | page locataire |
-| `/ms_lumio/static/` | CSS / JS |
-| `/api/ms_lumio/guest/state` | état |
-| `/api/ms_lumio/guest/climate` | commandes thermostat |
-| `/api/ms_lumio/guest/lock` | Nuki |
+| `/usvegliu/s/<token>` | page locataire |
+| `/usvegliu/static/` | CSS / JS |
+| `/api/usvegliu/guest/state` | état |
+| `/api/usvegliu/guest/climate` | commandes thermostat |
+| `/api/usvegliu/guest/lock` | Nuki |
 
 Exemple pour `https://www.usvegliu.fr/s/…` vers HA en local :
 
 ```nginx
 location /s/ {
-    proxy_pass https://127.0.0.1:8123/ms_lumio/s/;
+    proxy_pass https://127.0.0.1:8123/usvegliu/s/;
     proxy_set_header Host $host;
     proxy_ssl_verify off;
 }
-location /ms_lumio/ {
-    proxy_pass https://127.0.0.1:8123/ms_lumio/;
+location /usvegliu/ {
+    proxy_pass https://127.0.0.1:8123/usvegliu/;
     proxy_set_header Host $host;
     proxy_ssl_verify off;
 }
-location /api/ms_lumio/ {
-    proxy_pass https://127.0.0.1:8123/api/ms_lumio/;
+location /api/usvegliu/ {
+    proxy_pass https://127.0.0.1:8123/api/usvegliu/;
     proxy_set_header Host $host;
     proxy_ssl_verify off;
 }
@@ -332,7 +334,7 @@ Les tests couvrent le client UniFi (contrôleur HTTP local, clé dans `X-API-KEY
 - Groupe locataire via une API interne de Home Assistant. À recontrôler après chaque montée de version majeure, y compris le filtrage du journal.
 - Pas d'ACL sur les services sans entité ni, dans le code lu, sur le journal. Le test manuel locataire fait partie de la mise en service.
 - L'accès internet n'est qu'un drapeau `local_only`. Sans Nabu Casa ou un proxy déjà en place, le locataire distant n'arrive pas.
-- Le tableau Lovelace n'est créé que si la collection déjà chargée par HA est retrouvée. Sinon, création manuelle d'URL `ms-lumio`.
+- Le tableau Lovelace n'est créé que si la collection déjà chargée par HA est retrouvée. Sinon, création manuelle d'URL `usvegliu-sejour`.
 - Un seul capteur de code : le séjour en cours, ou à défaut le prochain.
 - Compte partagé : un seul mot de passe pour les séjours qui se chevauchent.
 - Pas de pilotage du portail captif, des conditions d'utilisation, ni du pare-feu UniFi.

@@ -54,6 +54,7 @@ from .const import (
     DEFAULT_MAX_STAY_DAYS,
     DEFAULT_TITLE_BLOCKLIST,
     DEFAULT_UPLOAD_MBPS,
+    DASHBOARD_URL,
     DOMAIN,
     EVENT_JOURNAL,
     EVENT_PRINT,
@@ -92,7 +93,7 @@ def store_key(entry_id: str) -> str:
 class _AccountBridge:
     """Adapter from the engine to the Home Assistant auth manager."""
 
-    def __init__(self, runtime: LumioRuntime) -> None:
+    def __init__(self, runtime: UsvegliuRuntime) -> None:
         self._runtime = runtime
 
     async def async_ensure_user(self, **kwargs: Any) -> dict[str, str | None]:
@@ -106,7 +107,7 @@ class _AccountBridge:
         await async_revoke_user(self._runtime.hass, user_id)
 
 
-class LumioRuntime:
+class UsvegliuRuntime:
     """Runtime state for one config entry."""
 
     def __init__(
@@ -335,19 +336,19 @@ class LumioRuntime:
                 "Le mot de passe n'est pas conservé. "
                 "Régénérez l'accès pour en afficher un nouveau."
             )
-        lines.append("Tableau de bord : /ms-lumio")
+        lines.append(f"Tableau de bord : /{DASHBOARD_URL}")
         stay = self._stays.get(note.get("reservation_id") or "")
         token = (stay or {}).get("guest_token") or note.get("guest_token")
         if token:
             link = self.guest_link({"guest_token": token, "key": note.get("reservation_id")})
             lines.append(f"Lien maison : {link['url']}")
         message = "\n".join(lines)
-        notification_id = f"ms_lumio_{note.get('reservation_id') or 'sejour'}"
+        notification_id = f"{DOMAIN}_{note.get('reservation_id') or 'sejour'}"
         await self.hass.services.async_call(
             "persistent_notification",
             "create",
             {
-                "title": f"MS Lumio — {note.get('guest') or 'Séjour'}",
+                "title": f"Usvegliu — {note.get('guest') or 'Séjour'}",
                 "message": message,
                 "notification_id": notification_id,
             },
@@ -358,7 +359,7 @@ class LumioRuntime:
             await self.hass.services.async_call(
                 "notify",
                 _notify_service_name(str(target)),
-                {"title": f"MS Lumio — {note.get('guest') or 'Séjour'}", "message": message},
+                {"title": f"Usvegliu — {note.get('guest') or 'Séjour'}", "message": message},
                 blocking=False,
             )
 
@@ -368,7 +369,7 @@ class LumioRuntime:
         await self.hass.services.async_call(
             "persistent_notification",
             "dismiss",
-            {"notification_id": f"ms_lumio_{key}"},
+            {"notification_id": f"{DOMAIN}_{key}"},
             blocking=False,
         )
 
@@ -382,7 +383,7 @@ class LumioRuntime:
         try:
             created = await async_ensure_dashboard(self.hass, entities)
         except Exception:  # noqa: BLE001 — dashboard failure must not revoke access
-            _LOGGER.warning("Tableau de bord MS Lumio non mis à jour")
+            _LOGGER.warning("Tableau de bord Usvegliu non mis à jour")
             created = False
         if created:
             self._dashboard_signature = signature
@@ -395,7 +396,7 @@ class LumioRuntime:
                 is_fixable=False,
                 severity=ir.IssueSeverity.WARNING,
                 translation_key="dashboard_missing",
-                translation_placeholders={"url_path": "ms-lumio"},
+                translation_placeholders={"url_path": DASHBOARD_URL},
             )
 
     def _dashboard_entity_ids(self) -> list[str]:
@@ -624,7 +625,7 @@ def _snapshot(
     stays: dict[str, dict[str, Any]],
     shared: dict[str, Any] | None,
     now: object,
-    runtime: LumioRuntime,
+    runtime: UsvegliuRuntime,
 ) -> dict[str, Any]:
     current = select_current(stays, now)  # type: ignore[arg-type]
     if current is None:

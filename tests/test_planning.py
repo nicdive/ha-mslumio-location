@@ -2,7 +2,7 @@
 
 from datetime import date, datetime, timedelta, timezone
 
-from custom_components.ms_lumio.planning import (
+from custom_components.usvegliu.planning import (
     build_plan,
     default_blocklist,
     mbps_to_kbps,

@@ -22,7 +22,7 @@
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
-        "X-Lumio-Token": token,
+        "X-Usvegliu-Token": token,
         ...(options && options.headers),
       },
     }).then(async (res) => {
@@ -326,7 +326,7 @@
   function commandClimate(entityId, body) {
     patchLocal(entityId, body);
     render();
-    api("/api/ms_lumio/guest/climate", {
+    api("/api/usvegliu/guest/climate", {
       method: "POST",
       body: JSON.stringify({ entity_id: entityId, ...body }),
     })
@@ -338,7 +338,7 @@
   }
 
   function commandLock(entityId, action) {
-    api("/api/ms_lumio/guest/lock", {
+    api("/api/usvegliu/guest/lock", {
       method: "POST",
       body: JSON.stringify({ entity_id: entityId, action }),
     })
@@ -367,7 +367,7 @@
       render();
       return;
     }
-    api("/api/ms_lumio/guest/state")
+    api("/api/usvegliu/guest/state")
       .then((payload) => {
         state = payload;
         error = "";

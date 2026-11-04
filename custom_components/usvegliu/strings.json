@@ -64,7 +64,7 @@
           "notify_service": "Ex. notify.mobile_app_telephone. Vide = notification persistante seulement.",
           "journal_path": "Relatif au dossier config, ou absolu sous config/ ou un dossier média (partage Synology).",
           "title_blocklist": "Sous-chaînes, séparées par des virgules, qui ne sont pas des locataires (dates bloquées).",
-          "print_event": "Si activé, le code en clair part sur le bus (ms_lumio_print_voucher) et peut finir dans les traces. Laisser désactivé sauf pour une imprimante.",
+          "print_event": "Si activé, le code en clair part sur le bus (usvegliu_print_voucher) et peut finir dans les traces. Laisser désactivé sauf pour une imprimante.",
           "guest_base_url": "Origine vitrine, sans chemin. Ex. https://www.usvegliu.fr — le lien locataire sera /s/<token>. Vide = URL interne de Home Assistant."
         }
       },
@@ -99,7 +99,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "MS Lumio",
+        "title": "Usvegliu",
         "description": "La clé API ne se modifie pas ici. Utilisez Reconfigurer pour la changer.",
         "data": {
           "calendar_entity": "Calendrier des réservations",
@@ -183,7 +183,7 @@
     },
     "imprimer_voucher": {
       "name": "Imprimer le voucher",
-      "description": "Émet ms_lumio_print_voucher avec le code en clair.",
+      "description": "Émet usvegliu_print_voucher avec le code en clair.",
       "fields": {
         "reservation_key": {
           "name": "Réservation"
@@ -196,7 +196,7 @@
     },
     "appliquer_tableau": {
       "name": "Appliquer le tableau de bord",
-      "description": "Met à jour le tableau de bord ms-lumio."
+      "description": "Met à jour le tableau de bord usvegliu-sejour."
     },
     "reglages_sejour": {
       "name": "Réglages d'un séjour",
@@ -244,7 +244,7 @@
   "issues": {
     "dashboard_missing": {
       "title": "Tableau de bord locataire absent",
-      "description": "L'intégration n'a pas pu créer le tableau « {url_path} ». Créez un tableau de bord de stockage avec l'URL ms-lumio (un tiret est obligatoire), visible des non-administrateurs, puis appelez le service ms_lumio.appliquer_tableau. Les autres tableaux (caméras, serrures) doivent être réservés aux administrateurs."
+      "description": "L'intégration n'a pas pu créer le tableau « {url_path} ». Créez un tableau de bord de stockage avec l'URL usvegliu-sejour (un tiret est obligatoire), visible des non-administrateurs, puis appelez le service usvegliu.appliquer_tableau. Les autres tableaux (caméras, serrures) doivent être réservés aux administrateurs."
     }
   }
 }

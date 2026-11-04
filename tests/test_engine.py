@@ -4,9 +4,9 @@ from datetime import date, datetime, timezone
 
 import pytest
 
-from custom_components.ms_lumio.engine import async_synchronize
-from custom_components.ms_lumio.planning import build_plan, normalize_event
-from custom_components.ms_lumio.unifi import UnifiError
+from custom_components.usvegliu.engine import async_synchronize
+from custom_components.usvegliu.planning import build_plan, normalize_event
+from custom_components.usvegliu.unifi import UnifiError
 
 UTC = timezone.utc
 

@@ -1,11 +1,11 @@
-"""Constants for the MS Lumio integration."""
+"""Constants for the Usvegliu integration."""
 
 from __future__ import annotations
 
 from datetime import timedelta
 from typing import Final
 
-DOMAIN: Final = "ms_lumio"
+DOMAIN: Final = "usvegliu"
 
 # Connection (config entry data — the API key never leaves this store).
 CONF_HOST: Final = "host"
@@ -52,7 +52,7 @@ DEFAULT_DEVICE_LIMIT: Final = 10
 DEFAULT_DOWNLOAD_MBPS: Final = 100
 DEFAULT_UPLOAD_MBPS: Final = 100
 DEFAULT_EXTRA_DAYS: Final = 1
-DEFAULT_JOURNAL_PATH: Final = "ms_lumio/journal.csv"
+DEFAULT_JOURNAL_PATH: Final = "usvegliu/journal.csv"
 DEFAULT_TITLE_BLOCKLIST: Final = (
     "not available,unavailable,blocked,blocked dates,indisponible,fermé,ferme"
 )
@@ -75,23 +75,24 @@ UPDATE_INTERVAL: Final = timedelta(minutes=15)
 
 # Custom auth group. Never system-admin and never system-users
 # (system-users grants every entity).
-TENANT_GROUP_ID: Final = "ms-lumio-locataires"
-TENANT_GROUP_NAME: Final = "MS Lumio locataires"
+GROUP_PREFIX: Final = "usvegliu-"
+TENANT_GROUP_ID: Final = "usvegliu-locataires"
+TENANT_GROUP_NAME: Final = "Usvegliu locataires"
 SHARED_USERNAME: Final = "locataire"
 
 # Not selected by default. The owner can add them only after an explicit
 # confirmation in the options form or the per-stay service.
 SENSITIVE_DOMAINS: Final = frozenset({"camera", "lock", "alarm_control_panel"})
 
-DASHBOARD_URL: Final = "ms-lumio"
+DASHBOARD_URL: Final = "usvegliu-sejour"
 DASHBOARD_TITLE: Final = "Séjour"
 DASHBOARD_ICON: Final = "mdi:home-account"
 
 STORAGE_KEY: Final = f"{DOMAIN}.sejours"
 STORAGE_VERSION: Final = 1
 
-EVENT_JOURNAL: Final = "ms_lumio_journal"
-EVENT_PRINT: Final = "ms_lumio_print_voucher"
+EVENT_JOURNAL: Final = "usvegliu_journal"
+EVENT_PRINT: Final = "usvegliu_print_voucher"
 
 SERVICE_REGENERATE_VOUCHER: Final = "regenerer_voucher"
 SERVICE_REGENERATE_ACCESS: Final = "regenerer_acces"

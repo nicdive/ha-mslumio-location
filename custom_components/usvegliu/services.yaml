@@ -35,7 +35,7 @@ renvoyer_notification:
 imprimer_voucher:
   name: Imprimer le voucher
   description: >
-    Émet l'événement ms_lumio_print_voucher avec le code en clair, pour une
+    Émet l'événement usvegliu_print_voucher avec le code en clair, pour une
     automatisation d'impression. Cet événement peut apparaître dans les traces.
   fields:
     reservation_key:
@@ -49,7 +49,7 @@ exporter_journal:
 
 appliquer_tableau:
   name: Appliquer le tableau de bord
-  description: Recrée ou met à jour le tableau de bord ms-lumio.
+  description: Recrée ou met à jour le tableau de bord usvegliu-sejour.
 
 reglages_sejour:
   name: Réglages d'un séjour

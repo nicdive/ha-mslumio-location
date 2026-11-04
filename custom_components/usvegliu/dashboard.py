@@ -69,7 +69,7 @@ def find_dashboard_collection(hass: object):
 
 
 async def async_ensure_dashboard(hass: object, entity_ids: list[str]) -> bool:
-    """Create ``ms-lumio`` if needed and save its cards. False if Lovelace is unavailable."""
+    """Create ``usvegliu-sejour`` if needed and save its cards. False if Lovelace is unavailable."""
     collection = find_dashboard_collection(hass)
     if collection is None:
         return False
