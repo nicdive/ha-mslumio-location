@@ -362,6 +362,11 @@ def test_guest_stream_is_server_sent_events():
     ).read_text(encoding="utf-8")
     assert "EventSource" in js
     assert "guest/stream" in js
+    assert "modeLabel" in js
+    assert "heating" in js
+    assert "cooling" in js
+    assert "house_mode_entity_id" in text
+    assert "mode_label" in text
 
 
 def test_sources_do_not_embed_a_credential():

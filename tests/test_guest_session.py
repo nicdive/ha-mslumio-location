@@ -5,15 +5,19 @@ from datetime import datetime, timedelta, timezone
 from custom_components.usvegliu.guest_session import (
     PREVIEW_KEY,
     build_preview_record,
+    climate_activity,
     climate_is_on,
     ensure_guest_token,
     find_record_by_token,
+    house_mode_from_state,
+    house_mode_label,
     infer_fan_speed,
     issued_account_view,
     map_fan_modes,
     open_issued_records,
     pick_hvac_on,
     public_guest_url,
+    resolve_house_mode,
     stay_is_open,
 )
 
@@ -128,7 +132,50 @@ def test_hvac_helpers():
     assert climate_is_on("heat") is True
     assert climate_is_on("off") is False
     assert pick_hvac_on(["off", "cool", "heat"], None) == "heat"
+    assert pick_hvac_on(["off", "cool", "heat"], "cool") == "cool"
     assert pick_hvac_on(["off", "fan_only"], "fan_only") == "fan_only"
+
+
+def test_house_mode_from_owner_switch():
+    assert house_mode_from_state("on") == "cool"
+    assert house_mode_from_state("off") == "heat"
+    assert house_mode_from_state("climatisation") == "cool"
+    assert house_mode_from_state("Chauffage") == "heat"
+    assert house_mode_from_state("unavailable") is None
+    assert resolve_house_mode("on") == "cool"
+    assert resolve_house_mode("off") == "heat"
+    assert resolve_house_mode(None, ["heat", "off"]) == "heat"
+    assert resolve_house_mode(None, ["cool"]) == "cool"
+    assert resolve_house_mode(None, ["off"]) == "cool"
+    assert house_mode_label("heat") == "Chauffage"
+    assert house_mode_label("cool") == "Climatisation"
+
+
+def test_climate_activity_follows_setpoint_gap():
+    assert (
+        climate_activity(on=True, house_mode="heat", measured=20, setpoint=22)
+        == "heating"
+    )
+    assert (
+        climate_activity(on=True, house_mode="heat", measured=22, setpoint=20)
+        == "idle"
+    )
+    assert (
+        climate_activity(on=True, house_mode="cool", measured=26, setpoint=23)
+        == "cooling"
+    )
+    assert (
+        climate_activity(on=True, house_mode="cool", measured=22, setpoint=24)
+        == "idle"
+    )
+    assert (
+        climate_activity(on=True, house_mode="heat", measured=21, setpoint=21)
+        == "idle"
+    )
+    assert (
+        climate_activity(on=False, house_mode="heat", measured=18, setpoint=22)
+        == "off"
+    )
 
 
 def test_public_url_uses_s_path():

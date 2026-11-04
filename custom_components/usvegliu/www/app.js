@@ -80,13 +80,37 @@
     </div>`;
   }
 
+  function modeLabel() {
+    if (state && state.mode_label) return state.mode_label;
+    return state && state.mode === "heat" ? "Chauffage" : "Climatisation";
+  }
+
+  function activityOf(room) {
+    const mode = (state && state.mode) || "cool";
+    if (!room || !room.on) return "off";
+    const measured = Number(room.measured);
+    const setpoint = Number(room.setpoint);
+    if (!Number.isFinite(measured) || !Number.isFinite(setpoint)) return "idle";
+    if (mode === "heat" && setpoint > measured) return "heating";
+    if (mode === "cool" && setpoint < measured) return "cooling";
+    return "idle";
+  }
+
+  function activityClass(room) {
+    const activity = activityOf(room);
+    if (activity === "heating") return " heating";
+    if (activity === "cooling") return " cooling";
+    return "";
+  }
+
   function nav() {
     if (!state) return "";
+    const climateTitle = modeLabel();
     const hasLock = state.locks && state.locks.length;
-    if (!hasLock) return `<h1>Climatisation</h1>`;
-    return `<h1>${section === "lock" ? "Entrée" : "Climatisation"}</h1>
+    if (!hasLock) return `<h1>${climateTitle}</h1>`;
+    return `<h1>${section === "lock" ? "Entrée" : climateTitle}</h1>
       <div class="switch">
-        <button type="button" data-act="section" data-id="climate" class="${section === "climate" ? "on" : ""}">Climatisation</button>
+        <button type="button" data-act="section" data-id="climate" class="${section === "climate" ? "on" : ""}">${climateTitle}</button>
         <span class="dot">·</span>
         <button type="button" data-act="section" data-id="lock" class="${section === "lock" ? "on" : ""}">Entrée</button>
       </div>`;
@@ -109,7 +133,7 @@
         <div class="group-label">${escapeHtml(group.name)}</div>
         ${group.rooms
           .map(
-            (room) => `<button class="row" type="button" data-act="open" data-id="${escapeAttr(room.entity_id)}">
+            (room) => `<button class="row${activityClass(room)}" type="button" data-act="open" data-id="${escapeAttr(room.entity_id)}">
             <span>${escapeHtml(room.name)}</span>
             <span class="${room.on ? "" : "off"}">${room.on ? `${formatTemp(room.measured)}°` : "Off"}</span>
           </button>`
@@ -130,7 +154,7 @@
         ${group.rooms
           .map((room) => {
             const dim = room.on ? "" : " muted";
-            return `<div class="adjust">
+            return `<div class="adjust${activityClass(room)}">
               <button class="power ${room.on ? "on" : ""}" type="button" data-act="on" data-id="${escapeAttr(room.entity_id)}" aria-label="${room.on ? "Éteindre" : "Allumer"}">${powerGlyph(14)}</button>
               <button class="name${dim}" type="button" data-act="open" data-id="${escapeAttr(room.entity_id)}">${escapeHtml(room.name)}</button>
               <span class="measured${dim}">${formatTemp(room.measured)}°</span>
@@ -170,12 +194,13 @@
     const setpoint = Number(room.setpoint);
     const progress = Number.isFinite(setpoint) ? (setpoint - min) / (max - min) : 0.5;
     const sweep = 42 + Math.max(0, Math.min(1, progress)) * 118;
-    return `<div class="dial-wrap">
+    const activity = activityClass(room);
+    return `<div class="dial-wrap${activity}">
       <svg width="268" height="268" viewBox="0 0 268 268">
         <circle cx="134" cy="134" r="122" fill="none" stroke="#E4DDD3" stroke-width="1.5"/>
         ${
           room.on
-            ? `<path d="${arcPath(134, 134, 122, -8, sweep)}" fill="none" stroke="#C17F58" stroke-width="7" stroke-linecap="round"/>`
+            ? `<path class="progress" d="${arcPath(134, 134, 122, -8, sweep)}" fill="none" stroke-width="7" stroke-linecap="round"/>`
             : ""
         }
       </svg>
@@ -237,7 +262,7 @@
       if (!room) {
         screen = "home";
       } else {
-        root.innerHTML = `${brand(true)}<h1>Climatisation</h1><div class="room-name">${escapeHtml(room.name)}</div>${dialView(room)}`;
+        root.innerHTML = `${brand(true)}<h1>${modeLabel()}</h1><div class="room-name">${escapeHtml(room.name)}</div>${dialView(room)}`;
         bind();
         return;
       }

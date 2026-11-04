@@ -5,6 +5,8 @@
   --faint: #c8c1b6;
   --ring: #e4ddd3;
   --terra: #c17f58;
+  --heat: #c45c4a;
+  --cool: #5a7c8c;
   --serif: Palatino, "Palatino Linotype", Didot, "Times New Roman", serif;
   --sans: ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", sans-serif;
 }
@@ -121,6 +123,31 @@ h1 {
 
 .row .off {
   color: var(--muted);
+}
+
+.row.heating span:last-child,
+.adjust.heating .measured,
+.dial-wrap.heating .dial-hint {
+  color: var(--heat);
+}
+
+.row.cooling span:last-child,
+.adjust.cooling .measured,
+.dial-wrap.cooling .dial-hint {
+  color: var(--cool);
+}
+
+.dial-wrap .progress {
+  stroke: var(--terra);
+  fill: none;
+}
+
+.dial-wrap.heating .progress {
+  stroke: var(--heat);
+}
+
+.dial-wrap.cooling .progress {
+  stroke: var(--cool);
 }
 
 .adjust {
