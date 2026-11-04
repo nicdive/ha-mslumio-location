@@ -187,7 +187,7 @@
           .map(
             (room) => `<button class="row${activityClass(room)}" type="button" data-act="open" data-id="${escapeAttr(room.entity_id)}">
             <span>${escapeHtml(room.name)}</span>
-            <span class="${room.on ? "" : "off"}">${room.on ? `${formatTemp(room.measured)}°` : "Éteint"}</span>`
+            <span class="${room.on ? "" : "off"}">${room.on ? `${formatTemp(room.measured)}°` : "Éteint"}</span>
           </button>`
           )
           .join("")}
@@ -300,7 +300,7 @@
           .map(
             (light) => `<button class="row" type="button" data-act="light" data-id="${escapeAttr(light.entity_id)}">
             <span>${escapeHtml(light.name)}</span>
-            <span class="${light.on ? "" : "off"}">${light.on ? "Allumée" : "Éteinte"}</span>`
+            <span class="${light.on ? "" : "off"}">${light.on ? "Allumée" : "Éteinte"}</span>
           </button>`
           )
           .join("")}`;
