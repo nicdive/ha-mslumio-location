@@ -8,6 +8,7 @@ through the auth store. This is an internal API: retest it on each major
 Home Assistant upgrade.
 
 Passwords are returned to the caller and are never logged here.
+The tenant's default Lovelace panel is Séjour, not the Home overview.
 """
 
 from __future__ import annotations
@@ -270,6 +271,9 @@ async def async_ensure_user(
         local_only=local_only,
     )
     assert_not_privileged(user)
+    from .dashboard import async_set_tenant_default_panel
+
+    await async_set_tenant_default_panel(hass, user.id)
     return {
         "user_id": user.id,
         "username": username,

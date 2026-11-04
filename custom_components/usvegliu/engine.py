@@ -142,6 +142,8 @@ async def async_synchronize(
     enable_access: bool,
     force_rotate_keys: set[str] | None = None,
     force_voucher_keys: set[str] | None = None,
+    force_revoke_access_keys: set[str] | None = None,
+    force_revoke_voucher_keys: set[str] | None = None,
     print_keys: set[str] | None = None,
     resend_keys: set[str] | None = None,
     emit_print_on_create: bool = False,
@@ -163,6 +165,8 @@ async def async_synchronize(
     result = CycleResult(stays=stays, shared_user=shared)
     rotate_keys = force_rotate_keys or set()
     recreate_keys = force_voucher_keys or set()
+    revoke_access_keys = force_revoke_access_keys or set()
+    revoke_voucher_keys = force_revoke_voucher_keys or set()
     resend = resend_keys or set()
     to_print = set(print_keys or set())
 
@@ -201,36 +205,54 @@ async def async_synchronize(
         record["check_out"] = _iso(item.check_out)
         record["username"] = item.username
         ensure_guest_token(record)
+        if item.key in revoke_voucher_keys:
+            record["voucher_revoked"] = True
+        if item.key in recreate_keys:
+            record.pop("voucher_revoked", None)
+        if item.key in revoke_access_keys:
+            record["access_revoked"] = True
+        if item.key in rotate_keys:
+            record.pop("access_revoked", None)
         if enable_vouchers and vouchers is not None and listed is not None:
-            await _ensure_voucher(
-                record,
-                item,
-                result,
-                vouchers=vouchers,
-                listed=listed,
-                recreate=item.key in recreate_keys,
-                emit_print_on_create=emit_print_on_create,
-            )
+            if record.get("voucher_revoked"):
+                await _clear_voucher(record, result, vouchers=vouchers, listed=listed)
+            else:
+                await _ensure_voucher(
+                    record,
+                    item,
+                    result,
+                    vouchers=vouchers,
+                    listed=listed,
+                    recreate=item.key in recreate_keys,
+                    emit_print_on_create=emit_print_on_create,
+                )
         if enable_access and accounts is not None and plan.shared_username is None:
-            entities, devices, remote = resolve_stay_access(
-                item.key,
-                overrides=overrides,
-                entity_ids=entity_ids or [],
-                device_ids=device_ids or [],
-                allow_remote=allow_remote,
-            )
-            await _ensure_account(
-                record,
-                result,
-                accounts=accounts,
-                display_name=f"Locataire — {item.guest}",
-                rotate=item.key in rotate_keys or not record.get("user_id"),
-                local_only=not remote,
-                entity_ids=entities,
-                device_ids=devices,
-            )
+            if record.get("access_revoked"):
+                await _clear_account(record, result, accounts=accounts)
+            else:
+                entities, devices, remote = resolve_stay_access(
+                    item.key,
+                    overrides=overrides,
+                    entity_ids=entity_ids or [],
+                    device_ids=device_ids or [],
+                    allow_remote=allow_remote,
+                )
+                await _ensure_account(
+                    record,
+                    result,
+                    accounts=accounts,
+                    display_name=f"Locataire — {item.guest}",
+                    rotate=item.key in rotate_keys or not record.get("user_id"),
+                    local_only=not remote,
+                    entity_ids=entities,
+                    device_ids=devices,
+                )
         if item.key in resend or item.key in to_print:
-            _queue_notification(result, record, password="")
+            _queue_notification(
+                result,
+                record,
+                password=str(record.get("password") or ""),
+            )
         if item.key in to_print and record.get("voucher_code"):
             result.print_events.append(
                 {
@@ -246,23 +268,50 @@ async def async_synchronize(
         await _progress(on_progress, stays, result.shared_user)
 
     if enable_access and accounts is not None and plan.shared_username:
-        shared_entities, shared_devices, shared_remote = resolve_shared_access(
-            [item.key for item in plan.ensure],
-            overrides=overrides,
-            entity_ids=entity_ids or [],
-            device_ids=device_ids or [],
-            allow_remote=allow_remote,
-        )
-        await _ensure_shared(
-            result,
-            accounts=accounts,
-            username=plan.shared_username,
-            rotate=bool(rotate_keys) or not (shared or {}).get("user_id"),
-            display_name=_shared_display(plan),
-            local_only=not shared_remote,
-            entity_ids=shared_entities,
-            device_ids=shared_devices,
-        )
+        if revoke_access_keys:
+            current_shared = result.shared_user or shared or {}
+            current_shared = dict(current_shared)
+            current_shared["access_revoked"] = True
+            result.shared_user = current_shared
+        if rotate_keys and result.shared_user:
+            result.shared_user.pop("access_revoked", None)
+        if (result.shared_user or {}).get("access_revoked"):
+            dummy = {
+                "key": "shared",
+                "user_id": (result.shared_user or {}).get("user_id"),
+                "username": (result.shared_user or {}).get("username"),
+            }
+            await _clear_account(dummy, result, accounts=accounts)
+            updated_shared = dict(result.shared_user or {})
+            updated_shared["user_id"] = None
+            updated_shared.pop("password", None)
+            updated_shared["access_revoked"] = True
+            result.shared_user = updated_shared
+        else:
+            shared_entities, shared_devices, shared_remote = resolve_shared_access(
+                [item.key for item in plan.ensure],
+                overrides=overrides,
+                entity_ids=entity_ids or [],
+                device_ids=device_ids or [],
+                allow_remote=allow_remote,
+            )
+            await _ensure_shared(
+                result,
+                accounts=accounts,
+                username=plan.shared_username,
+                rotate=bool(rotate_keys) or not (shared or {}).get("user_id"),
+                display_name=_shared_display(plan),
+                local_only=not shared_remote,
+                entity_ids=shared_entities,
+                device_ids=shared_devices,
+            )
+        shared_pw = str((result.shared_user or {}).get("password") or "")
+        if shared_pw:
+            for item in plan.ensure:
+                if item.key in resend or item.key in to_print:
+                    stay = stays.get(item.key)
+                    if stay is not None:
+                        _queue_notification(result, stay, password=shared_pw)
         await _progress(on_progress, stays, result.shared_user)
     elif enable_access and accounts is not None and shared and shared.get("user_id"):
         if plan.shared_username is None:
@@ -430,7 +479,7 @@ async def _ensure_account(
     device_ids: list[str],
 ) -> None:
     before = record.get("user_id")
-    record.pop("password", None)
+    kept_password = str(record.get("password") or "")
     ensured = await accounts.async_ensure_user(
         username=str(record.get("username") or ""),
         display_name=display_name,
@@ -444,6 +493,7 @@ async def _ensure_account(
     record["username"] = ensured.get("username") or record.get("username")
     new_password = ensured.get("password")
     if new_password:
+        record["password"] = str(new_password)
         result.journal.append(
             _journal_row(
                 "acces_cree" if not before else "acces_regenere",
@@ -454,6 +504,8 @@ async def _ensure_account(
             _event_from("acces_cree" if not before else "acces_regenere", record)
         )
         _queue_notification(result, record, password=str(new_password))
+    elif kept_password:
+        record["password"] = kept_password
 
 
 async def _ensure_shared(
@@ -468,6 +520,7 @@ async def _ensure_shared(
     device_ids: list[str],
 ) -> None:
     current = result.shared_user or {}
+    kept_password = str(current.get("password") or "")
     ensured = await accounts.async_ensure_user(
         username=username,
         display_name=display_name,
@@ -481,8 +534,12 @@ async def _ensure_shared(
         "user_id": ensured.get("user_id"),
         "username": ensured.get("username") or username,
     }
-    result.shared_user = updated
     fresh_password = str(ensured.get("password") or "")
+    if fresh_password:
+        updated["password"] = fresh_password
+    elif kept_password:
+        updated["password"] = kept_password
+    result.shared_user = updated
     for record in result.stays.values():
         record["username"] = updated["username"]
         # The shared account is stored once, on shared_user. A stay record
@@ -505,6 +562,47 @@ async def _ensure_shared(
         result.events.append(_event_from("acces_cree", row_stay))
         for record in result.stays.values():
             _queue_notification(result, record, password=fresh_password)
+
+
+async def _clear_voucher(
+    record: dict[str, Any],
+    result: CycleResult,
+    *,
+    vouchers: VoucherDirectory,
+    listed: list[Any] | None,
+) -> None:
+    """Delete the UniFi voucher but keep the stay."""
+    voucher_id = record.get("voucher_id")
+    if not voucher_id:
+        record["voucher_code"] = None
+        return
+    await vouchers.async_delete_voucher(str(voucher_id))
+    if listed is not None:
+        _drop_listed(listed, str(voucher_id))
+    result.deleted_vouchers += 1
+    result.journal.append(_journal_row("voucher_supprime", record))
+    result.events.append(_event_from("voucher_supprime", record))
+    record["voucher_id"] = None
+    record["voucher_code"] = None
+    record["voucher_name"] = None
+
+
+async def _clear_account(
+    record: dict[str, Any],
+    result: CycleResult,
+    *,
+    accounts: AccountDirectory,
+) -> None:
+    """Delete the HA tenant user but keep the stay."""
+    user_id = record.get("user_id")
+    if not user_id:
+        record.pop("password", None)
+        return
+    await accounts.async_revoke_user(str(user_id))
+    result.journal.append(_journal_row("acces_supprime", record))
+    result.events.append(_event_from("acces_supprime", record))
+    record["user_id"] = None
+    record.pop("password", None)
 
 
 async def _revoke_stay(

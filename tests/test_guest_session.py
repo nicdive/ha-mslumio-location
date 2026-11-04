@@ -9,7 +9,9 @@ from custom_components.usvegliu.guest_session import (
     ensure_guest_token,
     find_record_by_token,
     infer_fan_speed,
+    issued_account_view,
     map_fan_modes,
+    open_issued_records,
     pick_hvac_on,
     public_guest_url,
     stay_is_open,
@@ -54,6 +56,53 @@ def test_find_token_prefers_live_stay_over_expired_preview():
     }
     found = find_record_by_token(stays, preview, token, now)
     assert found is stays["a"]
+
+
+def test_open_issued_records_keeps_active_stays_and_live_preview():
+    now = datetime(2026, 7, 12, tzinfo=UTC)
+    stays = {
+        "past": {
+            "key": "past",
+            "guest": "Fini",
+            "check_in": "2026-06-01T00:00:00+00:00",
+            "check_out": "2026-06-08T00:00:00+00:00",
+            "username": "loc-fini",
+        },
+        "live": {
+            "key": "live",
+            "guest": "Ada",
+            "check_in": "2026-07-10T00:00:00+00:00",
+            "check_out": "2026-07-17T00:00:00+00:00",
+            "username": "loc-ada",
+            "voucher_code": "ABCD12",
+            "guest_token": "T" * 24,
+        },
+        "soon": {
+            "key": "soon",
+            "guest": "Jean",
+            "check_in": "2026-07-20T00:00:00+00:00",
+            "check_out": "2026-07-27T00:00:00+00:00",
+            "username": "loc-jean",
+            "guest_token": "U" * 24,
+        },
+    }
+    preview = build_preview_record(now, hours=24)
+    records = open_issued_records(stays, preview, now)
+    assert [record["key"] for record in records] == ["live", "soon", PREVIEW_KEY]
+    row = issued_account_view(
+        stays["live"],
+        username="loc-ada",
+        password="secret-ada",
+        lien_maison="https://www.usvegliu.fr/s/TTTT",
+        path="/usvegliu/s/TTTT",
+        tableau="/usvegliu-sejour",
+    )
+    assert row["lien_maison"].endswith("/s/TTTT")
+    assert row["username"] == "loc-ada"
+    assert row["password"] == "secret-ada"
+    assert row["voucher_code"] == "ABCD12"
+    assert "mot_de_passe" not in row
+    assert open_issued_records(stays, preview, datetime(2026, 8, 1, tzinfo=UTC)) == []
 
 
 def test_expired_preview_is_rejected():

@@ -68,6 +68,50 @@ def stay_is_open(record: dict[str, Any], now: datetime) -> bool:
     return now < end
 
 
+def open_issued_records(
+    stays: dict[str, dict[str, Any]],
+    preview: dict[str, Any] | None,
+    now: datetime,
+) -> list[dict[str, Any]]:
+    """Provisioned stays still usable, then a live preview, by check-in."""
+    records = [record for record in stays.values() if stay_is_open(record, now)]
+    records.sort(key=lambda record: str(record.get("check_in") or ""))
+    if isinstance(preview, dict) and stay_is_open(preview, now):
+        records.append(preview)
+    return records
+
+
+def issued_account_view(
+    record: dict[str, Any],
+    *,
+    username: str | None,
+    password: str | None,
+    lien_maison: str,
+    path: str,
+    tableau: str,
+) -> dict[str, Any]:
+    """Admin row for one issued stay, including the HA password.
+
+    The guest HTTP API never uses this mapping. Diagnostics and the CSV
+    journal still redact or drop the password.
+    """
+    return {
+        "guest": str(record.get("guest") or ""),
+        "check_in": str(record.get("check_in") or ""),
+        "check_out": str(record.get("check_out") or ""),
+        "username": str(username or record.get("username") or ""),
+        "password": str(password or record.get("password") or "") or None,
+        "voucher_code": str(record.get("voucher_code") or "") or None,
+        "lien_maison": lien_maison,
+        "path": path,
+        "reservation_id": str(record.get("key") or ""),
+        "essai": bool(record.get("preview")),
+        "tableau": tableau,
+        "access_revoked": bool(record.get("access_revoked")),
+        "voucher_revoked": bool(record.get("voucher_revoked")),
+    }
+
+
 def find_record_by_token(
     stays: dict[str, dict[str, Any]],
     preview: dict[str, Any] | None,

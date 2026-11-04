@@ -20,8 +20,12 @@ from custom_components.usvegliu.access import (
 from custom_components.usvegliu.const import SENSITIVE_DOMAINS
 from custom_components.usvegliu.dashboard import (
     async_ensure_dashboard,
+    async_ensure_owner_dashboard,
+    async_set_tenant_default_panel,
     build_dashboard_config,
+    build_owner_dashboard_config,
     dashboard_card_count,
+    frontend_core_with_tenant_panel,
 )
 from custom_components.usvegliu.journal import Journal, JournalPathError, resolve_journal_path
 from custom_components.usvegliu.redact import SecretLogFilter, redact
@@ -122,6 +126,8 @@ def test_diagnostics_and_logs_redact_secrets():
     assert payload["stays"][0]["password"] == "**REDACTED**"
     assert payload["stays"][0]["guest_token"] == "**REDACTED**"
     assert payload["stays"][0]["guest"] == "**REDACTED**"
+    linked = redact({"lien_maison": "https://www.usvegliu.fr/s/stay-token-secret"})
+    assert linked["lien_maison"] == "**REDACTED**"
     assert payload["stays"][0]["voucher_id"] == "voucher-1"
     assert payload["empty"]["api_key"] == ""
 
@@ -214,6 +220,100 @@ def test_dashboard_only_lists_selected_entities():
     assert dashboard_card_count(config) == 5
 
 
+def test_tenant_frontend_core_opens_sejour():
+    core = frontend_core_with_tenant_panel({"language": "fr"})
+    assert core["default_panel"] == "usvegliu-sejour"
+    assert core["language"] == "fr"
+    assert frontend_core_with_tenant_panel(None)["default_panel"] == "usvegliu-sejour"
+    access = (
+        Path(__file__).resolve().parents[1]
+        / "custom_components"
+        / "usvegliu"
+        / "access.py"
+    ).read_text(encoding="utf-8")
+    assert "async_set_tenant_default_panel" in access
+
+
+@pytest.mark.asyncio
+async def test_tenant_default_panel_is_written_to_frontend_store():
+    saved: dict = {}
+
+    class _Store:
+        data: dict = {"core": {"language": "fr"}}
+
+        async def async_set_item(self, key, value):
+            saved[key] = value
+            self.data = {**self.data, key: value}
+
+    store = _Store()
+
+    async def _load_store(hass, user_id):
+        assert user_id == "user-1"
+        return store
+
+    await async_set_tenant_default_panel(object(), None, load_store=_load_store)
+    assert saved == {}
+    await async_set_tenant_default_panel(object(), "user-1", load_store=_load_store)
+    assert saved["core"]["default_panel"] == "usvegliu-sejour"
+    assert saved["core"]["language"] == "fr"
+
+
+def test_owner_console_dashboard_has_live_credentials_and_actions():
+    stays = [
+        {
+            "guest": "Ada",
+            "reservation_id": "stay-ada",
+            "password": "secret-should-not-be-baked",
+            "lien_maison": "https://www.usvegliu.fr/s/TOKEN",
+        },
+        {
+            "guest": "Essai",
+            "reservation_id": "__usvegliu_preview__",
+            "essai": True,
+        },
+    ]
+    config = build_owner_dashboard_config(
+        stays, sejours_entity_id="sensor.usvegliu_sejours"
+    )
+    dumped = str(config)
+    assert config["views"][0]["type"] == "sections"
+    assert config["views"][0]["path"] == "console"
+    assert "Nouveau mot de passe" in dumped
+    assert "Révoquer le compte" in dumped
+    assert "Nouveau code Wi-Fi" in dumped
+    assert "Révoquer le Wi-Fi" in dumped
+    assert "usvegliu.regenerer_acces" in dumped
+    assert "usvegliu.revoquer_acces" in dumped
+    assert "usvegliu.regenerer_voucher" in dumped
+    assert "usvegliu.revoquer_voucher" in dumped
+    assert "stay-ada" in dumped
+    assert "secret-should-not-be-baked" not in dumped
+    assert "TOKEN" not in dumped
+    assert "state_attr('sensor.usvegliu_sejours', 'stays')" in dumped
+    assert dumped.count("Nouveau mot de passe") == 1
+
+
+@pytest.mark.asyncio
+async def test_owner_dashboard_saves_when_lovelace_already_has_the_path():
+    saved: list[dict] = []
+
+    class _Dash:
+        async def async_save(self, config):
+            saved.append(config)
+
+    class _Hass:
+        data = {"lovelace": {"dashboards": {"usvegliu-proprietaire": _Dash()}}}
+
+    result = await async_ensure_owner_dashboard(
+        _Hass(),
+        [{"guest": "Ada", "reservation_id": "stay-ada"}],
+        sejours_entity_id="sensor.usvegliu_sejours",
+    )
+    assert result["ok"] is True
+    assert result["url"] == "usvegliu-proprietaire"
+    assert saved and saved[0]["views"][0]["path"] == "console"
+
+
 @pytest.mark.asyncio
 async def test_dashboard_saves_when_lovelace_already_has_the_path():
     saved: list[dict] = []
@@ -230,6 +330,18 @@ async def test_dashboard_saves_when_lovelace_already_has_the_path():
     assert result["reason"] == "saved"
     assert result["cards"] == 2
     assert saved and saved[0]["views"][0]["sections"][0]["cards"]
+
+
+def test_admin_roster_sensor_lists_stays_and_passwords():
+    root = Path(__file__).resolve().parents[1] / "custom_components" / "usvegliu"
+    sensor = (root / "sensor.py").read_text(encoding="utf-8")
+    http = (root / "http.py").read_text(encoding="utf-8")
+    assert "IssuedAccountsSensor" in sensor
+    assert 'translation_key = "sejours"' in sensor
+    assert "lien_maison" in sensor
+    assert '"password": data.get("password")' in sensor
+    assert "_unrecorded_attributes" in sensor
+    assert "password" not in http
 
 
 def test_guest_stream_is_server_sent_events():

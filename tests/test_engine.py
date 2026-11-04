@@ -125,6 +125,9 @@ async def test_second_cycle_does_not_duplicate_voucher_or_account():
     assert "pw-" not in str(first.journal)
     assert "pw-" not in str(second.journal)
     assert first.notifications[0]["password"].startswith("pw-")
+    key = plan.ensure[0].key
+    assert first.stays[key]["password"] == "pw-1"
+    assert second.stays[key]["password"] == "pw-1"
 
 
 @pytest.mark.asyncio
@@ -342,3 +345,109 @@ async def test_remote_access_and_entity_override_reach_the_account():
     assert accounts.calls[-1]["entity_ids"] == ["cover.x"]
     assert accounts.calls[-1]["device_ids"] == []
     assert "pw-" not in str(second.journal)
+
+
+@pytest.mark.asyncio
+async def test_revoke_access_holds_until_regenerate():
+    accounts = FakeAccounts()
+    plan = _plan(datetime(2026, 7, 8, tzinfo=UTC))
+    key = plan.ensure[0].key
+    created = await async_synchronize(
+        plan,
+        {},
+        None,
+        vouchers=None,
+        accounts=accounts,
+        enable_vouchers=False,
+        enable_access=True,
+    )
+    assert created.stays[key]["password"] == "pw-1"
+    revoked = await async_synchronize(
+        plan,
+        created.stays,
+        None,
+        vouchers=None,
+        accounts=accounts,
+        enable_vouchers=False,
+        enable_access=True,
+        force_revoke_access_keys={key},
+    )
+    assert revoked.stays[key].get("access_revoked") is True
+    assert revoked.stays[key].get("user_id") is None
+    assert revoked.stays[key].get("password") is None
+    assert accounts.revoked == ["user-1"]
+    held = await async_synchronize(
+        plan,
+        revoked.stays,
+        None,
+        vouchers=None,
+        accounts=accounts,
+        enable_vouchers=False,
+        enable_access=True,
+    )
+    assert held.stays[key].get("access_revoked") is True
+    assert accounts.created == 1
+    restored = await async_synchronize(
+        plan,
+        held.stays,
+        None,
+        vouchers=None,
+        accounts=accounts,
+        enable_vouchers=False,
+        enable_access=True,
+        force_rotate_keys={key},
+    )
+    assert restored.stays[key].get("access_revoked") is None
+    assert restored.stays[key]["password"] == "pw-2"
+
+
+@pytest.mark.asyncio
+async def test_revoke_voucher_holds_until_regenerate():
+    unifi = FakeUnifi()
+    plan = _plan(datetime(2026, 7, 8, tzinfo=UTC))
+    key = plan.ensure[0].key
+    created = await async_synchronize(
+        plan,
+        {},
+        None,
+        vouchers=unifi,
+        accounts=None,
+        enable_vouchers=True,
+        enable_access=False,
+    )
+    revoked = await async_synchronize(
+        plan,
+        created.stays,
+        None,
+        vouchers=unifi,
+        accounts=None,
+        enable_vouchers=True,
+        enable_access=False,
+        force_revoke_voucher_keys={key},
+    )
+    assert revoked.stays[key].get("voucher_revoked") is True
+    assert revoked.stays[key].get("voucher_code") is None
+    assert unifi.deleted == ["id-1"]
+    held = await async_synchronize(
+        plan,
+        revoked.stays,
+        None,
+        vouchers=unifi,
+        accounts=None,
+        enable_vouchers=True,
+        enable_access=False,
+    )
+    assert held.stays[key].get("voucher_revoked") is True
+    assert unifi.created == 1
+    restored = await async_synchronize(
+        plan,
+        held.stays,
+        None,
+        vouchers=unifi,
+        accounts=None,
+        enable_vouchers=True,
+        enable_access=False,
+        force_voucher_keys={key},
+    )
+    assert restored.stays[key].get("voucher_revoked") is None
+    assert restored.stays[key]["voucher_code"] == "CODE2"

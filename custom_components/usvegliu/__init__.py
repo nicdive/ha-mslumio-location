@@ -21,6 +21,8 @@ from .const import (
     SERVICE_REGENERATE_ACCESS,
     SERVICE_REGENERATE_VOUCHER,
     SERVICE_RESEND,
+    SERVICE_REVOKE_ACCESS,
+    SERVICE_REVOKE_VOUCHER,
     SERVICE_STAY_SETTINGS,
     SERVICE_GUEST_LINK,
     STORAGE_VERSION,
@@ -130,7 +132,9 @@ async def async_unload_entry(hass: Any, entry: Any) -> bool:
         if not hass.data[DOMAIN]:
             for service in (
                 SERVICE_REGENERATE_VOUCHER,
+                SERVICE_REVOKE_VOUCHER,
                 SERVICE_REGENERATE_ACCESS,
+                SERVICE_REVOKE_ACCESS,
                 SERVICE_RESEND,
                 SERVICE_PRINT,
                 SERVICE_EXPORT_JOURNAL,
@@ -226,7 +230,9 @@ def _async_register_services(hass: Any) -> None:
 
     for service, response in (
         (SERVICE_REGENERATE_VOUCHER, SupportsResponse.OPTIONAL),
+        (SERVICE_REVOKE_VOUCHER, SupportsResponse.OPTIONAL),
         (SERVICE_REGENERATE_ACCESS, SupportsResponse.OPTIONAL),
+        (SERVICE_REVOKE_ACCESS, SupportsResponse.OPTIONAL),
         (SERVICE_RESEND, SupportsResponse.OPTIONAL),
         (SERVICE_PRINT, SupportsResponse.OPTIONAL),
         (SERVICE_EXPORT_JOURNAL, SupportsResponse.OPTIONAL),
