@@ -218,6 +218,16 @@ Tableau propriétaire : URL `usvegliu-proprietaire`, titre **Console**, **réser
 
 L'intégration crée les deux tableaux si la collection Lovelace est joignable. Sinon : créer les URL `usvegliu-sejour` et `usvegliu-proprietaire` (tiret obligatoire) puis `usvegliu.appliquer_tableau`.
 
+### Afficher la console propriétaire
+
+Ce n'est **pas** le tableau **Séjour** (locataire) ni un tableau créé à la main sous un autre nom. Dans Home Assistant 2026, le bouton **+** des tableaux de bord ne reprend pas le titre comme URL : « Location » devient `dashboard-location`, donc l'intégration n'y écrit rien.
+
+1. Mettre à jour Usvegliu (0.5.7+), redémarrer Home Assistant.
+2. Outils de développement → Actions → `usvegliu.appliquer_tableau` → Exécuter.
+3. Dans la barre latérale, ouvrir **Console**, ou l'URL `/usvegliu-proprietaire`.
+
+Si **Console** n'apparaît toujours pas : Paramètres → Tableaux de bord → **+** → nouveau tableau vide. Titre `Usvegliu propriétaire` (Home Assistant génère alors l'URL `usvegliu-proprietaire`). Réserver aux administrateurs, afficher dans la barre. Puis rappeler `usvegliu.appliquer_tableau`. Un tableau **Location** vide peut être supprimé.
+
 Mettre les autres tableaux (vue d'ensemble, caméras, serrures) en **réservé aux administrateurs**. L'intégration ne le fait pas toute seule, pour ne pas masquer l'interface de l'owner.
 
 ### Écran « Chargement des données… » après le mot de passe

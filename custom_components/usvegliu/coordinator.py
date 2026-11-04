@@ -465,7 +465,6 @@ class UsvegliuRuntime:
             owner = {"ok": False, "reason": "exception", "url": OWNER_DASHBOARD_URL}
         self._last_dashboard = {**outcome, "owner": owner}
         if outcome.get("ok"):
-            self._dashboard_signature = signature
             ir.async_delete_issue(self.hass, DOMAIN, "dashboard_missing")
         else:
             ir.async_create_issue(
@@ -477,6 +476,20 @@ class UsvegliuRuntime:
                 translation_key="dashboard_missing",
                 translation_placeholders={"url_path": DASHBOARD_URL},
             )
+        if owner.get("ok"):
+            ir.async_delete_issue(self.hass, DOMAIN, "owner_dashboard_missing")
+        else:
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                "owner_dashboard_missing",
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key="owner_dashboard_missing",
+                translation_placeholders={"url_path": OWNER_DASHBOARD_URL},
+            )
+        if outcome.get("ok") and owner.get("ok"):
+            self._dashboard_signature = signature
 
     def _dashboard_entity_ids(self) -> list[str]:
         """Entities to show, plus every entity of a selected device."""

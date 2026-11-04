@@ -337,31 +337,179 @@ def _dashboard_map(hass: object) -> dict[Any, Any]:
     return {}
 
 
-def find_dashboard_collection(hass: object):
-    """Return the live Lovelace dashboard collection, or None."""
+def _dashboard_url_path(dashboard: object) -> str | None:
+    path = getattr(dashboard, "url_path", None)
+    if isinstance(path, str) and path:
+        return path
+    config = getattr(dashboard, "config", None)
+    if isinstance(config, dict):
+        value = config.get("url_path")
+        if isinstance(value, str) and value:
+            return value
+    return None
+
+
+def _find_dashboard(dashboards: dict[Any, Any], url: str) -> Any | None:
+    """Match a live Lovelace dashboard by URL, even if the dict key differs."""
+    found = dashboards.get(url)
+    if found is not None:
+        return found
+    for key, dashboard in dashboards.items():
+        if key == url or str(key) == url:
+            return dashboard
+        if _dashboard_url_path(dashboard) == url:
+            return dashboard
+    return None
+
+
+def _websocket_command_maps(hass: object) -> list[dict[Any, Any]]:
     data = getattr(hass, "data", None)
     if data is None:
-        return None
-    handlers = None
+        return []
+    maps: list[dict[Any, Any]] = []
+    seen: set[int] = set()
+
+    def _add(candidate: object) -> None:
+        if not isinstance(candidate, dict) or id(candidate) in seen:
+            return
+        if not any(str(key).startswith("lovelace/dashboards") for key in candidate):
+            return
+        seen.add(id(candidate))
+        maps.append(candidate)
+
     getter = getattr(data, "get", None)
-    if callable(getter):
-        handlers = getter("websocket_api")
-    if isinstance(handlers, dict):
-        entry = handlers.get("lovelace/dashboards/create")
-        owner = None
-        if isinstance(entry, tuple) and entry:
-            owner = getattr(entry[0], "__self__", None)
-        elif entry is not None:
-            owner = getattr(entry, "__self__", None)
-        collection = getattr(owner, "storage_collection", None)
-        if collection is not None:
-            return collection
+    raw = getter("websocket_api") if callable(getter) else None
+    try:
+        from homeassistant.components.websocket_api import DOMAIN as WS_DOMAIN
+
+        keyed = getter(WS_DOMAIN) if callable(getter) else None
+        _add(keyed)
+        _add(getattr(keyed, "commands", None))
+        _add(getattr(keyed, "handlers", None))
+    except Exception:  # noqa: BLE001 — HA is optional in unit tests
+        pass
+    _add(raw)
+    _add(getattr(raw, "commands", None))
+    _add(getattr(raw, "handlers", None))
+    values = getattr(data, "values", None)
+    if callable(values):
+        for value in list(values()):
+            _add(value)
+            _add(getattr(value, "commands", None))
+            _add(getattr(value, "handlers", None))
+    return maps
+
+
+def _bound_owner(entry: object) -> Any:
+    fn: Any = entry[0] if isinstance(entry, (tuple, list)) and entry else entry
+    nested = getattr(fn, "func", None)
+    if callable(nested):
+        fn = nested
+    return getattr(fn, "__self__", None)
+
+
+def _is_dashboard_collection(obj: object) -> bool:
+    if obj is None or not callable(getattr(obj, "async_create_item", None)):
+        return False
+    name = type(obj).__name__
+    if name == "DashboardsCollection":
+        return True
+    items_fn = getattr(obj, "async_items", None)
+    if not callable(items_fn):
+        return False
+    try:
+        items = list(items_fn() or [])
+    except Exception:  # noqa: BLE001
+        return "dashboard" in name.lower()
+    return any(isinstance(item, dict) and "url_path" in item for item in items) or (
+        "dashboard" in name.lower()
+    )
+
+
+def find_dashboard_collection(hass: object):
+    """Return the live Lovelace dashboard collection, or None."""
+    for commands in _websocket_command_maps(hass):
+        for key, entry in commands.items():
+            if not str(key).startswith("lovelace/dashboards"):
+                continue
+            owner = _bound_owner(entry)
+            collection = getattr(owner, "storage_collection", None)
+            if callable(getattr(collection, "async_create_item", None)):
+                return collection
+            if callable(getattr(owner, "async_create_item", None)):
+                return owner
     bundle = _lovelace_bundle(hass)
     for name in ("dashboards_collection", "storage_collection"):
         collection = getattr(bundle, name, None)
-        if collection is not None:
+        if _is_dashboard_collection(collection):
             return collection
+    data = getattr(hass, "data", None)
+    values = getattr(data, "values", None) if data is not None else None
+    if callable(values):
+        for value in list(values()):
+            if _is_dashboard_collection(value):
+                return value
+            nested = getattr(value, "storage_collection", None)
+            if _is_dashboard_collection(nested):
+                return nested
     return None
+
+
+def _collection_item_for_url(collection: object, url: str) -> dict[str, Any] | None:
+    items_fn = getattr(collection, "async_items", None)
+    for item in items_fn() if callable(items_fn) else []:
+        if isinstance(item, dict) and item.get("url_path") == url:
+            return item
+    return None
+
+
+async def _async_attach_storage_dashboard(
+    hass: object,
+    *,
+    url: str,
+    title: str,
+    icon: str,
+    require_admin: bool,
+) -> Any | None:
+    """Register a storage dashboard when the Lovelace collection is unreachable."""
+    dashboards = _dashboard_map(hass)
+    found = _find_dashboard(dashboards, url)
+    if found is not None:
+        return found
+    try:
+        from homeassistant.components import frontend
+        from homeassistant.components.lovelace.dashboard import LovelaceStorage
+    except Exception:  # noqa: BLE001 — unit tests have no Home Assistant
+        return None
+    item = {
+        "id": url,
+        "url_path": url,
+        "title": title,
+        "icon": icon,
+        "require_admin": require_admin,
+        "show_in_sidebar": True,
+        "mode": "storage",
+    }
+    try:
+        storage = LovelaceStorage(hass, item)
+    except Exception:  # noqa: BLE001
+        _LOGGER.debug("LovelaceStorage indisponible pour %s", url, exc_info=True)
+        return None
+    dashboards[url] = storage
+    try:
+        frontend.async_register_built_in_panel(
+            hass,
+            "lovelace",
+            frontend_url_path=url,
+            require_admin=require_admin,
+            show_in_sidebar=True,
+            sidebar_title=title,
+            sidebar_icon=icon,
+            config={"mode": "storage"},
+        )
+    except Exception:  # noqa: BLE001 — panel may already exist
+        _LOGGER.debug("Panneau %s non enregistré", url, exc_info=True)
+    return storage
 
 
 async def _async_save_named_dashboard(
@@ -376,16 +524,11 @@ async def _async_save_named_dashboard(
     """Create a Lovelace storage dashboard if needed and save its cards."""
     cards = dashboard_card_count(config)
     dashboards = _dashboard_map(hass)
-    dashboard = dashboards.get(url)
+    dashboard = _find_dashboard(dashboards, url)
     collection = find_dashboard_collection(hass)
 
     if dashboard is None and collection is not None:
-        existing = None
-        items = getattr(collection, "async_items", None)
-        for item in items() if callable(items) else []:
-            if item.get("url_path") == url:
-                existing = item
-                break
+        existing = _collection_item_for_url(collection, url)
         if existing is None:
             try:
                 await collection.async_create_item(
@@ -415,10 +558,24 @@ async def _async_save_named_dashboard(
             except Exception:  # noqa: BLE001
                 _LOGGER.debug("Mise à jour du tableau %s ignorée", url, exc_info=True)
         dashboards = _dashboard_map(hass)
-        dashboard = dashboards.get(url)
+        dashboard = _find_dashboard(dashboards, url)
 
     if dashboard is None:
-        _LOGGER.warning("Tableau %s introuvable : cartes non écrites", url)
+        dashboard = await _async_attach_storage_dashboard(
+            hass,
+            url=url,
+            title=title,
+            icon=icon,
+            require_admin=require_admin,
+        )
+
+    if dashboard is None:
+        known = ", ".join(str(key) for key in _dashboard_map(hass) if key) or "aucun"
+        _LOGGER.warning(
+            "Tableau %s introuvable : cartes non écrites (présents : %s)",
+            url,
+            known,
+        )
         return {"ok": False, "url": url, "cards": cards, "reason": "dashboard_missing"}
 
     saver = getattr(dashboard, "async_save", None)

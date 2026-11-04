@@ -25,6 +25,7 @@ from custom_components.usvegliu.dashboard import (
     build_dashboard_config,
     build_owner_dashboard_config,
     dashboard_card_count,
+    find_dashboard_collection,
     frontend_core_with_tenant_panel,
 )
 from custom_components.usvegliu.journal import Journal, JournalPathError, resolve_journal_path
@@ -312,6 +313,110 @@ async def test_owner_dashboard_saves_when_lovelace_already_has_the_path():
     assert result["ok"] is True
     assert result["url"] == "usvegliu-proprietaire"
     assert saved and saved[0]["views"][0]["path"] == "console"
+
+
+@pytest.mark.asyncio
+async def test_owner_dashboard_saves_when_url_path_is_on_the_object():
+    saved: list[dict] = []
+
+    class _Dash:
+        url_path = "usvegliu-proprietaire"
+        config = {"url_path": "usvegliu-proprietaire", "id": "dashboard_abc"}
+
+        async def async_save(self, config):
+            saved.append(config)
+
+    class _Hass:
+        data = {"lovelace": {"dashboards": {None: object(), "dashboard_abc": _Dash()}}}
+
+    result = await async_ensure_owner_dashboard(
+        _Hass(),
+        [{"guest": "Ada", "reservation_id": "stay-ada"}],
+        sejours_entity_id="sensor.usvegliu_sejours",
+    )
+    assert result["ok"] is True
+    assert saved
+
+
+@pytest.mark.asyncio
+async def test_owner_dashboard_is_created_from_websocket_collection():
+    saved: list[dict] = []
+
+    class _Dash:
+        async def async_save(self, config):
+            saved.append(config)
+
+    dashboards: dict[str, object] = {}
+
+    class _Collection:
+        def __init__(self):
+            self.items: list[dict] = []
+
+        def async_items(self):
+            return list(self.items)
+
+        async def async_create_item(self, data):
+            item = {**data, "id": data["url_path"]}
+            self.items.append(item)
+            dashboards[data["url_path"]] = _Dash()
+            return item
+
+    class _Websocket:
+        def __init__(self, collection):
+            self.storage_collection = collection
+
+        def ws_create_item(self):
+            return None
+
+    collection = _Collection()
+    websocket = _Websocket(collection)
+
+    class _Hass:
+        data = {
+            "lovelace": {"dashboards": dashboards},
+            "websocket_api": {
+                "lovelace/dashboards/create": (websocket.ws_create_item, {})
+            },
+        }
+
+    result = await async_ensure_owner_dashboard(
+        _Hass(),
+        [{"guest": "Ada", "reservation_id": "stay-ada"}],
+        sejours_entity_id="sensor.usvegliu_sejours",
+    )
+    assert result["ok"] is True
+    assert collection.items[0]["url_path"] == "usvegliu-proprietaire"
+    assert collection.items[0]["require_admin"] is True
+    assert saved
+
+
+def test_dashboard_collection_is_found_on_websocket_commands_object():
+    class _Collection:
+        def async_items(self):
+            return [{"url_path": "usvegliu-sejour"}]
+
+        async def async_create_item(self, data):
+            return data
+
+    class _Websocket:
+        def __init__(self, collection):
+            self.storage_collection = collection
+
+        def ws_create_item(self):
+            return None
+
+    class _Commands:
+        def __init__(self, websocket):
+            self.commands = {
+                "lovelace/dashboards/create": (websocket.ws_create_item, {})
+            }
+
+    collection = _Collection()
+
+    class _Hass:
+        data = {"websocket_api": _Commands(_Websocket(collection))}
+
+    assert find_dashboard_collection(_Hass()) is collection
 
 
 @pytest.mark.asyncio
