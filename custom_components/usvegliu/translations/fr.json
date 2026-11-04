@@ -172,6 +172,9 @@
       },
       "sejours": {
         "name": "Séjours actifs"
+      },
+      "reglages": {
+        "name": "Réglages"
       }
     }
   },
@@ -289,6 +292,10 @@
     "dashboard_missing": {
       "title": "Tableau de bord locataire absent",
       "description": "L'intégration n'a pas pu créer le tableau « {url_path} ». Créez un tableau de bord de stockage avec l'URL usvegliu-sejour (un tiret est obligatoire), visible des non-administrateurs, puis appelez le service usvegliu.appliquer_tableau. Les autres tableaux (caméras, serrures) doivent être réservés aux administrateurs."
+    },
+    "owner_dashboard_missing": {
+      "title": "Console propriétaire absente",
+      "description": "La console n'est pas le tableau « Location » ni « Séjour ». Dans Paramètres → Tableaux de bord, bouton +, Nouveau tableau vide. Titre : Usvegliu propriétaire (Home Assistant génère alors l'URL {url_path}). Ne pas réserver aux administrateurs : les comptes Utilisateur doivent la voir. Visible dans la barre latérale. Ensuite Outils de développement → Actions → usvegliu.appliquer_tableau. Ouvrez /{url_path} ou l'entrée Console dans la barre."
     }
   }
 }

@@ -6,6 +6,7 @@ Pure Python: no Home Assistant import, so the mapping can be unit-tested.
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import re
 import secrets
 from typing import Any
 
@@ -89,6 +90,18 @@ def open_issued_records(
     return records
 
 
+def credential_attribute_key(reservation_id: str) -> str:
+    """Top-level sensor attribute Lovelace can display without the name ``password``.
+
+    The Home Assistant frontend hides attributes named ``password`` in
+    markdown templates and more-info. ``compte_<id>`` stays visible.
+    """
+    safe = re.sub(r"[^0-9A-Za-z]+", "_", str(reservation_id or "")).strip("_")
+    if not safe:
+        safe = "sejour"
+    return f"compte_{safe[:48]}"
+
+
 def issued_account_view(
     record: dict[str, Any],
     *,
@@ -103,12 +116,16 @@ def issued_account_view(
     The guest HTTP API never uses this mapping. Diagnostics and the CSV
     journal still redact or drop the password.
     """
+    secret = str(password or record.get("password") or "") or None
     return {
         "guest": str(record.get("guest") or ""),
         "check_in": str(record.get("check_in") or ""),
         "check_out": str(record.get("check_out") or ""),
         "username": str(username or record.get("username") or ""),
-        "password": str(password or record.get("password") or "") or None,
+        "password": secret,
+        # Lovelace / the frontend hide the attribute name ``password``.
+        "mot_de_passe": secret,
+        "code_compte": secret,
         "voucher_code": str(record.get("voucher_code") or "") or None,
         "lien_maison": lien_maison,
         "path": path,

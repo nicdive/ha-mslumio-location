@@ -10,6 +10,7 @@ from custom_components.usvegliu.guest_session import (
     climate_activity,
     climate_is_on,
     cover_is_open,
+    credential_attribute_key,
     ensure_guest_token,
     find_record_by_token,
     house_mode_from_state,
@@ -107,8 +108,11 @@ def test_open_issued_records_keeps_active_stays_and_live_preview():
     assert row["lien_maison"].endswith("/s/TTTT")
     assert row["username"] == "loc-ada"
     assert row["password"] == "secret-ada"
+    assert row["mot_de_passe"] == "secret-ada"
+    assert row["code_compte"] == "secret-ada"
     assert row["voucher_code"] == "ABCD12"
-    assert "mot_de_passe" not in row
+    assert credential_attribute_key("stay-ada") == "compte_stay_ada"
+    assert credential_attribute_key("ada@host/x") == "compte_ada_host_x"
     assert open_issued_records(stays, preview, datetime(2026, 8, 1, tzinfo=UTC)) == []
 
 

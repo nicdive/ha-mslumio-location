@@ -172,6 +172,9 @@
       },
       "sejours": {
         "name": "Active stays"
+      },
+      "reglages": {
+        "name": "Settings"
       }
     }
   },
@@ -279,6 +282,10 @@
     "dashboard_missing": {
       "title": "Guest dashboard missing",
       "description": "The integration could not create the dashboard “{url_path}”. Create a storage dashboard with URL usvegliu-sejour (a hyphen is required), visible to non-admins, then call usvegliu.appliquer_tableau. Other dashboards (cameras, locks) should be admin-only."
+    },
+    "owner_dashboard_missing": {
+      "title": "Owner console missing",
+      "description": "The console is not the Location or Stay dashboard. Settings → Dashboards → +, new empty dashboard. Title: Usvegliu propriétaire (Home Assistant then generates URL {url_path}). Do not mark it admin-only: Users with control rights must see it. Show in sidebar. Then Developer tools → Actions → usvegliu.appliquer_tableau. Open /{url_path} or the Console sidebar item."
     }
   }
 }

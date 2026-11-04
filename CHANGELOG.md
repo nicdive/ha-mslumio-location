@@ -4,6 +4,31 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.5.9] — 2026-11-04
+
+### Corrigé
+- La Console affiche le **mot de passe du compte Home Assistant temporaire**. Home Assistant masque l'attribut nommé `password` dans Lovelace : le capteur l'expose aussi sous `code_compte` / `mot_de_passe`, et chaque séjour a une carte « Mot de passe Home Assistant ». Si rien n'apparaît (séjour créé avant l'archivage), toucher **Nouveau mot de passe**.
+
+### Changé
+- Console en deux vues : **Séjours** (identifiants, Wi-Fi, actions) et **Réglages** (options Usvegliu en vigueur, sans clé API ni code alarme).
+
+[0.5.9]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.5.9
+
+## [0.5.8] — 2026-11-04
+
+### Changé
+- La console propriétaire n'est plus réservée aux administrateurs. Les comptes **Utilisateur** (droits de contrôle) la voient et peuvent renouveler ou révoquer. Les comptes locataires Usvegliu ne la voient pas.
+
+[0.5.8]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.5.8
+
+## [0.5.7] — 2026-11-04
+
+### Corrigé
+- La console propriétaire (`usvegliu-proprietaire`) est recréée même si **Séjour** existe déjà. Un tableau créé à la main sous un autre nom (par ex. **Location**, URL `dashboard-location`) n'est plus pris pour la console.
+- `usvegliu.appliquer_tableau` retrouve un tableau Lovelace par son URL, pas seulement par la clé interne, et réessaie la console tant qu'elle n'est pas écrite.
+
+[0.5.7]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.5.7
+
 ## [0.5.6] — 2026-11-04
 
 ### Ajouté

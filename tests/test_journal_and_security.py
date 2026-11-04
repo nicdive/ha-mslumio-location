@@ -8,24 +8,31 @@ import pytest
 
 from custom_components.usvegliu.access import (
     ADMIN_GROUP_ID,
+    READ_ONLY_GROUP_ID,
     TenantAccessError,
+    USERS_GROUP_ID,
     assert_not_privileged,
     build_tenant_policy,
     generate_password,
     group_id_for_username,
+    is_tenant_user,
     resolve_shared_access,
     resolve_stay_access,
     sensitive_entity_ids,
+    user_can_manage_stays,
 )
 from custom_components.usvegliu.const import SENSITIVE_DOMAINS
 from custom_components.usvegliu.dashboard import (
+    async_apply_console_visibility,
     async_ensure_dashboard,
     async_ensure_owner_dashboard,
     async_set_tenant_default_panel,
     build_dashboard_config,
     build_owner_dashboard_config,
     dashboard_card_count,
+    find_dashboard_collection,
     frontend_core_with_tenant_panel,
+    frontend_sidebar_with_console,
 )
 from custom_components.usvegliu.journal import Journal, JournalPathError, resolve_journal_path
 from custom_components.usvegliu.redact import SecretLogFilter, redact
@@ -113,6 +120,8 @@ def test_diagnostics_and_logs_redact_secrets():
                     "guest": "Jean Dupont",
                     "voucher_code": "ABCD12",
                     "password": "s3cret-password",
+                    "mot_de_passe": "s3cret-password",
+                    "code_compte": "s3cret-password",
                     "guest_token": "stay-token-secret",
                     "voucher_id": "voucher-1",
                 }
@@ -124,6 +133,8 @@ def test_diagnostics_and_logs_redact_secrets():
     assert payload["entry_data"]["host"] == "192.168.1.1"
     assert payload["stays"][0]["voucher_code"] == "**REDACTED**"
     assert payload["stays"][0]["password"] == "**REDACTED**"
+    assert payload["stays"][0]["mot_de_passe"] == "**REDACTED**"
+    assert payload["stays"][0]["code_compte"] == "**REDACTED**"
     assert payload["stays"][0]["guest_token"] == "**REDACTED**"
     assert payload["stays"][0]["guest"] == "**REDACTED**"
     linked = redact({"lien_maison": "https://www.usvegliu.fr/s/stay-token-secret"})
@@ -191,13 +202,44 @@ def test_tenant_policy_is_explicit_and_sensitive_domains_are_flagged():
     assert shared_entities == ["light.salon", "fan.chambre"]
     assert shared_remote is True
 
+    class _Group:
+        def __init__(self, group_id):
+            self.id = group_id
+
     class _Admin:
         is_owner = False
         is_admin = True
         groups = []
 
+    class _Manager:
+        is_owner = False
+        is_admin = False
+        system_generated = False
+        groups = [_Group(USERS_GROUP_ID)]
+
+    class _Tenant:
+        is_owner = False
+        is_admin = False
+        system_generated = False
+        groups = [_Group(group_id_for_username("ada"))]
+
+    class _ReadOnly:
+        is_owner = False
+        is_admin = False
+        system_generated = False
+        groups = [_Group(READ_ONLY_GROUP_ID)]
+
     with pytest.raises(TenantAccessError):
         assert_not_privileged(_Admin())
+    with pytest.raises(TenantAccessError):
+        assert_not_privileged(_Manager())
+    assert_not_privileged(_Tenant())
+    assert user_can_manage_stays(_Admin()) is True
+    assert user_can_manage_stays(_Manager()) is True
+    assert user_can_manage_stays(_Tenant()) is False
+    assert user_can_manage_stays(_ReadOnly()) is False
+    assert is_tenant_user(_Tenant()) is True
+    assert is_tenant_user(_Manager()) is False
 
     password = generate_password()
     assert len(password.encode()) < 72
@@ -256,6 +298,14 @@ async def test_tenant_default_panel_is_written_to_frontend_store():
     await async_set_tenant_default_panel(object(), "user-1", load_store=_load_store)
     assert saved["core"]["default_panel"] == "usvegliu-sejour"
     assert saved["core"]["language"] == "fr"
+    assert "usvegliu-proprietaire" in saved["sidebar"]["hiddenPanels"]
+
+
+def test_console_sidebar_is_hidden_only_for_tenants():
+    hidden = frontend_sidebar_with_console({"hiddenPanels": ["map"]}, hidden=True)
+    assert hidden["hiddenPanels"] == ["map", "usvegliu-proprietaire"]
+    shown = frontend_sidebar_with_console(hidden, hidden=False)
+    assert shown["hiddenPanels"] == ["map"]
 
 
 def test_owner_console_dashboard_has_live_credentials_and_actions():
@@ -273,11 +323,14 @@ def test_owner_console_dashboard_has_live_credentials_and_actions():
         },
     ]
     config = build_owner_dashboard_config(
-        stays, sejours_entity_id="sensor.usvegliu_sejours"
+        stays,
+        sejours_entity_id="sensor.usvegliu_sejours",
+        reglages_entity_id="sensor.usvegliu_reglages",
     )
     dumped = str(config)
     assert config["views"][0]["type"] == "sections"
     assert config["views"][0]["path"] == "console"
+    assert config["views"][1]["path"] == "reglages"
     assert "Nouveau mot de passe" in dumped
     assert "Révoquer le compte" in dumped
     assert "Nouveau code Wi-Fi" in dumped
@@ -290,7 +343,15 @@ def test_owner_console_dashboard_has_live_credentials_and_actions():
     assert "secret-should-not-be-baked" not in dumped
     assert "TOKEN" not in dumped
     assert "state_attr('sensor.usvegliu_sejours', 'stays')" in dumped
-    assert dumped.count("Nouveau mot de passe") == 1
+    assert "mot_de_passe" in dumped
+    assert "code_compte" in dumped
+    assert "Mot de passe Home Assistant" in dumped
+    assert "compte_stay_ada" in dumped
+    assert "s.password" not in dumped
+    assert "comptes" in dumped
+    assert dumped.count("usvegliu.regenerer_acces") == 1
+    assert "Réglages Usvegliu" in dumped
+    assert "state_attr('sensor.usvegliu_reglages', 'settings')" in dumped
 
 
 @pytest.mark.asyncio
@@ -312,6 +373,219 @@ async def test_owner_dashboard_saves_when_lovelace_already_has_the_path():
     assert result["ok"] is True
     assert result["url"] == "usvegliu-proprietaire"
     assert saved and saved[0]["views"][0]["path"] == "console"
+
+
+@pytest.mark.asyncio
+async def test_owner_dashboard_saves_when_url_path_is_on_the_object():
+    saved: list[dict] = []
+
+    class _Dash:
+        url_path = "usvegliu-proprietaire"
+        config = {"url_path": "usvegliu-proprietaire", "id": "dashboard_abc"}
+
+        async def async_save(self, config):
+            saved.append(config)
+
+    class _Hass:
+        data = {"lovelace": {"dashboards": {None: object(), "dashboard_abc": _Dash()}}}
+
+    result = await async_ensure_owner_dashboard(
+        _Hass(),
+        [{"guest": "Ada", "reservation_id": "stay-ada"}],
+        sejours_entity_id="sensor.usvegliu_sejours",
+    )
+    assert result["ok"] is True
+    assert saved
+
+
+@pytest.mark.asyncio
+async def test_owner_dashboard_is_created_from_websocket_collection():
+    saved: list[dict] = []
+
+    class _Dash:
+        async def async_save(self, config):
+            saved.append(config)
+
+    dashboards: dict[str, object] = {}
+
+    class _Collection:
+        def __init__(self):
+            self.items: list[dict] = []
+
+        def async_items(self):
+            return list(self.items)
+
+        async def async_create_item(self, data):
+            item = {**data, "id": data["url_path"]}
+            self.items.append(item)
+            dashboards[data["url_path"]] = _Dash()
+            return item
+
+    class _Websocket:
+        def __init__(self, collection):
+            self.storage_collection = collection
+
+        def ws_create_item(self):
+            return None
+
+    collection = _Collection()
+    websocket = _Websocket(collection)
+
+    class _Hass:
+        data = {
+            "lovelace": {"dashboards": dashboards},
+            "websocket_api": {
+                "lovelace/dashboards/create": (websocket.ws_create_item, {})
+            },
+        }
+
+    result = await async_ensure_owner_dashboard(
+        _Hass(),
+        [{"guest": "Ada", "reservation_id": "stay-ada"}],
+        sejours_entity_id="sensor.usvegliu_sejours",
+    )
+    assert result["ok"] is True
+    assert collection.items[0]["url_path"] == "usvegliu-proprietaire"
+    assert collection.items[0]["require_admin"] is False
+    assert saved
+
+
+@pytest.mark.asyncio
+async def test_owner_dashboard_drops_admin_only_flag_on_existing_console():
+    updated: list[tuple] = []
+
+    class _Dash:
+        async def async_save(self, config):
+            return None
+
+    class _Collection:
+        def async_items(self):
+            return [
+                {
+                    "id": "usvegliu-proprietaire",
+                    "url_path": "usvegliu-proprietaire",
+                    "require_admin": True,
+                    "show_in_sidebar": True,
+                }
+            ]
+
+        async def async_update_item(self, item_id, data):
+            updated.append((item_id, data))
+
+        async def async_create_item(self, data):
+            raise AssertionError("should update, not create")
+
+    class _Websocket:
+        def __init__(self, collection):
+            self.storage_collection = collection
+
+        def ws_create_item(self):
+            return None
+
+    websocket = _Websocket(_Collection())
+
+    class _Hass:
+        data = {
+            "lovelace": {"dashboards": {"usvegliu-proprietaire": _Dash()}},
+            "websocket_api": {
+                "lovelace/dashboards/create": (websocket.ws_create_item, {})
+            },
+        }
+
+    result = await async_ensure_owner_dashboard(
+        _Hass(),
+        [{"guest": "Ada", "reservation_id": "stay-ada"}],
+        sejours_entity_id="sensor.usvegliu_sejours",
+    )
+    assert result["ok"] is True
+    assert updated == [
+        (
+            "usvegliu-proprietaire",
+            {"require_admin": False, "show_in_sidebar": True},
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_console_visibility_hides_from_tenants_not_managers():
+    saved: dict[str, dict] = {}
+
+    class _Group:
+        def __init__(self, group_id):
+            self.id = group_id
+
+    class _Store:
+        def __init__(self, user_id, hidden=None):
+            self.user_id = user_id
+            self.data: dict = {
+                "core": {},
+                "sidebar": {"hiddenPanels": list(hidden or [])},
+            }
+
+        async def async_set_item(self, key, value):
+            saved.setdefault(self.user_id, {})[key] = value
+            self.data = {**self.data, key: value}
+
+    stores = {
+        "tenant-1": _Store("tenant-1"),
+        "user-1": _Store("user-1", hidden=["usvegliu-proprietaire"]),
+    }
+
+    async def _load_store(hass, user_id):
+        return stores[user_id]
+
+    class _Tenant:
+        id = "tenant-1"
+        is_admin = False
+        is_owner = False
+        system_generated = False
+        groups = [_Group(group_id_for_username("ada"))]
+
+    class _Manager:
+        id = "user-1"
+        is_admin = False
+        is_owner = False
+        system_generated = False
+        groups = [_Group(USERS_GROUP_ID)]
+
+    async def _list_users():
+        return [_Tenant(), _Manager()]
+
+    await async_apply_console_visibility(
+        object(), load_store=_load_store, list_users=_list_users
+    )
+    assert saved["tenant-1"]["core"]["default_panel"] == "usvegliu-sejour"
+    assert "usvegliu-proprietaire" in saved["tenant-1"]["sidebar"]["hiddenPanels"]
+    assert "usvegliu-proprietaire" not in saved["user-1"]["sidebar"]["hiddenPanels"]
+
+
+def test_dashboard_collection_is_found_on_websocket_commands_object():
+    class _Collection:
+        def async_items(self):
+            return [{"url_path": "usvegliu-sejour"}]
+
+        async def async_create_item(self, data):
+            return data
+
+    class _Websocket:
+        def __init__(self, collection):
+            self.storage_collection = collection
+
+        def ws_create_item(self):
+            return None
+
+    class _Commands:
+        def __init__(self, websocket):
+            self.commands = {
+                "lovelace/dashboards/create": (websocket.ws_create_item, {})
+            }
+
+    collection = _Collection()
+
+    class _Hass:
+        data = {"websocket_api": _Commands(_Websocket(collection))}
+
+    assert find_dashboard_collection(_Hass()) is collection
 
 
 @pytest.mark.asyncio
@@ -337,11 +611,17 @@ def test_admin_roster_sensor_lists_stays_and_passwords():
     sensor = (root / "sensor.py").read_text(encoding="utf-8")
     http = (root / "http.py").read_text(encoding="utf-8")
     assert "IssuedAccountsSensor" in sensor
+    assert "OwnerSettingsSensor" in sensor
     assert 'translation_key = "sejours"' in sensor
     assert "lien_maison" in sensor
-    assert '"password": data.get("password")' in sensor
+    assert "mot_de_passe" in sensor
+    assert "code_compte" in sensor
+    assert "comptes" in sensor
+    assert "credential_attribute_key" in sensor
     assert "_unrecorded_attributes" in sensor
     assert "password" not in http
+    assert "mot_de_passe" not in http
+    assert "code_compte" not in http
 
 
 def test_guest_stream_is_server_sent_events():
