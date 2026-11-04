@@ -85,16 +85,22 @@ def issued_account_view(
     record: dict[str, Any],
     *,
     username: str | None,
+    password: str | None,
     lien_maison: str,
     path: str,
     tableau: str,
 ) -> dict[str, Any]:
-    """Admin row for one issued stay. The HA password is never included."""
+    """Admin row for one issued stay, including the HA password.
+
+    The guest HTTP API never uses this mapping. Diagnostics and the CSV
+    journal still redact or drop the password.
+    """
     return {
         "guest": str(record.get("guest") or ""),
         "check_in": str(record.get("check_in") or ""),
         "check_out": str(record.get("check_out") or ""),
         "username": str(username or record.get("username") or ""),
+        "password": str(password or record.get("password") or "") or None,
         "voucher_code": str(record.get("voucher_code") or "") or None,
         "lien_maison": lien_maison,
         "path": path,

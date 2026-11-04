@@ -92,14 +92,15 @@ def test_open_issued_records_keeps_active_stays_and_live_preview():
     row = issued_account_view(
         stays["live"],
         username="loc-ada",
+        password="secret-ada",
         lien_maison="https://www.usvegliu.fr/s/TTTT",
         path="/usvegliu/s/TTTT",
         tableau="/usvegliu-sejour",
     )
     assert row["lien_maison"].endswith("/s/TTTT")
     assert row["username"] == "loc-ada"
+    assert row["password"] == "secret-ada"
     assert row["voucher_code"] == "ABCD12"
-    assert "password" not in row
     assert "mot_de_passe" not in row
     assert open_issued_records(stays, preview, datetime(2026, 8, 1, tzinfo=UTC)) == []
 

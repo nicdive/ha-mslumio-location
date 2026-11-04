@@ -230,7 +230,11 @@ async def async_synchronize(
                 device_ids=devices,
             )
         if item.key in resend or item.key in to_print:
-            _queue_notification(result, record, password="")
+            _queue_notification(
+                result,
+                record,
+                password=str(record.get("password") or ""),
+            )
         if item.key in to_print and record.get("voucher_code"):
             result.print_events.append(
                 {
@@ -263,6 +267,13 @@ async def async_synchronize(
             entity_ids=shared_entities,
             device_ids=shared_devices,
         )
+        shared_pw = str((result.shared_user or {}).get("password") or "")
+        if shared_pw:
+            for item in plan.ensure:
+                if item.key in resend or item.key in to_print:
+                    stay = stays.get(item.key)
+                    if stay is not None:
+                        _queue_notification(result, stay, password=shared_pw)
         await _progress(on_progress, stays, result.shared_user)
     elif enable_access and accounts is not None and shared and shared.get("user_id"):
         if plan.shared_username is None:
@@ -430,7 +441,7 @@ async def _ensure_account(
     device_ids: list[str],
 ) -> None:
     before = record.get("user_id")
-    record.pop("password", None)
+    kept_password = str(record.get("password") or "")
     ensured = await accounts.async_ensure_user(
         username=str(record.get("username") or ""),
         display_name=display_name,
@@ -444,6 +455,7 @@ async def _ensure_account(
     record["username"] = ensured.get("username") or record.get("username")
     new_password = ensured.get("password")
     if new_password:
+        record["password"] = str(new_password)
         result.journal.append(
             _journal_row(
                 "acces_cree" if not before else "acces_regenere",
@@ -454,6 +466,8 @@ async def _ensure_account(
             _event_from("acces_cree" if not before else "acces_regenere", record)
         )
         _queue_notification(result, record, password=str(new_password))
+    elif kept_password:
+        record["password"] = kept_password
 
 
 async def _ensure_shared(
@@ -468,6 +482,7 @@ async def _ensure_shared(
     device_ids: list[str],
 ) -> None:
     current = result.shared_user or {}
+    kept_password = str(current.get("password") or "")
     ensured = await accounts.async_ensure_user(
         username=username,
         display_name=display_name,
@@ -481,8 +496,12 @@ async def _ensure_shared(
         "user_id": ensured.get("user_id"),
         "username": ensured.get("username") or username,
     }
-    result.shared_user = updated
     fresh_password = str(ensured.get("password") or "")
+    if fresh_password:
+        updated["password"] = fresh_password
+    elif kept_password:
+        updated["password"] = kept_password
+    result.shared_user = updated
     for record in result.stays.values():
         record["username"] = updated["username"]
         # The shared account is stored once, on shared_user. A stay record

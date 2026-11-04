@@ -125,6 +125,9 @@ async def test_second_cycle_does_not_duplicate_voucher_or_account():
     assert "pw-" not in str(first.journal)
     assert "pw-" not in str(second.journal)
     assert first.notifications[0]["password"].startswith("pw-")
+    key = plan.ensure[0].key
+    assert first.stays[key]["password"] == "pw-1"
+    assert second.stays[key]["password"] == "pw-1"
 
 
 @pytest.mark.asyncio

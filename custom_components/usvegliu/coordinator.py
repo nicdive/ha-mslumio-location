@@ -199,6 +199,9 @@ class UsvegliuRuntime:
         for record in self._stays.values():
             secrets.append(str(record.get("voucher_code") or ""))
             secrets.append(str(record.get("guest_token") or ""))
+            secrets.append(str(record.get("password") or ""))
+        if self._shared:
+            secrets.append(str(self._shared.get("password") or ""))
         if self._preview:
             secrets.append(str(self._preview.get("guest_token") or ""))
         self.log_filter.update(secrets, owner=self.entry.entry_id)
@@ -623,9 +626,10 @@ class UsvegliuRuntime:
 
 
 def _scrub_secrets(record: dict[str, Any]) -> dict[str, Any]:
-    """Drop any password that an older version stored next to the stay."""
+    """Keep the owner password on the private stay store; drop aliases."""
     cleaned = dict(record)
-    cleaned.pop("password", None)
+    if not cleaned.get("password") and cleaned.get("mot_de_passe"):
+        cleaned["password"] = cleaned["mot_de_passe"]
     cleaned.pop("mot_de_passe", None)
     return cleaned
 
@@ -641,10 +645,12 @@ def _issued_rows(
     for record in open_issued_records(stays, runtime._preview, now):  # type: ignore[arg-type]
         link = runtime.guest_link(record)
         username = (shared or {}).get("username") or record.get("username")
+        password = (shared or {}).get("password") or record.get("password")
         rows.append(
             issued_account_view(
                 record,
                 username=None if username is None else str(username),
+                password=None if password is None else str(password),
                 lien_maison=str(link.get("url") or ""),
                 path=str(link.get("path") or ""),
                 tableau=f"/{DASHBOARD_URL}",
@@ -662,16 +668,19 @@ def _snapshot(
     rows = _issued_rows(runtime, stays, shared, now)
     current = select_current(stays, now)  # type: ignore[arg-type]
     lien_maison = None
+    password = None
     if current is not None:
         key = str(current.get("key") or "")
         for row in rows:
             if row.get("reservation_id") == key:
                 lien_maison = row.get("lien_maison")
+                password = row.get("password")
                 break
     common = {
         "stays": rows,
         "stay_count": len(rows),
         "lien_maison": lien_maison,
+        "password": password,
         "devices": runtime._option_int(CONF_DEVICE_LIMIT, DEFAULT_DEVICE_LIMIT),
         "download_mbps": runtime._option_int(CONF_DOWNLOAD_MBPS, DEFAULT_DOWNLOAD_MBPS),
         "upload_mbps": runtime._option_int(CONF_UPLOAD_MBPS, DEFAULT_UPLOAD_MBPS),

@@ -274,17 +274,16 @@ async def test_dashboard_saves_when_lovelace_already_has_the_path():
     assert saved and saved[0]["views"][0]["sections"][0]["cards"]
 
 
-def test_admin_roster_sensor_lists_stays_not_passwords():
-    sensor = (
-        Path(__file__).resolve().parents[1]
-        / "custom_components"
-        / "usvegliu"
-        / "sensor.py"
-    ).read_text(encoding="utf-8")
+def test_admin_roster_sensor_lists_stays_and_passwords():
+    root = Path(__file__).resolve().parents[1] / "custom_components" / "usvegliu"
+    sensor = (root / "sensor.py").read_text(encoding="utf-8")
+    http = (root / "http.py").read_text(encoding="utf-8")
     assert "IssuedAccountsSensor" in sensor
     assert 'translation_key = "sejours"' in sensor
     assert "lien_maison" in sensor
-    assert "The HA password is not stored" in sensor
+    assert '"password": data.get("password")' in sensor
+    assert "_unrecorded_attributes" in sensor
+    assert "password" not in http
 
 
 def test_guest_stream_is_server_sent_events():
