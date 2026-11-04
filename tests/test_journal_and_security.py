@@ -20,8 +20,10 @@ from custom_components.usvegliu.access import (
 from custom_components.usvegliu.const import SENSITIVE_DOMAINS
 from custom_components.usvegliu.dashboard import (
     async_ensure_dashboard,
+    async_set_tenant_default_panel,
     build_dashboard_config,
     dashboard_card_count,
+    frontend_core_with_tenant_panel,
 )
 from custom_components.usvegliu.journal import Journal, JournalPathError, resolve_journal_path
 from custom_components.usvegliu.redact import SecretLogFilter, redact
@@ -212,6 +214,44 @@ def test_dashboard_only_lists_selected_entities():
     assert "lock." not in dumped
     assert config["views"][0]["type"] == "sections"
     assert dashboard_card_count(config) == 5
+
+
+def test_tenant_frontend_core_opens_sejour():
+    core = frontend_core_with_tenant_panel({"language": "fr"})
+    assert core["default_panel"] == "usvegliu-sejour"
+    assert core["language"] == "fr"
+    assert frontend_core_with_tenant_panel(None)["default_panel"] == "usvegliu-sejour"
+    access = (
+        Path(__file__).resolve().parents[1]
+        / "custom_components"
+        / "usvegliu"
+        / "access.py"
+    ).read_text(encoding="utf-8")
+    assert "async_set_tenant_default_panel" in access
+
+
+@pytest.mark.asyncio
+async def test_tenant_default_panel_is_written_to_frontend_store():
+    saved: dict = {}
+
+    class _Store:
+        data: dict = {"core": {"language": "fr"}}
+
+        async def async_set_item(self, key, value):
+            saved[key] = value
+            self.data = {**self.data, key: value}
+
+    store = _Store()
+
+    async def _load_store(hass, user_id):
+        assert user_id == "user-1"
+        return store
+
+    await async_set_tenant_default_panel(object(), None, load_store=_load_store)
+    assert saved == {}
+    await async_set_tenant_default_panel(object(), "user-1", load_store=_load_store)
+    assert saved["core"]["default_panel"] == "usvegliu-sejour"
+    assert saved["core"]["language"] == "fr"
 
 
 @pytest.mark.asyncio

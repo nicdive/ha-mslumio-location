@@ -60,7 +60,7 @@
           "tenant_entities": "Tous les domaines. Les caméras, serrures et alarmes ne sont pas cochées : les ajouter exige la confirmation ci-dessous.",
           "tenant_devices": "Toutes les entités de l'appareil sont autorisées, y compris celles ajoutées plus tard. Un appareil qui contient une caméra, une serrure ou une alarme exige la confirmation.",
           "confirm_sensitive": "Sans cette case, l'enregistrement est refusé si la sélection contient une caméra, une serrure ou une alarme.",
-          "allow_remote": "Désactivé par défaut. Le compte n'est plus « local uniquement » pendant le séjour. Home Assistant doit déjà être joignable de l'extérieur ; ce module n'ouvre rien.",
+          "allow_remote": "Désactivé par défaut. Le compte n'est plus « local uniquement » pendant le séjour. Home Assistant doit déjà être joignable de l'extérieur ; ce module n'ouvre rien. À activer aussi pour un essai du compte HA via Tailscale (une IP 100.x n'est pas locale).",
           "notify_service": "Ex. notify.mobile_app_telephone. Vide = notification persistante seulement.",
           "journal_path": "Relatif au dossier config, ou absolu sous config/ ou un dossier média (partage Synology).",
           "title_blocklist": "Sous-chaînes, séparées par des virgules, qui ne sont pas des locataires (dates bloquées).",
@@ -125,6 +125,7 @@
         },
         "data_description": {
           "extra_days": "Durée du voucher = séjour + ces jours. Le compteur UniFi part à la première saisie du code.",
+          "allow_remote": "À activer pour un essai du compte HA via Tailscale : une IP 100.x n'est pas locale, le frontend reste alors sur « Chargement des données ».",
           "print_event": "Place le code en clair sur le bus. À n'activer que pour l'impression.",
           "guest_base_url": "Ex. https://www.usvegliu.fr. Vide = adresse interne de Home Assistant."
         }

@@ -4,6 +4,14 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.5.1] — 2026-11-04
+
+### Corrigé
+- Après login, le locataire ouvre le tableau **Séjour** (`usvegliu-sejour`) au lieu de l'accueil Home Assistant, qui restait sur « Chargement des données… ».
+- Précision lab : une IP Tailscale `100.x` n'est pas « locale » pour Home Assistant. Un compte `local_only` peut valider le mot de passe puis bloquer le websocket.
+
+[0.5.1]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.5.1
+
 ## [0.5.0] — 2026-11-04
 
 ### Ajouté

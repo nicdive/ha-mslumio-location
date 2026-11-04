@@ -57,6 +57,45 @@ def build_dashboard_config(entity_ids: list[str]) -> dict[str, Any]:
     }
 
 
+def frontend_core_with_tenant_panel(existing: dict[str, Any] | None) -> dict[str, Any]:
+    """User frontend data so login opens Séjour instead of Home."""
+    core = dict(existing or {})
+    core["default_panel"] = DASHBOARD_URL
+    return core
+
+
+async def async_set_tenant_default_panel(
+    hass: object,
+    user_id: str | None,
+    *,
+    load_store: Any | None = None,
+) -> None:
+    """Land a tenant on ``usvegliu-sejour`` after login.
+
+    Home Assistant 2026 opens the Home dashboard. That view walks areas and
+    can stay on « Chargement des données… » for a user who may only read a
+    handful of entities.
+    """
+    if not user_id:
+        return
+    loader = load_store
+    if loader is None:
+        try:
+            from homeassistant.components.frontend.storage import (
+                async_user_store as loader,
+            )
+        except ImportError:
+            return
+    try:
+        store = await loader(hass, user_id)
+        core = frontend_core_with_tenant_panel(store.data.get("core"))
+        if store.data.get("core") == core:
+            return
+        await store.async_set_item("core", core)
+    except Exception:  # noqa: BLE001 — frontend storage is not worth aborting access
+        _LOGGER.debug("Tableau par défaut locataire non enregistré", exc_info=True)
+
+
 def dashboard_card_count(config: dict[str, Any]) -> int:
     """How many cards the config will show."""
     views = config.get("views") or []

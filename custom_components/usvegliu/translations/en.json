@@ -60,7 +60,7 @@
           "tenant_entities": "Any domain. Cameras, locks and alarms are not selected: adding them requires the confirmation below.",
           "tenant_devices": "Every entity of the device is allowed, including ones added later. A device that contains a camera, lock or alarm requires confirmation.",
           "confirm_sensitive": "Without this box, saving is refused when the selection contains a camera, lock or alarm.",
-          "allow_remote": "Off by default. The account is not local-only for the length of the stay. Home Assistant must already be reachable from outside; this integration opens nothing.",
+          "allow_remote": "Off by default. The account is not local-only for the length of the stay. Home Assistant must already be reachable from outside; this integration opens nothing. Also turn this on to try the HA account over Tailscale (a 100.x address is not local).",
           "notify_service": "e.g. notify.mobile_app_phone. Empty = persistent notification only.",
           "journal_path": "Relative to the config folder, or absolute under config/ or a media folder (Synology share).",
           "title_blocklist": "Comma-separated substrings that are not guests (blocked dates).",
@@ -125,6 +125,7 @@
         },
         "data_description": {
           "extra_days": "Voucher duration = stay + these days. UniFi starts the timer when the code is first redeemed.",
+          "allow_remote": "Turn this on to try the HA account over Tailscale: a 100.x address is not local, so the frontend stays on Loading data.",
           "print_event": "Publishes the cleartext code on the bus. Enable only for printing.",
           "guest_base_url": "e.g. https://www.usvegliu.fr. Empty = Home Assistant internal URL."
         }
