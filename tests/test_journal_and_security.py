@@ -624,6 +624,19 @@ def test_admin_roster_sensor_lists_stays_and_passwords():
     assert "code_compte" not in http
 
 
+def test_guest_app_javascript_parses():
+    import subprocess
+
+    js = (
+        Path(__file__).resolve().parents[1]
+        / "custom_components"
+        / "usvegliu"
+        / "www"
+        / "app.js"
+    )
+    subprocess.run(["node", "--check", str(js)], check=True)
+
+
 def test_guest_stream_is_server_sent_events():
     text = (
         Path(__file__).resolve().parents[1]
@@ -651,6 +664,10 @@ def test_guest_stream_is_server_sent_events():
     assert "Lumière" in js
     assert "Accès" in js
     assert "metrics" in js
+    assert "atmosphere" in js
+    assert "Allumée" in js
+    assert "wordmark" in js
+    assert "Bonsoir" in js
     assert "alarm_code" in text
 
 
