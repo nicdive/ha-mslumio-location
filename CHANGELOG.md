@@ -4,6 +4,14 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.5.4] — 2026-11-04
+
+### Ajouté
+- Tableau Lovelace **Console** (`usvegliu-proprietaire`, administrateurs seulement) : séjours actifs, identifiants en direct, boutons pour renouveler ou révoquer le mot de passe et le voucher Wi-Fi.
+- Services `usvegliu.revoquer_acces` et `usvegliu.revoquer_voucher` : l'accès n'est recréé qu'avec Régénérer.
+
+[0.5.4]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.5.4
+
 ## [0.5.3] — 2026-11-04
 
 ### Ajouté

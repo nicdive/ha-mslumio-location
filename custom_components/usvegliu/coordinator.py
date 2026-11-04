@@ -56,12 +56,13 @@ from .const import (
     DEFAULT_UPLOAD_MBPS,
     DASHBOARD_URL,
     DOMAIN,
+    OWNER_DASHBOARD_URL,
     EVENT_JOURNAL,
     EVENT_PRINT,
     STORAGE_VERSION,
     UPDATE_INTERVAL,
 )
-from .dashboard import async_ensure_dashboard
+from .dashboard import async_ensure_dashboard, async_ensure_owner_dashboard
 from .engine import async_synchronize
 from .guest_session import (
     PREVIEW_KEY,
@@ -132,6 +133,8 @@ class UsvegliuRuntime:
         self._shared: dict[str, Any] | None = None
         self._force_voucher: set[str] = set()
         self._force_access: set[str] = set()
+        self._force_revoke_voucher: set[str] = set()
+        self._force_revoke_access: set[str] = set()
         self._resend: set[str] = set()
         self._print: set[str] = set()
         self._overrides: dict[str, dict[str, Any]] = {}
@@ -279,6 +282,8 @@ class UsvegliuRuntime:
                 enable_access=enable_access,
                 force_rotate_keys=set(self._force_access),
                 force_voucher_keys=set(self._force_voucher),
+                force_revoke_access_keys=set(self._force_revoke_access),
+                force_revoke_voucher_keys=set(self._force_revoke_voucher),
                 print_keys=set(self._print),
                 resend_keys=set(self._resend),
                 emit_print_on_create=bool(options.get(CONF_PRINT_EVENT, False)),
@@ -295,6 +300,8 @@ class UsvegliuRuntime:
         finally:
             self._force_access.clear()
             self._force_voucher.clear()
+            self._force_revoke_access.clear()
+            self._force_revoke_voucher.clear()
             self._print.clear()
             self._resend.clear()
 
@@ -379,11 +386,28 @@ class UsvegliuRuntime:
             blocking=False,
         )
 
+    def _sejours_entity_id(self) -> str:
+        """Entity id of the owner roster sensor, if the registry knows it."""
+        unique = f"{self.entry.entry_id}_sejours"
+        try:
+            from homeassistant.helpers import entity_registry as er
+
+            entity_id = er.async_get(self.hass).async_get_entity_id(
+                "sensor", DOMAIN, unique
+            )
+            if entity_id:
+                return str(entity_id)
+        except Exception:  # noqa: BLE001 — tests and early setup
+            pass
+        return "sensor.usvegliu_sejours"
+
     async def _async_dashboard(self) -> None:
         from homeassistant.helpers import issue_registry as ir
 
         entities = self._dashboard_entity_ids()
-        signature = repr(entities)
+        stay_keys = tuple(sorted(self._stays))
+        preview = bool(self._preview and self._preview.get("guest_token"))
+        signature = repr((entities, stay_keys, preview))
         if signature == self._dashboard_signature:
             return
         try:
@@ -391,7 +415,17 @@ class UsvegliuRuntime:
         except Exception:  # noqa: BLE001 — dashboard failure must not revoke access
             _LOGGER.warning("Tableau de bord Usvegliu non mis à jour")
             outcome = {"ok": False, "reason": "exception", "url": DASHBOARD_URL}
-        self._last_dashboard = outcome
+        owner_rows = _issued_rows(self, self._stays, self._shared, dt_util.now())
+        try:
+            owner = await async_ensure_owner_dashboard(
+                self.hass,
+                owner_rows,
+                sejours_entity_id=self._sejours_entity_id(),
+            )
+        except Exception:  # noqa: BLE001
+            _LOGGER.warning("Console propriétaire Usvegliu non mise à jour")
+            owner = {"ok": False, "reason": "exception", "url": OWNER_DASHBOARD_URL}
+        self._last_dashboard = {**outcome, "owner": owner}
         if outcome.get("ok"):
             self._dashboard_signature = signature
             ir.async_delete_issue(self.hass, DOMAIN, "dashboard_missing")
@@ -577,8 +611,12 @@ class UsvegliuRuntime:
                 resolved = self._resolve_key(key)
             if action == "regenerer_voucher" and resolved:
                 self._force_voucher.add(resolved)
+            elif action == "revoquer_voucher" and resolved:
+                self._force_revoke_voucher.add(resolved)
             elif action == "regenerer_acces" and resolved:
                 self._force_access.add(resolved)
+            elif action == "revoquer_acces" and resolved:
+                self._force_revoke_access.add(resolved)
             elif action == "renvoyer_notification" and resolved:
                 self._resend.add(resolved)
             elif action == "imprimer_voucher" and resolved:
@@ -603,11 +641,18 @@ class UsvegliuRuntime:
                 "guest": None if printed is None else printed.get("guest"),
                 "code": None if printed is None else printed.get("voucher_code"),
             }
-        return {
-            "reservation_id": snapshot.get("reservation_id"),
-            "guest": snapshot.get("guest"),
+        stay = printed or {}
+        payload = {
+            "reservation_id": resolved or snapshot.get("reservation_id"),
+            "guest": stay.get("guest") or snapshot.get("guest"),
             "delivered": True,
         }
+        if action in {"regenerer_acces", "revoquer_acces"}:
+            payload["username"] = stay.get("username")
+            payload["password"] = stay.get("password")
+        if action in {"regenerer_voucher", "revoquer_voucher"}:
+            payload["code"] = stay.get("voucher_code")
+        return payload
 
     def diagnostics(self) -> dict[str, Any]:
         """Redacted diagnostics. Codes, passwords and the API key are removed."""
@@ -646,9 +691,13 @@ def _issued_rows(
         link = runtime.guest_link(record)
         username = (shared or {}).get("username") or record.get("username")
         password = (shared or {}).get("password") or record.get("password")
+        view_record = dict(record)
+        if shared and shared.get("access_revoked"):
+            view_record["access_revoked"] = True
+            password = None
         rows.append(
             issued_account_view(
-                record,
+                view_record,
                 username=None if username is None else str(username),
                 password=None if password is None else str(password),
                 lien_maison=str(link.get("url") or ""),

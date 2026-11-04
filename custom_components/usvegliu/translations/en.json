@@ -166,9 +166,29 @@
         }
       }
     },
+    "revoquer_voucher": {
+      "name": "Revoke voucher",
+      "description": "Deletes the Wi-Fi code. It is created again only with Regenerate voucher.",
+      "fields": {
+        "reservation_key": {
+          "name": "Reservation",
+          "description": "Empty = the stay shown by the sensor."
+        }
+      }
+    },
     "regenerer_acces": {
       "name": "Regenerate Home Assistant access",
-      "description": "Changes the guest password and sends it to the administrator.",
+      "description": "Changes the guest password. It appears on the owner console.",
+      "fields": {
+        "reservation_key": {
+          "name": "Reservation",
+          "description": "Empty = the stay shown by the sensor."
+        }
+      }
+    },
+    "revoquer_acces": {
+      "name": "Revoke Home Assistant access",
+      "description": "Deletes the guest account. It is created again only with Regenerate access.",
       "fields": {
         "reservation_key": {
           "name": "Reservation",
@@ -200,7 +220,7 @@
     },
     "appliquer_tableau": {
       "name": "Apply dashboard",
-      "description": "Updates the usvegliu-sejour dashboard."
+      "description": "Updates the guest dashboard and the owner console."
     },
     "reglages_sejour": {
       "name": "Stay settings",

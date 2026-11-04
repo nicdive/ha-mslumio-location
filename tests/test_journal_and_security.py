@@ -20,8 +20,10 @@ from custom_components.usvegliu.access import (
 from custom_components.usvegliu.const import SENSITIVE_DOMAINS
 from custom_components.usvegliu.dashboard import (
     async_ensure_dashboard,
+    async_ensure_owner_dashboard,
     async_set_tenant_default_panel,
     build_dashboard_config,
+    build_owner_dashboard_config,
     dashboard_card_count,
     frontend_core_with_tenant_panel,
 )
@@ -254,6 +256,62 @@ async def test_tenant_default_panel_is_written_to_frontend_store():
     await async_set_tenant_default_panel(object(), "user-1", load_store=_load_store)
     assert saved["core"]["default_panel"] == "usvegliu-sejour"
     assert saved["core"]["language"] == "fr"
+
+
+def test_owner_console_dashboard_has_live_credentials_and_actions():
+    stays = [
+        {
+            "guest": "Ada",
+            "reservation_id": "stay-ada",
+            "password": "secret-should-not-be-baked",
+            "lien_maison": "https://www.usvegliu.fr/s/TOKEN",
+        },
+        {
+            "guest": "Essai",
+            "reservation_id": "__usvegliu_preview__",
+            "essai": True,
+        },
+    ]
+    config = build_owner_dashboard_config(
+        stays, sejours_entity_id="sensor.usvegliu_sejours"
+    )
+    dumped = str(config)
+    assert config["views"][0]["type"] == "sections"
+    assert config["views"][0]["path"] == "console"
+    assert "Nouveau mot de passe" in dumped
+    assert "Révoquer le compte" in dumped
+    assert "Nouveau code Wi-Fi" in dumped
+    assert "Révoquer le Wi-Fi" in dumped
+    assert "usvegliu.regenerer_acces" in dumped
+    assert "usvegliu.revoquer_acces" in dumped
+    assert "usvegliu.regenerer_voucher" in dumped
+    assert "usvegliu.revoquer_voucher" in dumped
+    assert "stay-ada" in dumped
+    assert "secret-should-not-be-baked" not in dumped
+    assert "TOKEN" not in dumped
+    assert "state_attr('sensor.usvegliu_sejours', 'stays')" in dumped
+    assert dumped.count("Nouveau mot de passe") == 1
+
+
+@pytest.mark.asyncio
+async def test_owner_dashboard_saves_when_lovelace_already_has_the_path():
+    saved: list[dict] = []
+
+    class _Dash:
+        async def async_save(self, config):
+            saved.append(config)
+
+    class _Hass:
+        data = {"lovelace": {"dashboards": {"usvegliu-proprietaire": _Dash()}}}
+
+    result = await async_ensure_owner_dashboard(
+        _Hass(),
+        [{"guest": "Ada", "reservation_id": "stay-ada"}],
+        sejours_entity_id="sensor.usvegliu_sejours",
+    )
+    assert result["ok"] is True
+    assert result["url"] == "usvegliu-proprietaire"
+    assert saved and saved[0]["views"][0]["path"] == "console"
 
 
 @pytest.mark.asyncio

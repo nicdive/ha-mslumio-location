@@ -87,6 +87,9 @@ SENSITIVE_DOMAINS: Final = frozenset({"camera", "lock", "alarm_control_panel"})
 DASHBOARD_URL: Final = "usvegliu-sejour"
 DASHBOARD_TITLE: Final = "Séjour"
 DASHBOARD_ICON: Final = "mdi:home-account"
+OWNER_DASHBOARD_URL: Final = "usvegliu-proprietaire"
+OWNER_DASHBOARD_TITLE: Final = "Console"
+OWNER_DASHBOARD_ICON: Final = "mdi:desk"
 
 STORAGE_KEY: Final = f"{DOMAIN}.sejours"
 STORAGE_VERSION: Final = 1
@@ -95,7 +98,9 @@ EVENT_JOURNAL: Final = "usvegliu_journal"
 EVENT_PRINT: Final = "usvegliu_print_voucher"
 
 SERVICE_REGENERATE_VOUCHER: Final = "regenerer_voucher"
+SERVICE_REVOKE_VOUCHER: Final = "revoquer_voucher"
 SERVICE_REGENERATE_ACCESS: Final = "regenerer_acces"
+SERVICE_REVOKE_ACCESS: Final = "revoquer_acces"
 SERVICE_RESEND: Final = "renvoyer_notification"
 SERVICE_PRINT: Final = "imprimer_voucher"
 SERVICE_EXPORT_JOURNAL: Final = "exporter_journal"

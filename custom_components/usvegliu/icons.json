@@ -11,7 +11,9 @@
   },
   "services": {
     "regenerer_voucher": {"service": "mdi:ticket-confirmation"},
+    "revoquer_voucher": {"service": "mdi:wifi-off"},
     "regenerer_acces": {"service": "mdi:account-key"},
+    "revoquer_acces": {"service": "mdi:account-off"},
     "renvoyer_notification": {"service": "mdi:bell-ring"},
     "imprimer_voucher": {"service": "mdi:printer"},
     "exporter_journal": {"service": "mdi:file-download"},

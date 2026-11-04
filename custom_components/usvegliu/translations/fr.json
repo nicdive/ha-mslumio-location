@@ -166,9 +166,29 @@
         }
       }
     },
+    "revoquer_voucher": {
+      "name": "Révoquer le voucher",
+      "description": "Supprime le code Wi-Fi. Il n'est recréé qu'avec Régénérer le voucher.",
+      "fields": {
+        "reservation_key": {
+          "name": "Réservation",
+          "description": "Vide = séjour affiché par le capteur."
+        }
+      }
+    },
     "regenerer_acces": {
       "name": "Régénérer l'accès Home Assistant",
-      "description": "Change le mot de passe du locataire et le renvoie à l'administrateur.",
+      "description": "Change le mot de passe du locataire. Il apparaît sur la console.",
+      "fields": {
+        "reservation_key": {
+          "name": "Réservation",
+          "description": "Vide = séjour affiché par le capteur."
+        }
+      }
+    },
+    "revoquer_acces": {
+      "name": "Révoquer l'accès Home Assistant",
+      "description": "Supprime le compte locataire. Il n'est recréé qu'avec Régénérer l'accès.",
       "fields": {
         "reservation_key": {
           "name": "Réservation",
@@ -200,7 +220,7 @@
     },
     "appliquer_tableau": {
       "name": "Appliquer le tableau de bord",
-      "description": "Met à jour le tableau de bord usvegliu-sejour."
+      "description": "Met à jour le tableau locataire et la console propriétaire."
     },
     "reglages_sejour": {
       "name": "Réglages d'un séjour",

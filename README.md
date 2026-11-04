@@ -209,7 +209,11 @@ Mesures à avoir en place avant d'activer l'option : mot de passe fort (celui g�
 
 Le mot de passe est généré dans Home Assistant (`token_urlsafe`, sous la limite bcrypt de 72 octets). Le propriétaire le retrouve sur **Séjours actifs** et dans la notification. Il n'est pas écrit dans les logs, ni dans le CSV, ni dans les diagnostics. La web app Maison ne le voit pas. Pour en émettre un autre : `usvegliu.regenerer_acces`.
 
-Tableau de bord : URL `usvegliu-sejour`, titre **Séjour**, visible des non-administrateurs, cartes thermostat / volets / éclairage. L'intégration le crée si la collection Lovelace en mémoire est joignable (commande websocket `lovelace/dashboards/create`). Sinon une réparation l'indique. Créer alors un tableau de stockage d'URL `usvegliu-sejour` (le tiret est obligatoire) et appeler `usvegliu.appliquer_tableau`. Le compte locataire a ce tableau comme accueil (`default_panel`), pour ne pas ouvrir la vue Home de HA 2026.
+Tableau locataire : URL `usvegliu-sejour`, titre **Séjour**, visible des non-administrateurs, cartes thermostat / volets / éclairage. Accueil du compte locataire (`default_panel`).
+
+Tableau propriétaire : URL `usvegliu-proprietaire`, titre **Console**, **réservé aux administrateurs**. Un séjour par carte : dates, compte HA, mot de passe, code Wi-Fi, lien Maison, et quatre actions (nouveau mot de passe, révoquer le compte, nouveau code Wi-Fi, révoquer le Wi-Fi). Les identifiants sont lus en direct sur le capteur **Séjours actifs** (rien de secret dans le YAML Lovelace).
+
+L'intégration crée les deux tableaux si la collection Lovelace est joignable. Sinon : créer les URL `usvegliu-sejour` et `usvegliu-proprietaire` (tiret obligatoire) puis `usvegliu.appliquer_tableau`.
 
 Mettre les autres tableaux (vue d'ensemble, caméras, serrures) en **réservé aux administrateurs**. L'intégration ne le fait pas toute seule, pour ne pas masquer l'interface de l'owner.
 
@@ -252,12 +256,14 @@ Tous exigent un administrateur lorsque l'appel porte un utilisateur. Une automat
 | Service | Effet |
 | --- | --- |
 | `usvegliu.regenerer_voucher` | Nouveau code pour le séjour (l'ancien est supprimé). |
+| `usvegliu.revoquer_voucher` | Supprime le code Wi-Fi jusqu'à régénération. |
 | `usvegliu.regenerer_acces` | Nouveau mot de passe. |
+| `usvegliu.revoquer_acces` | Supprime le compte HA jusqu'à régénération. |
 | `usvegliu.renvoyer_notification` | Renvoie le code, le lien et le mot de passe s'il est déjà stocké. |
 | `usvegliu.reglages_sejour` | Surcharge les entités, les appareils et l'accès internet d'une réservation. |
 | `usvegliu.imprimer_voucher` | Événement d'impression, réponse avec le code. |
 | `usvegliu.exporter_journal` | Chemin du CSV. |
-| `usvegliu.appliquer_tableau` | Réécrit les cartes du tableau `usvegliu-sejour`. |
+| `usvegliu.appliquer_tableau` | Réécrit **Séjour** et **Console**. |
 
 `reservation_key` vide = le séjour affiché par le capteur.
 
@@ -365,7 +371,7 @@ Les tests couvrent le client UniFi (contrôleur HTTP local, clé dans `X-API-KEY
 - Groupe locataire via une API interne de Home Assistant. À recontrôler après chaque montée de version majeure, y compris le filtrage du journal.
 - Pas d'ACL sur les services sans entité ni, dans le code lu, sur le journal. Le test manuel locataire fait partie de la mise en service.
 - L'accès internet n'est qu'un drapeau `local_only`. Sans Nabu Casa ou un proxy déjà en place, le locataire distant n'arrive pas. Tailscale (`100.x`, MagicDNS `ha`) n'est pas local pour ce drapeau : le formulaire peut passer, le websocket non.
-- Le tableau Lovelace n'est créé que si la collection déjà chargée par HA est retrouvée. Sinon, création manuelle d'URL `usvegliu-sejour`.
+- Les tableaux Lovelace ne sont créés que si la collection déjà chargée par HA est retrouvée. Sinon, création manuelle des URL `usvegliu-sejour` et `usvegliu-proprietaire`.
 - Capteur de code : le séjour en cours, ou à défaut le prochain. Capteur **Séjours actifs** : tous les séjours encore ouverts, avec liens et mot de passe propriétaire. Pas dans le CSV.
 - Compte partagé : un seul mot de passe pour les séjours qui se chevauchent.
 - Pas de pilotage du portail captif, des conditions d'utilisation, ni du pare-feu UniFi.

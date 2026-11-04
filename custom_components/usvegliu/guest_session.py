@@ -107,6 +107,8 @@ def issued_account_view(
         "reservation_id": str(record.get("key") or ""),
         "essai": bool(record.get("preview")),
         "tableau": tableau,
+        "access_revoked": bool(record.get("access_revoked")),
+        "voucher_revoked": bool(record.get("voucher_revoked")),
     }
 
 
