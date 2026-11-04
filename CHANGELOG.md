@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.5.6] — 2026-11-04
+
+### Ajouté
+- Web app Maison : page unique avec lumières et scénarios, Nuki, garage, portail, alarme, températures extérieur / piscine et pH. Les commandes passent par `/api/usvegliu/guest/command` après contrôle de la liste du séjour.
+
+[0.5.6]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.5.6
+
 ## [0.5.5] — 2026-11-04
 
 ### Ajouté

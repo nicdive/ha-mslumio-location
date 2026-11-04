@@ -29,7 +29,11 @@ from .const import (
     CONF_ENABLE_VOUCHERS,
     CONF_EXTRA_DAYS,
     CONF_GUEST_BASE_URL,
+    CONF_ALARM_CODE,
     CONF_HOUSE_MODE_ENTITY,
+    CONF_OUTDOOR_TEMPERATURE,
+    CONF_POOL_PH,
+    CONF_POOL_TEMPERATURE,
     CONF_HOST,
     CONF_JOURNAL_PATH,
     CONF_LEAD_DAYS,
@@ -166,6 +170,33 @@ class UsvegliuRuntime:
         value = str(self.entry.options.get(CONF_HOUSE_MODE_ENTITY) or "").strip()
         return value or None
 
+    def telemetry_entity_ids(self) -> dict[str, str]:
+        """Read-only outdoor/pool sensors shown on the guest app."""
+        mapping = {
+            "outdoor": CONF_OUTDOOR_TEMPERATURE,
+            "pool_temp": CONF_POOL_TEMPERATURE,
+            "pool_ph": CONF_POOL_PH,
+        }
+        found: dict[str, str] = {}
+        for kind, key in mapping.items():
+            entity_id = str(self.entry.options.get(key) or "").strip()
+            if entity_id:
+                found[kind] = entity_id
+        return found
+
+    def guest_watch_ids(self, record: dict[str, Any]) -> set[str]:
+        """Entities whose changes should refresh the guest stream."""
+        watched = set(self.allowed_entity_ids(record))
+        mode_entity = self.house_mode_entity_id()
+        if mode_entity:
+            watched.add(mode_entity)
+        watched.update(self.telemetry_entity_ids().values())
+        return watched
+
+    def alarm_code(self) -> str | None:
+        code = str(self.entry.options.get(CONF_ALARM_CODE) or "").strip()
+        return code or None
+
     async def async_load(self) -> None:
         """Load the private stay store."""
         raw = await self.store.async_load()
@@ -213,6 +244,7 @@ class UsvegliuRuntime:
             secrets.append(str(self._shared.get("password") or ""))
         if self._preview:
             secrets.append(str(self._preview.get("guest_token") or ""))
+        secrets.append(str(self.entry.options.get(CONF_ALARM_CODE) or ""))
         self.log_filter.update(secrets, owner=self.entry.entry_id)
 
     def _option_int(self, key: str, default: int) -> int:

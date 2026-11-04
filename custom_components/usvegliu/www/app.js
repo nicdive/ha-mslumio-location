@@ -3,7 +3,6 @@
   const token = readToken();
   let state = null;
   let screen = "home";
-  let section = "climate";
   let listMode = "pieces";
   let roomId = null;
   let error = "";
@@ -53,10 +52,6 @@
     return groups;
   }
 
-  function svg(html) {
-    return html;
-  }
-
   function backArrow() {
     return `<button class="back" type="button" data-act="back" aria-label="Retour">
       <svg width="28" height="12" viewBox="0 0 28 12" aria-hidden="true">
@@ -103,19 +98,6 @@
     return "";
   }
 
-  function nav() {
-    if (!state) return "";
-    const climateTitle = modeLabel();
-    const hasLock = state.locks && state.locks.length;
-    if (!hasLock) return `<h1>${climateTitle}</h1>`;
-    return `<h1>${section === "lock" ? "Entrée" : climateTitle}</h1>
-      <div class="switch">
-        <button type="button" data-act="section" data-id="climate" class="${section === "climate" ? "on" : ""}">${climateTitle}</button>
-        <span class="dot">·</span>
-        <button type="button" data-act="section" data-id="lock" class="${section === "lock" ? "on" : ""}">Entrée</button>
-      </div>`;
-  }
-
   function modeSwitch() {
     return `<div class="switch">
       <button type="button" data-act="mode" data-id="pieces" class="${listMode === "pieces" ? "on" : ""}">Pièces</button>
@@ -124,9 +106,28 @@
     </div>`;
   }
 
+  function sectionTitle(title) {
+    return `<h2 class="section-title">${escapeHtml(title)}</h2>`;
+  }
+
+  function metricsView() {
+    const metrics = (state && state.metrics) || [];
+    if (!metrics.length) return "";
+    return `<div class="metrics">${metrics
+      .map((item) => {
+        const suffix = item.unit === "°" || !item.unit ? (item.kind === "pool_ph" ? "" : item.unit || "°") : item.unit;
+        const shown = item.kind === "pool_ph" ? formatTemp(item.value) : `${formatTemp(item.value)}${suffix === "°" ? "°" : ""}`;
+        return `<div class="metric">
+          <div class="metric-value">${escapeHtml(shown)}${suffix && suffix !== "°" ? `<span class="metric-unit">${escapeHtml(suffix)}</span>` : ""}</div>
+          <div class="metric-label">${escapeHtml(item.label)}</div>
+        </div>`;
+      })
+      .join("")}</div>`;
+  }
+
   function piecesView() {
     const rooms = state.climates || [];
-    if (!rooms.length) return `<p class="empty">Aucun thermostat n’est encore autorisé pour ce séjour.</p>`;
+    if (!rooms.length) return "";
     return grouped(rooms)
       .map(
         (group) => `<div>
@@ -146,7 +147,7 @@
 
   function adjustView() {
     const rooms = state.climates || [];
-    if (!rooms.length) return `<p class="empty">Aucun thermostat n’est encore autorisé pour ce séjour.</p>`;
+    if (!rooms.length) return "";
     return grouped(rooms)
       .map(
         (group) => `<div>
@@ -227,21 +228,118 @@
     </div>`;
   }
 
-  function lockView() {
-    const locks = state.locks || [];
-    if (!locks.length) return `<p class="empty">Aucune serrure n’est autorisée pour ce séjour.</p>`;
-    return locks
-      .map((lock) => {
-        const closed = lock.locked;
-        return `<div class="lock-card">
-          <div class="sub" style="margin-bottom:8px">${escapeHtml(lock.name)}</div>
-          <div class="lock-status">${closed ? "Fermée" : "Ouverte"}</div>
-          <button class="lock-action ${closed ? "filled" : ""}" type="button" data-act="lock" data-id="${escapeAttr(lock.entity_id)}" data-lock="${closed ? "unlock" : "lock"}">
-            ${closed ? "Ouvrir" : "Fermer"}
-          </button>
-        </div>`;
+  function climateSection() {
+    const rooms = state.climates || [];
+    if (!rooms.length) return "";
+    return `<section class="section">
+      <h1>${modeLabel()}</h1>
+      ${modeSwitch()}
+      ${listMode === "reglage" ? adjustView() : piecesView()}
+    </section>`;
+  }
+
+  function lightsSection() {
+    const lights = state.lights || [];
+    const scenes = state.scenes || [];
+    if (!lights.length && !scenes.length) return "";
+    const lightRows = grouped(lights)
+      .map((group) => {
+        const label = lights.length && group.name !== "Maison" ? `<div class="group-label">${escapeHtml(group.name)}</div>` : "";
+        return `${label}${group.rooms
+          .map(
+            (light) => `<button class="row" type="button" data-act="light" data-id="${escapeAttr(light.entity_id)}">
+            <span>${escapeHtml(light.name)}</span>
+            <span class="${light.on ? "" : "off"}">${light.on ? "On" : "Off"}</span>
+          </button>`
+          )
+          .join("")}`;
       })
       .join("");
+    const sceneRow = scenes.length
+      ? `<div class="scenes">${scenes
+          .map(
+            (scene, i) =>
+              `${i ? '<span class="dot">·</span>' : ""}<button type="button" data-act="scene" data-id="${escapeAttr(scene.entity_id)}">${escapeHtml(scene.name)}</button>`
+          )
+          .join("")}</div>`
+      : "";
+    return `<section class="section">${sectionTitle("Lumière")}${lightRows}${sceneRow}</section>`;
+  }
+
+  function coverStatus(item) {
+    if (item.moving) return item.open ? "Ouverture…" : "Fermeture…";
+    return item.open ? "Ouvert" : "Fermé";
+  }
+
+  function coverAction(item) {
+    if (item.moving) return { action: "stop", label: "Stop" };
+    return item.open ? { action: "close", label: "Fermer" } : { action: "open", label: "Ouvrir" };
+  }
+
+  function accessRow(item, status, action, act, extraClass) {
+    return `<div class="access${extraClass || ""}">
+      <div class="access-copy">
+        <div class="access-name">${escapeHtml(item.name)}</div>
+        <div class="access-status">${escapeHtml(status)}</div>
+      </div>
+      <button class="access-action ${action.filled ? "filled" : ""}" type="button" data-act="${escapeAttr(act)}" data-id="${escapeAttr(item.entity_id)}" data-cmd="${escapeAttr(action.cmd)}">${escapeHtml(action.label)}</button>
+    </div>`;
+  }
+
+  function alarmStatus(alarm) {
+    if (alarm.state === "triggered") return "Alarme";
+    if (alarm.state === "pending") return "Armement…";
+    if (alarm.state === "armed") return "Armée";
+    return "Désarmée";
+  }
+
+  function accessSection() {
+    const locks = state.locks || [];
+    const garages = state.garages || [];
+    const gates = state.gates || [];
+    const shutters = state.shutters || [];
+    const alarms = state.alarms || [];
+    if (!locks.length && !garages.length && !gates.length && !alarms.length && !shutters.length) return "";
+    const lockRows = locks.map((lock) =>
+      accessRow(
+        lock,
+        lock.locked ? "Fermée" : "Ouverte",
+        lock.locked ? { label: "Ouvrir", cmd: "unlock", filled: false } : { label: "Fermer", cmd: "lock", filled: true },
+        "lock"
+      )
+    );
+    const coverRows = [...garages, ...gates].map((item) => {
+      const next = coverAction(item);
+      return accessRow(item, coverStatus(item), { label: next.label, cmd: next.action, filled: item.open }, "cover");
+    });
+    const shutterBlock = shutters.length
+      ? `<div class="group-label">Volets</div>${shutters
+          .map((item) => {
+            const next = coverAction(item);
+            return accessRow(item, coverStatus(item), { label: next.label, cmd: next.action, filled: item.open }, "cover");
+          })
+          .join("")}`
+      : "";
+    const alarmRows = alarms.map((alarm) =>
+      accessRow(
+        alarm,
+        alarmStatus(alarm),
+        alarm.state === "disarmed"
+          ? { label: "Armer", cmd: "arm", filled: false }
+          : { label: "Désarmer", cmd: "disarm", filled: true },
+        "alarm",
+        alarm.state === "triggered" ? " triggered" : ""
+      )
+    );
+    return `<section class="section">${sectionTitle("Accès")}${lockRows.join("")}${coverRows.join("")}${shutterBlock}${alarmRows.join("")}</section>`;
+  }
+
+  function homeView() {
+    const body = `${metricsView()}${climateSection()}${lightsSection()}${accessSection()}`;
+    if (!body.trim()) {
+      return `${brand(false)}<p class="empty">Aucun équipement n’est encore autorisé pour ce séjour.</p>`;
+    }
+    return `${brand(false)}${body}`;
   }
 
   function render() {
@@ -267,12 +365,7 @@
         return;
       }
     }
-    if (section === "lock") {
-      root.innerHTML = `${brand(false)}${nav()}${lockView()}`;
-      bind();
-      return;
-    }
-    root.innerHTML = `${brand(false)}${nav()}${modeSwitch()}${listMode === "reglage" ? adjustView() : piecesView()}`;
+    root.innerHTML = homeView();
     bind();
   }
 
@@ -283,10 +376,14 @@
     });
   }
 
-  function patchLocal(entityId, patch) {
-    state.climates = (state.climates || []).map((room) =>
-      room.entity_id === entityId ? { ...room, ...patch } : room
+  function patchList(key, entityId, patch) {
+    state[key] = (state[key] || []).map((item) =>
+      item.entity_id === entityId ? { ...item, ...patch } : item
     );
+  }
+
+  function patchLocal(entityId, patch) {
+    patchList("climates", entityId, patch);
   }
 
   function onAction(event) {
@@ -294,12 +391,6 @@
     const act = button.getAttribute("data-act");
     const id = button.getAttribute("data-id");
     if (act === "back") {
-      screen = "home";
-      render();
-      return;
-    }
-    if (act === "section") {
-      section = id;
       screen = "home";
       render();
       return;
@@ -337,9 +428,33 @@
       commandClimate(id, { fan: Number(button.getAttribute("data-fan")) });
       return;
     }
-    if (act === "lock") {
-      commandLock(id, button.getAttribute("data-lock"));
+    if (act === "light") {
+      const light = (state.lights || []).find((item) => item.entity_id === id);
+      if (!light) return;
+      commandEntity("lights", id, light.on ? "off" : "on", { on: !light.on });
+      return;
     }
+    if (act === "scene") {
+      commandEntity("scenes", id, "activate");
+      return;
+    }
+    if (act === "lock") {
+      commandEntity("locks", id, button.getAttribute("data-cmd"));
+      return;
+    }
+    if (act === "cover") {
+      commandEntity(coverListKey(id), id, button.getAttribute("data-cmd"));
+      return;
+    }
+    if (act === "alarm") {
+      commandEntity("alarms", id, button.getAttribute("data-cmd"));
+    }
+  }
+
+  function coverListKey(entityId) {
+    if ((state.garages || []).some((item) => item.entity_id === entityId)) return "garages";
+    if ((state.gates || []).some((item) => item.entity_id === entityId)) return "gates";
+    return "shutters";
   }
 
   function clamp(room, value) {
@@ -362,15 +477,17 @@
       .catch(() => refresh());
   }
 
-  function commandLock(entityId, action) {
-    api("/api/usvegliu/guest/lock", {
+  function commandEntity(listKey, entityId, action, optimistic) {
+    if (optimistic) {
+      patchList(listKey, entityId, optimistic);
+      render();
+    }
+    api("/api/usvegliu/guest/command", {
       method: "POST",
       body: JSON.stringify({ entity_id: entityId, action }),
     })
       .then((updated) => {
-        state.locks = (state.locks || []).map((item) =>
-          item.entity_id === entityId ? { ...item, ...updated } : item
-        );
+        if (listKey !== "scenes") patchList(listKey, entityId, updated);
         render();
       })
       .catch(() => refresh());
@@ -390,7 +507,6 @@
   function applyState(payload) {
     state = payload;
     error = "";
-    if (!state.climates.length && state.locks.length) section = "lock";
     render();
   }
 

@@ -46,6 +46,10 @@ ACCESS_MODES: Final = (ACCESS_PER_STAY, ACCESS_SHARED)
 DEFAULT_ACCESS_MODE: Final = ACCESS_PER_STAY
 CONF_GUEST_BASE_URL: Final = "guest_base_url"
 CONF_HOUSE_MODE_ENTITY: Final = "house_mode_entity"
+CONF_OUTDOOR_TEMPERATURE: Final = "outdoor_temperature"
+CONF_POOL_TEMPERATURE: Final = "pool_temperature"
+CONF_POOL_PH: Final = "pool_ph"
+CONF_ALARM_CODE: Final = "alarm_code"
 
 DEFAULT_PORT: Final = 443
 DEFAULT_LEAD_DAYS: Final = 3

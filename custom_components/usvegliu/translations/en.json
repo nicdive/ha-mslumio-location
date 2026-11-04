@@ -48,7 +48,11 @@
           "enable_access": "Create guest accounts",
           "print_event": "Print event on creation",
           "guest_base_url": "Public web app URL",
-          "house_mode_entity": "Heating / cooling switch"
+          "house_mode_entity": "Heating / cooling switch",
+          "outdoor_temperature": "Outdoor temperature",
+          "pool_temperature": "Pool temperature",
+          "pool_ph": "Pool pH",
+          "alarm_code": "Alarm code (server)"
         },
         "data_description": {
           "calendar_entity": "Any calendar entity (Airbnb, Booking, Google or local ICS).",
@@ -67,7 +71,11 @@
           "title_blocklist": "Comma-separated substrings that are not guests (blocked dates).",
           "print_event": "When enabled, the cleartext code is published on usvegliu_print_voucher and may end up in traces. Leave off unless you print.",
           "guest_base_url": "Public origin, no path. e.g. https://www.usvegliu.fr — guest links become /s/<token>. Empty = Home Assistant internal URL.",
-          "house_mode_entity": "Owner switch. On = cooling, off = heating. Guests can read it, they cannot toggle it."
+          "house_mode_entity": "Owner switch. On = cooling, off = heating. Guests can read it, they cannot toggle it.",
+          "outdoor_temperature": "Shown at the top of the guest app. Read-only.",
+          "pool_temperature": "Shown at the top of the guest app. Read-only.",
+          "pool_ph": "Optional. Read-only.",
+          "alarm_code": "Used server-side to arm/disarm. Never sent to the browser. Empty = keep the stored code."
         }
       },
       "reconfigure": {
@@ -124,14 +132,22 @@
           "enable_access": "Create guest accounts",
           "print_event": "Print event on creation",
           "guest_base_url": "Public web app URL",
-          "house_mode_entity": "Heating / cooling switch"
+          "house_mode_entity": "Heating / cooling switch",
+          "outdoor_temperature": "Outdoor temperature",
+          "pool_temperature": "Pool temperature",
+          "pool_ph": "Pool pH",
+          "alarm_code": "Alarm code (server)"
         },
         "data_description": {
           "extra_days": "Voucher duration = stay + these days. UniFi starts the timer when the code is first redeemed.",
           "allow_remote": "Turn this on to try the HA account over Tailscale: a 100.x address is not local, so the frontend stays on Loading data.",
           "print_event": "Publishes the cleartext code on the bus. Enable only for printing.",
           "guest_base_url": "e.g. https://www.usvegliu.fr. Empty = Home Assistant internal URL.",
-          "house_mode_entity": "On = cooling, off = heating. Guests can read it, they cannot toggle it."
+          "house_mode_entity": "On = cooling, off = heating. Guests can read it, they cannot toggle it.",
+          "outdoor_temperature": "Read-only on the guest app.",
+          "pool_temperature": "Read-only on the guest app.",
+          "pool_ph": "Optional, read-only.",
+          "alarm_code": "Never sent to the browser. Empty = keep the stored code."
         }
       }
     },

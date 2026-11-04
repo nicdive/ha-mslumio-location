@@ -21,6 +21,7 @@ SECRET_KEYS: frozenset[str] = frozenset(
         "mot_de_passe",
         "voucher_code",
         "code",
+        "alarm_code",
         "token",
         "guest_token",
         "lien_maison",
