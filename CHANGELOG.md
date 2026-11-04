@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.5.2] — 2026-11-04
+
+### Ajouté
+- Capteur admin **Séjours actifs** : tant que le séjour n'est pas clos, l'administrateur garde le locataire, l'identifiant HA, le code Wi-Fi et le **lien Maison**, même après fermeture de la notification. Le mot de passe HA n'y figure pas (il n'est toujours pas archivé).
+
+[0.5.2]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.5.2
+
 ## [0.5.1] — 2026-11-04
 
 ### Corrigé

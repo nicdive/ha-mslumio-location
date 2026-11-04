@@ -149,6 +149,9 @@
     "sensor": {
       "voucher_code": {
         "name": "Code voucher"
+      },
+      "sejours": {
+        "name": "Séjours actifs"
       }
     }
   },

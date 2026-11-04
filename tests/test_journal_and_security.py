@@ -124,6 +124,8 @@ def test_diagnostics_and_logs_redact_secrets():
     assert payload["stays"][0]["password"] == "**REDACTED**"
     assert payload["stays"][0]["guest_token"] == "**REDACTED**"
     assert payload["stays"][0]["guest"] == "**REDACTED**"
+    linked = redact({"lien_maison": "https://www.usvegliu.fr/s/stay-token-secret"})
+    assert linked["lien_maison"] == "**REDACTED**"
     assert payload["stays"][0]["voucher_id"] == "voucher-1"
     assert payload["empty"]["api_key"] == ""
 
@@ -270,6 +272,19 @@ async def test_dashboard_saves_when_lovelace_already_has_the_path():
     assert result["reason"] == "saved"
     assert result["cards"] == 2
     assert saved and saved[0]["views"][0]["sections"][0]["cards"]
+
+
+def test_admin_roster_sensor_lists_stays_not_passwords():
+    sensor = (
+        Path(__file__).resolve().parents[1]
+        / "custom_components"
+        / "usvegliu"
+        / "sensor.py"
+    ).read_text(encoding="utf-8")
+    assert "IssuedAccountsSensor" in sensor
+    assert 'translation_key = "sejours"' in sensor
+    assert "lien_maison" in sensor
+    assert "The HA password is not stored" in sensor
 
 
 def test_guest_stream_is_server_sent_events():

@@ -3,6 +3,9 @@
     "sensor": {
       "voucher_code": {
         "default": "mdi:ticket-confirmation"
+      },
+      "sejours": {
+        "default": "mdi:account-group"
       }
     }
   },

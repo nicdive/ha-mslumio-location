@@ -68,6 +68,8 @@ from .guest_session import (
     build_preview_record,
     find_record_by_token,
     guest_path,
+    issued_account_view,
+    open_issued_records,
     public_guest_url,
     stay_is_open,
 )
@@ -628,13 +630,52 @@ def _scrub_secrets(record: dict[str, Any]) -> dict[str, Any]:
     return cleaned
 
 
+def _issued_rows(
+    runtime: UsvegliuRuntime,
+    stays: dict[str, dict[str, Any]],
+    shared: dict[str, Any] | None,
+    now: object,
+) -> list[dict[str, Any]]:
+    """Admin roster: every issued stay still open, plus a live preview."""
+    rows: list[dict[str, Any]] = []
+    for record in open_issued_records(stays, runtime._preview, now):  # type: ignore[arg-type]
+        link = runtime.guest_link(record)
+        username = (shared or {}).get("username") or record.get("username")
+        rows.append(
+            issued_account_view(
+                record,
+                username=None if username is None else str(username),
+                lien_maison=str(link.get("url") or ""),
+                path=str(link.get("path") or ""),
+                tableau=f"/{DASHBOARD_URL}",
+            )
+        )
+    return rows
+
+
 def _snapshot(
     stays: dict[str, dict[str, Any]],
     shared: dict[str, Any] | None,
     now: object,
     runtime: UsvegliuRuntime,
 ) -> dict[str, Any]:
+    rows = _issued_rows(runtime, stays, shared, now)
     current = select_current(stays, now)  # type: ignore[arg-type]
+    lien_maison = None
+    if current is not None:
+        key = str(current.get("key") or "")
+        for row in rows:
+            if row.get("reservation_id") == key:
+                lien_maison = row.get("lien_maison")
+                break
+    common = {
+        "stays": rows,
+        "stay_count": len(rows),
+        "lien_maison": lien_maison,
+        "devices": runtime._option_int(CONF_DEVICE_LIMIT, DEFAULT_DEVICE_LIMIT),
+        "download_mbps": runtime._option_int(CONF_DOWNLOAD_MBPS, DEFAULT_DOWNLOAD_MBPS),
+        "upload_mbps": runtime._option_int(CONF_UPLOAD_MBPS, DEFAULT_UPLOAD_MBPS),
+    }
     if current is None:
         return {
             "voucher_code": None,
@@ -644,12 +685,7 @@ def _snapshot(
             "voucher_id": None,
             "username": None,
             "reservation_id": None,
-            "stay_count": len(stays),
-            "devices": runtime._option_int(CONF_DEVICE_LIMIT, DEFAULT_DEVICE_LIMIT),
-            "download_mbps": runtime._option_int(
-                CONF_DOWNLOAD_MBPS, DEFAULT_DOWNLOAD_MBPS
-            ),
-            "upload_mbps": runtime._option_int(CONF_UPLOAD_MBPS, DEFAULT_UPLOAD_MBPS),
+            **common,
         }
     return {
         "voucher_code": current.get("voucher_code"),
@@ -659,10 +695,7 @@ def _snapshot(
         "voucher_id": current.get("voucher_id"),
         "username": (shared or {}).get("username") or current.get("username"),
         "reservation_id": current.get("key"),
-        "stay_count": len(stays),
-        "devices": runtime._option_int(CONF_DEVICE_LIMIT, DEFAULT_DEVICE_LIMIT),
-        "download_mbps": runtime._option_int(CONF_DOWNLOAD_MBPS, DEFAULT_DOWNLOAD_MBPS),
-        "upload_mbps": runtime._option_int(CONF_UPLOAD_MBPS, DEFAULT_UPLOAD_MBPS),
+        **common,
     }
 
 

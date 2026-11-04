@@ -139,7 +139,7 @@ Nom du voucher : `Jean Dupont 2026-07-10/2026-07-17`. Les apostrophes sont retir
 
 Séjour « journée entière » : la date de fin ICS est exclusive. Un événement du 10 au 17 est un départ le 17 au matin, soit 7 nuits, plus 1 jour, soit 8 jours de voucher.
 
-Le capteur **Code voucher** affiche le code du séjour en cours (sinon le prochain déjà créé, sinon `aucun`). Il n'est pas dans la politique du locataire. Le mot de passe HA n'est pas un capteur.
+Le capteur **Code voucher** affiche le code du séjour en cours (sinon le prochain déjà créé, sinon `aucun`). Le capteur **Séjours actifs** liste tous les séjours encore ouverts (y compris avant l'arrivée, et un lien d'essai 24 h) : locataire, dates, identifiant HA, code Wi-Fi, lien Maison, tableau `/usvegliu-sejour`. Fermer la notification persistante ne les efface pas ; le départ ou l'annulation si. Le mot de passe HA n'est ni un capteur ni un attribut : `usvegliu.regenerer_acces` en émet un nouveau. Ces deux capteurs ne sont pas dans la politique du locataire.
 
 ## Pare-feu (zone Hotspot → HA:8123 seulement)
 
@@ -241,7 +241,7 @@ Le magasin interne (`.storage/usvegliu.<entrée>`) est privé. Il sert à ne pas
 
 ## Notification et impression
 
-À chaque nouveau code ou mot de passe : notification persistante `Usvegliu — <locataire>`. Un service `notify.…` optionnel reçoit le même texte (beaucoup de notifiers recopient le message dans le log : ne l'activer que si ce log reste privé).
+À chaque nouveau code ou mot de passe : notification persistante `Usvegliu — <locataire>`. Un service `notify.…` optionnel reçoit le même texte (beaucoup de notifiers recopient le message dans le log : ne l'activer que si ce log reste privé). La notification peut être fermée : le capteur **Séjours actifs** (appareil Usvegliu) reste la liste de travail tant que le séjour est ouvert.
 
 L'impression n'est pas faite par l'intégration. Service `usvegliu.imprimer_voucher` (ou la case « événement d'impression », désactivée par défaut) : événement `usvegliu_print_voucher` avec le code en clair, pour une automatisation qui imprime. Cet événement peut apparaître dans les traces d'automatisation. Le laisser désactivé si personne n'imprime.
 
@@ -366,6 +366,6 @@ Les tests couvrent le client UniFi (contrôleur HTTP local, clé dans `X-API-KEY
 - Pas d'ACL sur les services sans entité ni, dans le code lu, sur le journal. Le test manuel locataire fait partie de la mise en service.
 - L'accès internet n'est qu'un drapeau `local_only`. Sans Nabu Casa ou un proxy déjà en place, le locataire distant n'arrive pas. Tailscale (`100.x`, MagicDNS `ha`) n'est pas local pour ce drapeau : le formulaire peut passer, le websocket non.
 - Le tableau Lovelace n'est créé que si la collection déjà chargée par HA est retrouvée. Sinon, création manuelle d'URL `usvegliu-sejour`.
-- Un seul capteur de code : le séjour en cours, ou à défaut le prochain.
+- Capteur de code : le séjour en cours, ou à défaut le prochain. Capteur **Séjours actifs** : tous les séjours encore ouverts, avec liens. Pas de mot de passe.
 - Compte partagé : un seul mot de passe pour les séjours qui se chevauchent.
 - Pas de pilotage du portail captif, des conditions d'utilisation, ni du pare-feu UniFi.
