@@ -6,6 +6,9 @@
       },
       "sejours": {
         "default": "mdi:account-group"
+      },
+      "reglages": {
+        "default": "mdi:tune"
       }
     }
   },

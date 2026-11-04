@@ -172,6 +172,9 @@
       },
       "sejours": {
         "name": "Séjours actifs"
+      },
+      "reglages": {
+        "name": "Réglages"
       }
     }
   },

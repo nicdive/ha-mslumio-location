@@ -16,6 +16,8 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    ACCESS_PER_STAY,
+    ACCESS_SHARED,
     CONF_ACCESS_MODE,
     CONF_API_KEY,
     CONF_BASE_PATH,
@@ -46,6 +48,7 @@ from .const import (
     CONF_PORT,
     CONF_PRINT_EVENT,
     CONF_SITE_ID,
+    CONF_SITE_NAME,
     CONF_TITLE_BLOCKLIST,
     CONF_UPLOAD_MBPS,
     CONF_VERIFY_SSL,
@@ -379,14 +382,11 @@ class UsvegliuRuntime:
             lines.append(f"Utilisateur Home Assistant : {note['username']}")
         if note.get("password"):
             lines.append(f"Mot de passe : {note['password']}")
-            lines.append(
-                "Ce mot de passe n'est pas archivé. Notez-le maintenant : "
-                "il disparaît avec cette notification."
-            )
+            lines.append("Le mot de passe est aussi visible sur la Console.")
         elif note.get("username"):
             lines.append(
-                "Le mot de passe n'est pas conservé. "
-                "Régénérez l'accès pour en afficher un nouveau."
+                "Mot de passe : ouvrez la Console, ou touchez "
+                "Nouveau mot de passe si rien n'est affiché."
             )
         lines.append(f"Tableau de bord : /{DASHBOARD_URL}")
         stay = self._stays.get(note.get("reservation_id") or "")
@@ -425,9 +425,9 @@ class UsvegliuRuntime:
             blocking=False,
         )
 
-    def _sejours_entity_id(self) -> str:
-        """Entity id of the owner roster sensor, if the registry knows it."""
-        unique = f"{self.entry.entry_id}_sejours"
+    def _entity_id_for(self, unique_suffix: str, fallback: str) -> str:
+        """Resolve a sensor entity id from the registry, with a stable fallback."""
+        unique = f"{self.entry.entry_id}_{unique_suffix}"
         try:
             from homeassistant.helpers import entity_registry as er
 
@@ -438,7 +438,69 @@ class UsvegliuRuntime:
                 return str(entity_id)
         except Exception:  # noqa: BLE001 — tests and early setup
             pass
-        return "sensor.usvegliu_sejours"
+        return fallback
+
+    def _sejours_entity_id(self) -> str:
+        """Entity id of the owner roster sensor, if the registry knows it."""
+        return self._entity_id_for("sejours", "sensor.usvegliu_sejours")
+
+    def _reglages_entity_id(self) -> str:
+        """Entity id of the owner settings sensor."""
+        return self._entity_id_for("reglages", "sensor.usvegliu_reglages")
+
+    def _voucher_entity_id(self) -> str:
+        """Entity id of the current Wi-Fi code sensor."""
+        return self._entity_id_for("voucher_code", "sensor.usvegliu_code_voucher")
+
+    def owner_settings(self) -> dict[str, Any]:
+        """Options in force for the Console. No API key, alarm code or password."""
+        options = self.entry.options
+        data = self.entry.data
+        mode = str(options.get(CONF_ACCESS_MODE) or DEFAULT_ACCESS_MODE)
+        labels = {
+            ACCESS_PER_STAY: "un compte par séjour",
+            ACCESS_SHARED: "compte locataire unique",
+        }
+        telemetry = self.telemetry_entity_ids()
+        journal_path = ""
+        path = getattr(self.journal, "path", None)
+        if path is not None:
+            journal_path = str(path)
+        return {
+            "calendar": str(options.get(CONF_CALENDAR) or ""),
+            "lead_days": self._option_int(CONF_LEAD_DAYS, DEFAULT_LEAD_DAYS),
+            "extra_days": self._option_int(CONF_EXTRA_DAYS, DEFAULT_EXTRA_DAYS),
+            "lookahead_days": self._option_int(
+                CONF_LOOKAHEAD_DAYS, DEFAULT_LOOKAHEAD_DAYS
+            ),
+            "max_stay_days": self._option_int(CONF_MAX_STAY_DAYS, DEFAULT_MAX_STAY_DAYS),
+            "title_blocklist": str(
+                options.get(CONF_TITLE_BLOCKLIST) or DEFAULT_TITLE_BLOCKLIST
+            ),
+            "enable_access": bool(options.get(CONF_ENABLE_ACCESS, True)),
+            "enable_vouchers": bool(options.get(CONF_ENABLE_VOUCHERS, True)),
+            "access_mode": mode,
+            "access_mode_label": labels.get(mode, mode),
+            "allow_remote": bool(options.get(CONF_ALLOW_REMOTE, False)),
+            "tenant_entity_count": len(self.tenant_entity_ids()),
+            "tenant_device_count": len(self.tenant_device_ids()),
+            "device_limit": self._option_int(CONF_DEVICE_LIMIT, DEFAULT_DEVICE_LIMIT),
+            "download_mbps": self._option_int(
+                CONF_DOWNLOAD_MBPS, DEFAULT_DOWNLOAD_MBPS
+            ),
+            "upload_mbps": self._option_int(CONF_UPLOAD_MBPS, DEFAULT_UPLOAD_MBPS),
+            "site": str(data.get(CONF_SITE_NAME) or data.get(CONF_SITE_ID) or ""),
+            "host": str(data.get(CONF_HOST) or ""),
+            "house_mode_entity": self.house_mode_entity_id() or "",
+            "outdoor_temperature": telemetry.get("outdoor") or "",
+            "pool_temperature": telemetry.get("pool_temp") or "",
+            "pool_ph": telemetry.get("pool_ph") or "",
+            "alarm_configured": bool(self.alarm_code()),
+            "journal_path": journal_path,
+            "notify_service": str(options.get(CONF_NOTIFY_SERVICE) or ""),
+            "print_event": bool(options.get(CONF_PRINT_EVENT, False)),
+            "guest_base_url": str(options.get(CONF_GUEST_BASE_URL) or ""),
+        }
 
     async def _async_dashboard(self) -> None:
         from homeassistant.helpers import issue_registry as ir
@@ -446,7 +508,19 @@ class UsvegliuRuntime:
         entities = self._dashboard_entity_ids()
         stay_keys = tuple(sorted(self._stays))
         preview = bool(self._preview and self._preview.get("guest_token"))
-        signature = repr((entities, stay_keys, preview))
+        telemetry = self.telemetry_entity_ids()
+        signature = repr(
+            (
+                entities,
+                stay_keys,
+                preview,
+                self.house_mode_entity_id(),
+                tuple(sorted(telemetry.items())),
+                self._sejours_entity_id(),
+                self._reglages_entity_id(),
+                self._voucher_entity_id(),
+            )
+        )
         if signature == self._dashboard_signature:
             return
         try:
@@ -460,6 +534,13 @@ class UsvegliuRuntime:
                 self.hass,
                 owner_rows,
                 sejours_entity_id=self._sejours_entity_id(),
+                reglages_entity_id=self._reglages_entity_id(),
+                voucher_entity_id=self._voucher_entity_id(),
+                house_mode_entity=self.house_mode_entity_id(),
+                outdoor_entity=telemetry.get("outdoor"),
+                pool_temp_entity=telemetry.get("pool_temp"),
+                pool_ph_entity=telemetry.get("pool_ph"),
+                tenant_entities=entities,
             )
         except Exception:  # noqa: BLE001
             _LOGGER.warning("Console propriétaire Usvegliu non mise à jour")
@@ -725,9 +806,12 @@ class UsvegliuRuntime:
 def _scrub_secrets(record: dict[str, Any]) -> dict[str, Any]:
     """Keep the owner password on the private stay store; drop aliases."""
     cleaned = dict(record)
-    if not cleaned.get("password") and cleaned.get("mot_de_passe"):
-        cleaned["password"] = cleaned["mot_de_passe"]
+    if not cleaned.get("password"):
+        alias = cleaned.get("mot_de_passe") or cleaned.get("code_compte")
+        if alias:
+            cleaned["password"] = alias
     cleaned.pop("mot_de_passe", None)
+    cleaned.pop("code_compte", None)
     return cleaned
 
 

@@ -20,11 +20,17 @@ from .const import (
     OWNER_DASHBOARD_ICON,
     OWNER_DASHBOARD_TITLE,
     OWNER_DASHBOARD_URL,
+    SERVICE_APPLY_DASHBOARD,
+    SERVICE_EXPORT_JOURNAL,
+    SERVICE_GUEST_LINK,
+    SERVICE_PRINT,
     SERVICE_REGENERATE_ACCESS,
     SERVICE_REGENERATE_VOUCHER,
+    SERVICE_RESEND,
     SERVICE_REVOKE_ACCESS,
     SERVICE_REVOKE_VOUCHER,
 )
+from .guest_session import credential_attribute_key
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -200,101 +206,302 @@ def _jinja_quote(value: str) -> str:
     return value.replace("\\", "\\\\").replace("'", "\\'")
 
 
-def _service_button(
+def _service_tap(
+    service: str,
+    confirm: str,
+    data: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    tap: dict[str, Any] = {
+        "action": "call-service",
+        "service": f"{DOMAIN}.{service}",
+        "service_data": dict(data or {}),
+    }
+    if confirm:
+        tap["confirmation"] = {"text": confirm}
+    return tap
+
+
+def _action_row(
     name: str,
     icon: str,
     service: str,
-    reservation_id: str,
     confirm: str,
+    *,
+    reservation_id: str = "",
+    extra: dict[str, Any] | None = None,
+    action_name: str = "OK",
 ) -> dict[str, Any]:
+    data: dict[str, Any] = dict(extra or {})
+    if reservation_id:
+        data[ATTR_RESERVATION_KEY] = reservation_id
     return {
         "type": "button",
         "name": name,
         "icon": icon,
-        "show_icon": True,
-        "show_name": True,
-        "show_state": False,
-        "tap_action": {
-            "action": "call-service",
-            "service": f"{DOMAIN}.{service}",
-            "service_data": {ATTR_RESERVATION_KEY: reservation_id},
-            "confirmation": {"text": confirm},
-        },
+        "action_name": action_name,
+        "tap_action": _service_tap(service, confirm, data),
+    }
+
+
+def _entities_actions(title: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "type": "entities",
+        "title": title,
+        "show_header_toggle": False,
+        "state_color": False,
+        "entities": rows,
     }
 
 
 def _stay_markdown(entity_id: str, reservation_id: str) -> str:
-    """Live Jinja: passwords stay on the sensor, not in the Lovelace file."""
+    """Live Jinja: secrets stay on the sensor, not in the Lovelace file.
+
+    The frontend hides attributes named ``password``. Read ``code_compte`` /
+    ``mot_de_passe`` (and the parallel ``comptes`` map) so the owner sees
+    the HA login.
+    """
     entity = _jinja_quote(entity_id)
     key = _jinja_quote(reservation_id)
+    attr = _jinja_quote(credential_attribute_key(reservation_id))
     return (
         f"{{% set rows = state_attr('{entity}', 'stays') or [] %}}\n"
+        f"{{% set comptes = state_attr('{entity}', 'comptes') or {{}} %}}\n"
         f"{{% set found = rows | selectattr('reservation_id', 'equalto', '{key}') | list %}}\n"
         f"{{% set s = found[0] if found else none %}}\n"
+        f"{{% set c = comptes.get('{key}') %}}\n"
+        f"{{% set plat = state_attr('{entity}', '{attr}') %}}\n"
+        "{% set identifiant = (c.identifiant if c else none) or (s.username if s else none) %}\n"
+        "{% set mdp = plat or (c.code_compte if c else none) "
+        "or (c.mot_de_passe if c else none) "
+        "or (s.code_compte if s else none) "
+        "or (s.mot_de_passe if s else none) %}\n"
         "{% if s %}\n"
         "{% set debut = (s.check_in or '')[:10] %}\n"
         "{% set fin = (s.check_out or '')[:10] %}\n"
         "**{{ debut }} → {{ fin }}**\n"
         "\n"
         "{% if s.essai %}\n"
-        "Lien d'essai 24 h — pas de compte HA ni de voucher UniFi.\n"
+        "*Lien d'essai 24 h — pas de compte HA ni de Wi-Fi.*\n"
         "\n"
         "{% if s.lien_maison %}[Ouvrir la maison]({{ s.lien_maison }}){% endif %}\n"
         "{% else %}\n"
         "{% if s.access_revoked %}\n"
-        "Compte HA — *révoqué*\n"
-        "\n"
+        "**Compte Home Assistant** — *révoqué*\n"
         "{% else %}\n"
-        "Compte HA\n"
-        "`{{ s.username or '—' }}`\n"
-        "`{{ s.password or '—' }}`\n"
+        "### Compte Home Assistant\n"
+        "Identifiant : `{{ identifiant or '—' }}`\n"
         "\n"
-        "{% endif %}\n"
-        "{% if s.voucher_revoked %}\n"
-        "Wi-Fi — *révoqué*\n"
+        "{% if mdp %}\n"
+        "Mot de passe :\n"
         "\n"
+        "## `{{ mdp }}`\n"
         "{% else %}\n"
-        "Wi-Fi\n"
-        "`{{ s.voucher_code or '—' }}`\n"
-        "\n"
+        "Mot de passe : *non enregistré.* Touchez **Nouveau mot de passe** "
+        "ci-dessous pour en afficher un.\n"
         "{% endif %}\n"
+        "{% endif %}\n"
+        "\n"
+        "**Wi-Fi** : "
+        "{% if s.voucher_revoked %}*révoqué*\n"
+        "{% else %}`{{ s.voucher_code or '—' }}`\n"
+        "{% endif %}\n"
+        "\n"
         "{% if s.lien_maison %}[Maison]({{ s.lien_maison }}){% endif %}"
         " · [Tableau séjour](/"
         f"{DASHBOARD_URL})\n"
         "{% endif %}\n"
         "{% else %}\n"
-        "Séjour clos ou pas encore provisionné.\n"
+        "*Séjour clos ou pas encore provisionné.*\n"
         "{% endif %}\n"
     )
 
 
-def build_owner_dashboard_config(
+def _settings_markdown(entity_id: str) -> str:
+    """Live Jinja from the settings sensor — no secrets in Lovelace."""
+    entity = _jinja_quote(entity_id)
+    return (
+        f"{{% set a = state_attr('{entity}', 'settings') or {{}} %}}\n"
+        "### Calendrier\n"
+        "- Réservations : `{{ a.calendar or '—' }}`\n"
+        "- Avant arrivée : **{{ a.lead_days }}** j · après séjour : "
+        "**{{ a.extra_days }}** j\n"
+        "- Horizon : **{{ a.lookahead_days }}** j · durée max : "
+        "**{{ a.max_stay_days }}** j\n"
+        "- Titres ignorés : `{{ a.title_blocklist or '—' }}`\n"
+        "\n"
+        "### Accès locataire\n"
+        "- Comptes HA : **{{ 'oui' if a.enable_access else 'non' }}** "
+        "({{ a.access_mode_label or '—' }})\n"
+        "- Vouchers UniFi : **{{ 'oui' if a.enable_vouchers else 'non' }}**\n"
+        "- Internet pendant le séjour : "
+        "**{{ 'oui' if a.allow_remote else 'non' }}**\n"
+        "- Entités : **{{ a.tenant_entity_count }}** · appareils : "
+        "**{{ a.tenant_device_count }}**\n"
+        "\n"
+        "### Wi-Fi\n"
+        "- Appareils / voucher : **{{ a.device_limit }}**\n"
+        "- Débit : **{{ a.download_mbps }}** / **{{ a.upload_mbps }}** Mbit/s\n"
+        "\n"
+        "### Maison\n"
+        "- Site : `{{ a.site or a.host or '—' }}`\n"
+        "- Chauffage / clim : `{{ a.house_mode_entity or 'non configuré' }}`\n"
+        "- Extérieur : `{{ a.outdoor_temperature or '—' }}`\n"
+        "- Piscine : `{{ a.pool_temperature or '—' }}` · "
+        "pH : `{{ a.pool_ph or '—' }}`\n"
+        "- Code alarme enregistré : "
+        "**{{ 'oui' if a.alarm_configured else 'non' }}**\n"
+        "\n"
+        "### Journal\n"
+        "- Fichier : `{{ a.journal_path or '—' }}`\n"
+        "- Notification : `{{ a.notify_service or 'persistante seulement' }}`\n"
+        "- Impression auto : **{{ 'oui' if a.print_event else 'non' }}**\n"
+        "- URL web app : `{{ a.guest_base_url or 'interne HA' }}`\n"
+    )
+
+
+def _heading(text: str, icon: str, *, subtitle: bool = False) -> dict[str, Any]:
+    return {
+        "type": "heading",
+        "heading": text,
+        "heading_style": "subtitle" if subtitle else "title",
+        "icon": icon,
+    }
+
+
+def _tile(entity_id: str, name: str, icon: str) -> dict[str, Any]:
+    return {
+        "type": "tile",
+        "entity": entity_id,
+        "name": name,
+        "icon": icon,
+        "vertical": False,
+    }
+
+
+def _stay_action_rows(guest: str, reservation_id: str) -> list[dict[str, Any]]:
+    return [
+        _action_row(
+            "Nouveau mot de passe",
+            "mdi:account-key",
+            SERVICE_REGENERATE_ACCESS,
+            f"Générer un nouveau mot de passe pour {guest} ?",
+            reservation_id=reservation_id,
+            action_name="Générer",
+        ),
+        _action_row(
+            "Révoquer le compte HA",
+            "mdi:account-off",
+            SERVICE_REVOKE_ACCESS,
+            f"Révoquer le compte Home Assistant de {guest} ?",
+            reservation_id=reservation_id,
+            action_name="Révoquer",
+        ),
+        _action_row(
+            "Nouveau code Wi-Fi",
+            "mdi:wifi-sync",
+            SERVICE_REGENERATE_VOUCHER,
+            f"Générer un nouveau code Wi-Fi pour {guest} ?",
+            reservation_id=reservation_id,
+            action_name="Générer",
+        ),
+        _action_row(
+            "Révoquer le Wi-Fi",
+            "mdi:wifi-off",
+            SERVICE_REVOKE_VOUCHER,
+            f"Révoquer le voucher Wi-Fi de {guest} ?",
+            reservation_id=reservation_id,
+            action_name="Révoquer",
+        ),
+        _action_row(
+            "Renvoyer la notification",
+            "mdi:bell-ring",
+            SERVICE_RESEND,
+            f"Renvoyer le code et le mot de passe de {guest} ?",
+            reservation_id=reservation_id,
+            action_name="Envoyer",
+        ),
+        _action_row(
+            "Imprimer le voucher",
+            "mdi:printer",
+            SERVICE_PRINT,
+            f"Émettre l'événement d'impression pour {guest} ?",
+            reservation_id=reservation_id,
+            action_name="Imprimer",
+        ),
+    ]
+
+
+def _tools_card() -> dict[str, Any]:
+    return _entities_actions(
+        "Outils",
+        [
+            _action_row(
+                "Rafraîchir les tableaux",
+                "mdi:view-dashboard-edit",
+                SERVICE_APPLY_DASHBOARD,
+                "Réécrire Séjour et Console maintenant ?",
+                action_name="Appliquer",
+            ),
+            _action_row(
+                "Lien d'essai 24 h",
+                "mdi:link-plus",
+                SERVICE_GUEST_LINK,
+                "Créer un lien maison d'essai (24 h, sans calendrier) ?",
+                extra={"essai": True},
+                action_name="Créer",
+            ),
+            _action_row(
+                "Exporter le journal",
+                "mdi:file-download-outline",
+                SERVICE_EXPORT_JOURNAL,
+                "",
+                action_name="Chemin",
+            ),
+            {
+                "type": "button",
+                "name": "Modifier les réglages",
+                "icon": "mdi:cog",
+                "action_name": "Ouvrir",
+                "tap_action": {
+                    "action": "navigate",
+                    "navigation_path": "/config/integrations/integration/usvegliu",
+                },
+            },
+        ],
+    )
+
+
+def _stays_view_sections(
     stays: list[dict[str, Any]],
     *,
     sejours_entity_id: str,
-) -> dict[str, Any]:
-    """Admin console: live credentials plus regenerate/revoke actions."""
-    header = [
+    voucher_entity_id: str,
+    house_mode_entity: str | None,
+) -> list[dict[str, Any]]:
+    status: list[dict[str, Any]] = [
+        _heading("Séjours actifs", "mdi:account-group"),
         {
             "type": "markdown",
             "content": (
-                "# Console Usvegliu\n"
-                "Identifiants des séjours encore ouverts. "
-                "Chaque action demande confirmation."
+                "Identifiants en direct. Les actions demandent confirmation. "
+                "Les locataires ne voient pas cette page."
             ),
-        }
+        },
     ]
+    tiles: list[dict[str, Any]] = []
     if sejours_entity_id:
-        header.append(
-            {
-                "type": "tile",
-                "entity": sejours_entity_id,
-                "name": "Séjours actifs",
-                "icon": "mdi:account-group",
-            }
+        tiles.append(_tile(sejours_entity_id, "Séjours", "mdi:account-group"))
+    if voucher_entity_id:
+        tiles.append(_tile(voucher_entity_id, "Code Wi-Fi courant", "mdi:wifi"))
+    if house_mode_entity:
+        tiles.append(
+            _tile(house_mode_entity, "Chauffage / climatisation", "mdi:sun-snowflake")
         )
+    if tiles:
+        status.extend(tiles)
+    status.append(_tools_card())
     sections: list[dict[str, Any]] = [
-        {"type": "grid", "column_span": 2, "cards": header}
+        {"type": "grid", "column_span": 2, "cards": status}
     ]
     if not stays:
         sections.append(
@@ -305,91 +512,174 @@ def build_owner_dashboard_config(
                     {
                         "type": "markdown",
                         "content": (
-                            "Aucun séjour provisionné. Les accès apparaissent ici "
-                            "dès qu'une réservation entre dans la fenêtre."
+                            "Aucun séjour ouvert. Les accès apparaissent ici dès "
+                            "qu'une réservation entre dans la fenêtre du calendrier."
                         ),
                     }
                 ],
             }
         )
+        return sections
     for stay in stays:
         reservation_id = str(stay.get("reservation_id") or stay.get("key") or "")
         guest = str(stay.get("guest") or "Séjour")
         cards: list[dict[str, Any]] = [
-            {
-                "type": "heading",
-                "heading": guest,
-                "heading_style": "title",
-                "icon": "mdi:home-account",
-            },
+            _heading(guest, "mdi:home-account"),
             {
                 "type": "markdown",
                 "content": _stay_markdown(sejours_entity_id, reservation_id),
             },
         ]
-        if not stay.get("essai") and reservation_id:
+        if (
+            sejours_entity_id
+            and reservation_id
+            and not stay.get("essai")
+            and not stay.get("access_revoked")
+        ):
             cards.append(
                 {
-                    "type": "grid",
-                    "columns": 2,
-                    "square": False,
-                    "cards": [
-                        _service_button(
-                            "Nouveau mot de passe",
-                            "mdi:account-key",
-                            SERVICE_REGENERATE_ACCESS,
-                            reservation_id,
-                            f"Générer un nouveau mot de passe pour {guest} ?",
-                        ),
-                        _service_button(
-                            "Révoquer le compte",
-                            "mdi:account-off",
-                            SERVICE_REVOKE_ACCESS,
-                            reservation_id,
-                            f"Révoquer le compte Home Assistant de {guest} ?",
-                        ),
-                        _service_button(
-                            "Nouveau code Wi-Fi",
-                            "mdi:wifi-sync",
-                            SERVICE_REGENERATE_VOUCHER,
-                            reservation_id,
-                            f"Générer un nouveau code Wi-Fi pour {guest} ?",
-                        ),
-                        _service_button(
-                            "Révoquer le Wi-Fi",
-                            "mdi:wifi-off",
-                            SERVICE_REVOKE_VOUCHER,
-                            reservation_id,
-                            f"Révoquer le voucher Wi-Fi de {guest} ?",
-                        ),
-                    ],
+                    "type": "entity",
+                    "entity": sejours_entity_id,
+                    "attribute": credential_attribute_key(reservation_id),
+                    "name": "Mot de passe Home Assistant",
+                    "icon": "mdi:form-textbox-password",
+                    "state_color": False,
                 }
             )
+        if not stay.get("essai") and reservation_id:
+            cards.append(
+                _entities_actions("Actions", _stay_action_rows(guest, reservation_id))
+            )
         sections.append({"type": "grid", "cards": cards})
+    return sections
+
+
+def _settings_view_sections(
+    *,
+    reglages_entity_id: str,
+    house_mode_entity: str | None,
+    outdoor_entity: str | None,
+    pool_temp_entity: str | None,
+    pool_ph_entity: str | None,
+    tenant_entities: list[str],
+) -> list[dict[str, Any]]:
+    overview: list[dict[str, Any]] = [
+        _heading("Réglages Usvegliu", "mdi:tune"),
+        {
+            "type": "markdown",
+            "content": (
+                "Valeurs en vigueur. Pour les changer : **Modifier les réglages**. "
+                "La clé API et le code alarme ne sont pas affichés."
+            ),
+        },
+    ]
+    if reglages_entity_id:
+        overview.append(
+            {
+                "type": "markdown",
+                "content": _settings_markdown(reglages_entity_id),
+            }
+        )
+    overview.append(_tools_card())
+    sections: list[dict[str, Any]] = [
+        {"type": "grid", "column_span": 2, "cards": overview}
+    ]
+    house_tiles = [
+        _tile(entity, name, icon)
+        for entity, name, icon in (
+            (house_mode_entity, "Chauffage / climatisation", "mdi:sun-snowflake"),
+            (outdoor_entity, "Température extérieure", "mdi:thermometer"),
+            (pool_temp_entity, "Température piscine", "mdi:pool-thermometer"),
+            (pool_ph_entity, "pH piscine", "mdi:ph"),
+        )
+        if entity
+    ]
+    if house_tiles:
+        sections.append(
+            {
+                "type": "grid",
+                "column_span": 2,
+                "cards": [
+                    _heading("Maison", "mdi:home-thermometer", subtitle=True),
+                    *house_tiles,
+                ],
+            }
+        )
+    if tenant_entities:
+        sections.append(
+            {
+                "type": "grid",
+                "column_span": 2,
+                "cards": [
+                    _heading("Équipements locataire", "mdi:dots-grid", subtitle=True),
+                    {
+                        "type": "entities",
+                        "title": "Autorisés pour les séjours",
+                        "show_header_toggle": False,
+                        "entities": tenant_entities[:24],
+                    },
+                ],
+            }
+        )
+    return sections
+
+
+def build_owner_dashboard_config(
+    stays: list[dict[str, Any]],
+    *,
+    sejours_entity_id: str,
+    reglages_entity_id: str = "",
+    voucher_entity_id: str = "",
+    house_mode_entity: str | None = None,
+    outdoor_entity: str | None = None,
+    pool_temp_entity: str | None = None,
+    pool_ph_entity: str | None = None,
+    tenant_entities: list[str] | None = None,
+) -> dict[str, Any]:
+    """Owner console: stays + actions, and a settings view."""
     return {
         "views": [
             {
                 "type": "sections",
-                "title": OWNER_DASHBOARD_TITLE,
+                "title": "Séjours",
                 "path": "console",
-                "icon": OWNER_DASHBOARD_ICON,
+                "icon": "mdi:account-group",
                 "max_columns": 2,
-                "sections": sections,
-            }
+                "sections": _stays_view_sections(
+                    stays,
+                    sejours_entity_id=sejours_entity_id,
+                    voucher_entity_id=voucher_entity_id,
+                    house_mode_entity=house_mode_entity,
+                ),
+            },
+            {
+                "type": "sections",
+                "title": "Réglages",
+                "path": "reglages",
+                "icon": "mdi:tune",
+                "max_columns": 2,
+                "sections": _settings_view_sections(
+                    reglages_entity_id=reglages_entity_id,
+                    house_mode_entity=house_mode_entity,
+                    outdoor_entity=outdoor_entity,
+                    pool_temp_entity=pool_temp_entity,
+                    pool_ph_entity=pool_ph_entity,
+                    tenant_entities=list(tenant_entities or []),
+                ),
+            },
         ]
     }
 
 
 def dashboard_card_count(config: dict[str, Any]) -> int:
-    """How many cards the config will show."""
-    views = config.get("views") or []
-    if not views:
-        return 0
-    view = views[0]
-    cards = list(view.get("cards") or [])
-    for section in view.get("sections") or []:
-        cards.extend(section.get("cards") or [])
-    return len(cards)
+    """How many cards the config will show, across every view."""
+    total = 0
+    for view in config.get("views") or []:
+        cards = list(view.get("cards") or [])
+        for section in view.get("sections") or []:
+            cards.extend(section.get("cards") or [])
+        total += len(cards)
+    return total
 
 
 def _lovelace_bundle(hass: object) -> Any:
@@ -692,9 +982,26 @@ async def async_ensure_owner_dashboard(
     stays: list[dict[str, Any]],
     *,
     sejours_entity_id: str,
+    reglages_entity_id: str = "",
+    voucher_entity_id: str = "",
+    house_mode_entity: str | None = None,
+    outdoor_entity: str | None = None,
+    pool_temp_entity: str | None = None,
+    pool_ph_entity: str | None = None,
+    tenant_entities: list[str] | None = None,
 ) -> dict[str, Any]:
     """Create the owner console dashboard and save its cards."""
-    config = build_owner_dashboard_config(stays, sejours_entity_id=sejours_entity_id)
+    config = build_owner_dashboard_config(
+        stays,
+        sejours_entity_id=sejours_entity_id,
+        reglages_entity_id=reglages_entity_id,
+        voucher_entity_id=voucher_entity_id,
+        house_mode_entity=house_mode_entity,
+        outdoor_entity=outdoor_entity,
+        pool_temp_entity=pool_temp_entity,
+        pool_ph_entity=pool_ph_entity,
+        tenant_entities=tenant_entities,
+    )
     result = await _async_save_named_dashboard(
         hass,
         url=OWNER_DASHBOARD_URL,

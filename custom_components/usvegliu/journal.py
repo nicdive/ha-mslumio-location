@@ -25,7 +25,7 @@ COLUMNS: tuple[str, ...] = (
     "detail",
 )
 
-_SECRET_HEADERS = {"mot_de_passe", "password", "utilisateur_ha"}
+_SECRET_HEADERS = {"mot_de_passe", "password", "code_compte", "utilisateur_ha"}
 
 
 class JournalPathError(ValueError):

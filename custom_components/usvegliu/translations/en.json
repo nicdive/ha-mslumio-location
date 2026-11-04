@@ -172,6 +172,9 @@
       },
       "sejours": {
         "name": "Active stays"
+      },
+      "reglages": {
+        "name": "Settings"
       }
     }
   },

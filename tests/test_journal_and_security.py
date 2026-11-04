@@ -120,6 +120,8 @@ def test_diagnostics_and_logs_redact_secrets():
                     "guest": "Jean Dupont",
                     "voucher_code": "ABCD12",
                     "password": "s3cret-password",
+                    "mot_de_passe": "s3cret-password",
+                    "code_compte": "s3cret-password",
                     "guest_token": "stay-token-secret",
                     "voucher_id": "voucher-1",
                 }
@@ -131,6 +133,8 @@ def test_diagnostics_and_logs_redact_secrets():
     assert payload["entry_data"]["host"] == "192.168.1.1"
     assert payload["stays"][0]["voucher_code"] == "**REDACTED**"
     assert payload["stays"][0]["password"] == "**REDACTED**"
+    assert payload["stays"][0]["mot_de_passe"] == "**REDACTED**"
+    assert payload["stays"][0]["code_compte"] == "**REDACTED**"
     assert payload["stays"][0]["guest_token"] == "**REDACTED**"
     assert payload["stays"][0]["guest"] == "**REDACTED**"
     linked = redact({"lien_maison": "https://www.usvegliu.fr/s/stay-token-secret"})
@@ -319,11 +323,14 @@ def test_owner_console_dashboard_has_live_credentials_and_actions():
         },
     ]
     config = build_owner_dashboard_config(
-        stays, sejours_entity_id="sensor.usvegliu_sejours"
+        stays,
+        sejours_entity_id="sensor.usvegliu_sejours",
+        reglages_entity_id="sensor.usvegliu_reglages",
     )
     dumped = str(config)
     assert config["views"][0]["type"] == "sections"
     assert config["views"][0]["path"] == "console"
+    assert config["views"][1]["path"] == "reglages"
     assert "Nouveau mot de passe" in dumped
     assert "Révoquer le compte" in dumped
     assert "Nouveau code Wi-Fi" in dumped
@@ -336,7 +343,15 @@ def test_owner_console_dashboard_has_live_credentials_and_actions():
     assert "secret-should-not-be-baked" not in dumped
     assert "TOKEN" not in dumped
     assert "state_attr('sensor.usvegliu_sejours', 'stays')" in dumped
-    assert dumped.count("Nouveau mot de passe") == 1
+    assert "mot_de_passe" in dumped
+    assert "code_compte" in dumped
+    assert "Mot de passe Home Assistant" in dumped
+    assert "compte_stay_ada" in dumped
+    assert "s.password" not in dumped
+    assert "comptes" in dumped
+    assert dumped.count("usvegliu.regenerer_acces") == 1
+    assert "Réglages Usvegliu" in dumped
+    assert "state_attr('sensor.usvegliu_reglages', 'settings')" in dumped
 
 
 @pytest.mark.asyncio
@@ -596,11 +611,17 @@ def test_admin_roster_sensor_lists_stays_and_passwords():
     sensor = (root / "sensor.py").read_text(encoding="utf-8")
     http = (root / "http.py").read_text(encoding="utf-8")
     assert "IssuedAccountsSensor" in sensor
+    assert "OwnerSettingsSensor" in sensor
     assert 'translation_key = "sejours"' in sensor
     assert "lien_maison" in sensor
-    assert '"password": data.get("password")' in sensor
+    assert "mot_de_passe" in sensor
+    assert "code_compte" in sensor
+    assert "comptes" in sensor
+    assert "credential_attribute_key" in sensor
     assert "_unrecorded_attributes" in sensor
     assert "password" not in http
+    assert "mot_de_passe" not in http
+    assert "code_compte" not in http
 
 
 def test_guest_stream_is_server_sent_events():

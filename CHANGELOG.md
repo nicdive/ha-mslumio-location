@@ -4,6 +4,16 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.5.9] — 2026-11-04
+
+### Corrigé
+- La Console affiche le **mot de passe du compte Home Assistant temporaire**. Home Assistant masque l'attribut nommé `password` dans Lovelace : le capteur l'expose aussi sous `code_compte` / `mot_de_passe`, et chaque séjour a une carte « Mot de passe Home Assistant ». Si rien n'apparaît (séjour créé avant l'archivage), toucher **Nouveau mot de passe**.
+
+### Changé
+- Console en deux vues : **Séjours** (identifiants, Wi-Fi, actions) et **Réglages** (options Usvegliu en vigueur, sans clé API ni code alarme).
+
+[0.5.9]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.5.9
+
 ## [0.5.8] — 2026-11-04
 
 ### Changé
