@@ -301,14 +301,14 @@ Sans UID calendrier, la clé est un condensat du nom et des dates : renommer le 
 - Codes voucher dans le CSV et le capteur, masqués sur le bus. L'événement d'impression, s'il est activé, contient le code en clair.
 - Le capteur de code n'est pas dans la liste donnée au locataire, sauf si vous l'y ajoutez vous-même.
 
-## Web app locataire (premier jet)
+## Web app locataire
 
-La web app **Maison** est servie par le même Home Assistant. Le locataire n'ouvre pas l'UI admin : un lien avec jeton suffit.
+La web app **Maison** est servie par le même Home Assistant. Le locataire n'ouvre pas l'UI admin : un lien avec jeton suffit. L'interface suit un registre résidence d'exception : accueil nominatif, dates du séjour, cartes papier, commandes d'accès en français.
 
 Elle affiche, dans une page unique :
 
 - température extérieure, piscine et pH (lecture seule) ;
-- les `climate.*` autorisés (On/Off, consigne, ventilation) — **Pièces**, **Réglage** et cadran ; titre **Chauffage** ou **Climatisation** selon le switch du propriétaire ; rouge / bleu seulement si le thermostat travaille ;
+- les `climate.*` autorisés (marche / arrêt, consigne, ventilation) — **Pièces**, **Régler** et cadran ; titre **Chauffage** ou **Climatisation** selon le switch du propriétaire ; rouge / bleu seulement si le thermostat travaille ;
 - lumières MyHome et scénarios (`light.*`, `scene.*`) ;
 - porte Nuki, garage, portail, alarme, et volets s'ils sont autorisés.
 

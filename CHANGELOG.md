@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.0] — 2026-11-04
+
+### Changé
+- Web app Maison : passe design résidence d'exception (accueil nominatif et dates du séjour, cartes papier, typographie éditoriale, commandes d'accès plus hôtel, libellés en français).
+
+[0.6.0]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.0
+
 ## [0.5.9] — 2026-11-04
 
 ### Corrigé

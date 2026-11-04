@@ -651,6 +651,10 @@ def test_guest_stream_is_server_sent_events():
     assert "Lumière" in js
     assert "Accès" in js
     assert "metrics" in js
+    assert "atmosphere" in js
+    assert "Allumée" in js
+    assert "wordmark" in js
+    assert "Bonsoir" in js
     assert "alarm_code" in text
 
 
