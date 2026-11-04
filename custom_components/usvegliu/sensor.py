@@ -11,7 +11,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
-from .coordinator import LumioRuntime
+from .coordinator import UsvegliuRuntime
 
 
 async def async_setup_entry(
@@ -20,7 +20,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Create the voucher sensor."""
-    runtime: LumioRuntime = hass.data[DOMAIN][entry.entry_id]  # type: ignore[attr-defined]
+    runtime: UsvegliuRuntime = hass.data[DOMAIN][entry.entry_id]  # type: ignore[attr-defined]
     async_add_entities([VoucherCodeSensor(runtime)])
 
 
@@ -31,7 +31,7 @@ class VoucherCodeSensor(CoordinatorEntity, SensorEntity):
     _attr_translation_key = "voucher_code"
     _attr_icon = "mdi:ticket-confirmation"
 
-    def __init__(self, runtime: LumioRuntime) -> None:
+    def __init__(self, runtime: UsvegliuRuntime) -> None:
         """Bind the coordinator."""
         super().__init__(runtime.coordinator)
         self._runtime = runtime
@@ -39,8 +39,8 @@ class VoucherCodeSensor(CoordinatorEntity, SensorEntity):
         site = runtime.entry.data.get("site_name") or "UniFi"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, runtime.entry.entry_id)},
-            name="MS Lumio",
-            manufacturer="MS Lumio",
+            name="Usvegliu",
+            manufacturer="Usvegliu",
             model=f"Location courte durée ({site})",
         )
 

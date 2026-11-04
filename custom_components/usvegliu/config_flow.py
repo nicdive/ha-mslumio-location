@@ -1,4 +1,4 @@
-"""Config flow for MS Lumio."""
+"""Config flow for Usvegliu."""
 
 from __future__ import annotations
 
@@ -43,6 +43,7 @@ from .const import (
     CONF_ENABLE_ACCESS,
     CONF_ENABLE_VOUCHERS,
     CONF_EXTRA_DAYS,
+    CONF_GUEST_BASE_URL,
     CONF_JOURNAL_PATH,
     CONF_LEAD_DAYS,
     CONF_LIGHT_ENTITIES,
@@ -168,6 +169,10 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
             vol.Optional(
                 CONF_NOTIFY_SERVICE, default=defaults.get(CONF_NOTIFY_SERVICE, "")
             ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            vol.Optional(
+                CONF_GUEST_BASE_URL,
+                default=defaults.get(CONF_GUEST_BASE_URL, ""),
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
             vol.Required(
                 CONF_JOURNAL_PATH,
                 default=defaults.get(CONF_JOURNAL_PATH, DEFAULT_JOURNAL_PATH),
@@ -224,11 +229,12 @@ def _clean_options(user_input: Mapping[str, Any]) -> dict[str, Any]:
     for key in (CONF_CLIMATE_ENTITIES, CONF_COVER_ENTITIES, CONF_LIGHT_ENTITIES):
         cleaned.pop(key, None)
     cleaned[CONF_NOTIFY_SERVICE] = str(cleaned.get(CONF_NOTIFY_SERVICE) or "").strip()
+    cleaned[CONF_GUEST_BASE_URL] = str(cleaned.get(CONF_GUEST_BASE_URL) or "").strip()
     return {key: value for key, value in cleaned.items() if key not in _CONNECTION_KEYS}
 
 
-class MsLumioConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for MS Lumio."""
+class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for Usvegliu."""
 
     VERSION = 1
 
@@ -356,7 +362,7 @@ class MsLumioConfigFlow(ConfigFlow, domain=DOMAIN):
                     data_schema=_house_schema(user_input),
                     errors={"base": error},
                 )
-            title = f"MS Lumio ({self._connection[CONF_SITE_NAME]})"
+            title = f"Usvegliu ({self._connection[CONF_SITE_NAME]})"
             return self.async_create_entry(
                 title=title,
                 data=self._connection,
@@ -453,12 +459,12 @@ class MsLumioConfigFlow(ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry: ConfigEntry) -> MsLumioOptionsFlow:
+    def async_get_options_flow(config_entry: ConfigEntry) -> UsvegliuOptionsFlow:
         """Return the options flow."""
-        return MsLumioOptionsFlow()
+        return UsvegliuOptionsFlow()
 
 
-class MsLumioOptionsFlow(OptionsFlow):
+class UsvegliuOptionsFlow(OptionsFlow):
     """Adjust calendar, limits and tenant entities. The API key stays put."""
 
     async def async_step_init(

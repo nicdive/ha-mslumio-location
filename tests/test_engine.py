@@ -4,9 +4,9 @@ from datetime import date, datetime, timezone
 
 import pytest
 
-from custom_components.ms_lumio.engine import async_synchronize
-from custom_components.ms_lumio.planning import build_plan, normalize_event
-from custom_components.ms_lumio.unifi import UnifiError
+from custom_components.usvegliu.engine import async_synchronize
+from custom_components.usvegliu.planning import build_plan, normalize_event
+from custom_components.usvegliu.unifi import UnifiError
 
 UTC = timezone.utc
 
@@ -118,6 +118,9 @@ async def test_second_cycle_does_not_duplicate_voucher_or_account():
     assert accounts.created == 1
     assert unifi.deleted == []
     assert second.stays[plan.ensure[0].key]["voucher_id"] == "id-1"
+    token = first.stays[plan.ensure[0].key]["guest_token"]
+    assert len(token) >= 16
+    assert second.stays[plan.ensure[0].key]["guest_token"] == token
     assert second.notifications == []
     assert "pw-" not in str(first.journal)
     assert "pw-" not in str(second.journal)

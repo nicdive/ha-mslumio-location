@@ -46,7 +46,8 @@
           "lookahead_days": "Horizon du calendrier (jours)",
           "enable_vouchers": "Créer les vouchers UniFi",
           "enable_access": "Créer les comptes locataires",
-          "print_event": "Événement d'impression à la création"
+          "print_event": "Événement d'impression à la création",
+          "guest_base_url": "URL publique de la web app"
         },
         "data_description": {
           "calendar_entity": "N'importe quelle entité calendar (ICS Airbnb, Booking, Google, local).",
@@ -63,7 +64,8 @@
           "notify_service": "Ex. notify.mobile_app_telephone. Vide = notification persistante seulement.",
           "journal_path": "Relatif au dossier config, ou absolu sous config/ ou un dossier média (partage Synology).",
           "title_blocklist": "Sous-chaînes, séparées par des virgules, qui ne sont pas des locataires (dates bloquées).",
-          "print_event": "Si activé, le code en clair part sur le bus (ms_lumio_print_voucher) et peut finir dans les traces. Laisser désactivé sauf pour une imprimante."
+          "print_event": "Si activé, le code en clair part sur le bus (usvegliu_print_voucher) et peut finir dans les traces. Laisser désactivé sauf pour une imprimante.",
+          "guest_base_url": "Origine vitrine, sans chemin. Ex. https://www.usvegliu.fr — le lien locataire sera /s/<token>. Vide = URL interne de Home Assistant."
         }
       },
       "reconfigure": {
@@ -97,7 +99,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "MS Lumio",
+        "title": "Usvegliu",
         "description": "La clé API ne se modifie pas ici. Utilisez Reconfigurer pour la changer.",
         "data": {
           "calendar_entity": "Calendrier des réservations",
@@ -118,11 +120,13 @@
           "lookahead_days": "Horizon du calendrier (jours)",
           "enable_vouchers": "Créer les vouchers UniFi",
           "enable_access": "Créer les comptes locataires",
-          "print_event": "Événement d'impression à la création"
+          "print_event": "Événement d'impression à la création",
+          "guest_base_url": "URL publique de la web app"
         },
         "data_description": {
           "extra_days": "Durée du voucher = séjour + ces jours. Le compteur UniFi part à la première saisie du code.",
-          "print_event": "Place le code en clair sur le bus. À n'activer que pour l'impression."
+          "print_event": "Place le code en clair sur le bus. À n'activer que pour l'impression.",
+          "guest_base_url": "Ex. https://www.usvegliu.fr. Vide = adresse interne de Home Assistant."
         }
       }
     },
@@ -179,7 +183,7 @@
     },
     "imprimer_voucher": {
       "name": "Imprimer le voucher",
-      "description": "Émet ms_lumio_print_voucher avec le code en clair.",
+      "description": "Émet usvegliu_print_voucher avec le code en clair.",
       "fields": {
         "reservation_key": {
           "name": "Réservation"
@@ -192,7 +196,7 @@
     },
     "appliquer_tableau": {
       "name": "Appliquer le tableau de bord",
-      "description": "Met à jour le tableau de bord ms-lumio."
+      "description": "Met à jour le tableau de bord usvegliu-sejour."
     },
     "reglages_sejour": {
       "name": "Réglages d'un séjour",
@@ -221,12 +225,26 @@
           "name": "Revenir au réglage global"
         }
       }
+    },
+    "lien_maison": {
+      "name": "Lien maison",
+      "description": "URL de la web app locataire, ou lien d'essai 24 h pour tester thermostats et Nuki.",
+      "fields": {
+        "reservation_key": {
+          "name": "Réservation",
+          "description": "Vide = séjour affiché par le capteur."
+        },
+        "essai": {
+          "name": "Lien d'essai (24 h)",
+          "description": "Ignore le calendrier. Utilise les entités actuellement choisies."
+        }
+      }
     }
   },
   "issues": {
     "dashboard_missing": {
       "title": "Tableau de bord locataire absent",
-      "description": "L'intégration n'a pas pu créer le tableau « {url_path} ». Créez un tableau de bord de stockage avec l'URL ms-lumio (un tiret est obligatoire), visible des non-administrateurs, puis appelez le service ms_lumio.appliquer_tableau. Les autres tableaux (caméras, serrures) doivent être réservés aux administrateurs."
+      "description": "L'intégration n'a pas pu créer le tableau « {url_path} ». Créez un tableau de bord de stockage avec l'URL usvegliu-sejour (un tiret est obligatoire), visible des non-administrateurs, puis appelez le service usvegliu.appliquer_tableau. Les autres tableaux (caméras, serrures) doivent être réservés aux administrateurs."
     }
   }
 }

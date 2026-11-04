@@ -6,7 +6,7 @@ import aiohttp
 from aiohttp import web
 import pytest
 
-from custom_components.ms_lumio.unifi import (
+from custom_components.usvegliu.unifi import (
     UnifiAuthError,
     UnifiClient,
     UnifiConnectionError,

@@ -1,4 +1,4 @@
-"""MS Lumio: vouchers UniFi and tenant access driven by a calendar.
+"""Usvegliu: vouchers UniFi and tenant access driven by a calendar.
 
 Home Assistant imports stay inside the setup functions so the pure modules
 (planning, UniFi client, journal) can be unit-tested without Home Assistant.
@@ -22,6 +22,7 @@ from .const import (
     SERVICE_REGENERATE_VOUCHER,
     SERVICE_RESEND,
     SERVICE_STAY_SETTINGS,
+    SERVICE_GUEST_LINK,
     STORAGE_VERSION,
 )
 from .redact import SecretLogFilter
@@ -32,7 +33,7 @@ _FILTERS_INSTALLED = False
 
 
 async def async_setup_entry(hass: Any, entry: Any) -> bool:
-    """Set up MS Lumio from a config entry."""
+    """Set up Usvegliu from a config entry."""
     import aiohttp
 
     from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
@@ -40,7 +41,7 @@ async def async_setup_entry(hass: Any, entry: Any) -> bool:
     from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
     from .const import UPDATE_INTERVAL
-    from .coordinator import LumioRuntime, build_client, build_journal, store_key
+    from .coordinator import UsvegliuRuntime, build_client, build_journal, store_key
     from .unifi import UnifiAuthError, UnifiError
     _install_log_filter()
     _LOG_FILTER.update([str(entry.data.get(CONF_API_KEY) or "")], owner=entry.entry_id)
@@ -75,7 +76,7 @@ async def async_setup_entry(hass: Any, entry: Any) -> bool:
 
     journal = build_journal(hass, entry)
     store: Store = Store(hass, STORAGE_VERSION, store_key(entry.entry_id), private=True)
-    runtime = LumioRuntime(hass, entry, client, journal, store, _LOG_FILTER)
+    runtime = UsvegliuRuntime(hass, entry, client, journal, store, _LOG_FILTER)
     runtime.session = session
     await runtime.async_load()
 
@@ -106,6 +107,9 @@ async def async_setup_entry(hass: Any, entry: Any) -> bool:
         _LOG_FILTER.clear(entry.entry_id)
         raise
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    from .http import async_setup_http
+
+    async_setup_http(hass)
     _async_register_services(hass)
     entry.async_on_unload(entry.add_update_listener(_async_reload))
     return True
@@ -132,6 +136,7 @@ async def async_unload_entry(hass: Any, entry: Any) -> bool:
                 SERVICE_EXPORT_JOURNAL,
                 SERVICE_APPLY_DASHBOARD,
                 SERVICE_STAY_SETTINGS,
+                SERVICE_GUEST_LINK,
             ):
                 hass.services.async_remove(DOMAIN, service)
     return unloaded
@@ -206,6 +211,12 @@ def _async_register_services(hass: Any) -> None:
             vol.Optional("reset"): bool,
         }
     )
+    guest_schema = vol.Schema(
+        {
+            vol.Optional(ATTR_RESERVATION_KEY): str,
+            vol.Optional("essai"): bool,
+        }
+    )
     if hass.services.has_service(DOMAIN, SERVICE_REGENERATE_VOUCHER):
         return
 
@@ -221,9 +232,12 @@ def _async_register_services(hass: Any) -> None:
         (SERVICE_EXPORT_JOURNAL, SupportsResponse.OPTIONAL),
         (SERVICE_APPLY_DASHBOARD, SupportsResponse.NONE),
         (SERVICE_STAY_SETTINGS, SupportsResponse.OPTIONAL),
+        (SERVICE_GUEST_LINK, SupportsResponse.OPTIONAL),
     ):
         if service == SERVICE_STAY_SETTINGS:
             schema = stay_schema
+        elif service == SERVICE_GUEST_LINK:
+            schema = guest_schema
         elif service in {SERVICE_APPLY_DASHBOARD, SERVICE_EXPORT_JOURNAL}:
             schema = vol.Schema({})
         else:
@@ -242,7 +256,7 @@ def _runtime_for_call(hass: Any) -> Any:
     if not runtimes:
         from homeassistant.exceptions import HomeAssistantError
 
-        raise HomeAssistantError("ms_lumio_not_loaded")
+        raise HomeAssistantError("usvegliu_not_loaded")
     return runtimes[0]
 
 

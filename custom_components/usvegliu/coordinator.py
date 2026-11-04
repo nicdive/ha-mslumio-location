@@ -28,6 +28,7 @@ from .const import (
     CONF_ENABLE_ACCESS,
     CONF_ENABLE_VOUCHERS,
     CONF_EXTRA_DAYS,
+    CONF_GUEST_BASE_URL,
     CONF_HOST,
     CONF_JOURNAL_PATH,
     CONF_LEAD_DAYS,
@@ -53,6 +54,7 @@ from .const import (
     DEFAULT_MAX_STAY_DAYS,
     DEFAULT_TITLE_BLOCKLIST,
     DEFAULT_UPLOAD_MBPS,
+    DASHBOARD_URL,
     DOMAIN,
     EVENT_JOURNAL,
     EVENT_PRINT,
@@ -61,6 +63,14 @@ from .const import (
 )
 from .dashboard import async_ensure_dashboard
 from .engine import async_synchronize
+from .guest_session import (
+    PREVIEW_KEY,
+    build_preview_record,
+    find_record_by_token,
+    guest_path,
+    public_guest_url,
+    stay_is_open,
+)
 from .journal import Journal, JournalPathError, resolve_journal_path
 from .planning import (
     build_plan,
@@ -83,7 +93,7 @@ def store_key(entry_id: str) -> str:
 class _AccountBridge:
     """Adapter from the engine to the Home Assistant auth manager."""
 
-    def __init__(self, runtime: LumioRuntime) -> None:
+    def __init__(self, runtime: UsvegliuRuntime) -> None:
         self._runtime = runtime
 
     async def async_ensure_user(self, **kwargs: Any) -> dict[str, str | None]:
@@ -97,7 +107,7 @@ class _AccountBridge:
         await async_revoke_user(self._runtime.hass, user_id)
 
 
-class LumioRuntime:
+class UsvegliuRuntime:
     """Runtime state for one config entry."""
 
     def __init__(
@@ -123,6 +133,7 @@ class LumioRuntime:
         self._resend: set[str] = set()
         self._print: set[str] = set()
         self._overrides: dict[str, dict[str, Any]] = {}
+        self._preview: dict[str, Any] | None = None
         self._lock = asyncio.Lock()
         self.coordinator: DataUpdateCoordinator[dict[str, Any]] | None = None
         self._accounts = _AccountBridge(self)
@@ -157,6 +168,9 @@ class LumioRuntime:
         overrides = raw.get("overrides")
         if isinstance(overrides, dict):
             self._overrides = overrides
+        preview = raw.get("guest_preview")
+        if isinstance(preview, dict):
+            self._preview = _scrub_secrets(preview)
         self._stays = {key: _scrub_secrets(value) for key, value in self._stays.items()}
         self._refresh_log_filter()
 
@@ -172,6 +186,7 @@ class LumioRuntime:
                 "stays": self._stays,
                 "shared_user": self._shared,
                 "overrides": self._overrides,
+                "guest_preview": self._preview,
             }
         )
         self._refresh_log_filter()
@@ -180,6 +195,9 @@ class LumioRuntime:
         secrets = [str(self.entry.data.get(CONF_API_KEY) or "")]
         for record in self._stays.values():
             secrets.append(str(record.get("voucher_code") or ""))
+            secrets.append(str(record.get("guest_token") or ""))
+        if self._preview:
+            secrets.append(str(self._preview.get("guest_token") or ""))
         self.log_filter.update(secrets, owner=self.entry.entry_id)
 
     def _option_int(self, key: str, default: int) -> int:
@@ -318,14 +336,19 @@ class LumioRuntime:
                 "Le mot de passe n'est pas conservé. "
                 "Régénérez l'accès pour en afficher un nouveau."
             )
-        lines.append("Tableau de bord : /ms-lumio")
+        lines.append(f"Tableau de bord : /{DASHBOARD_URL}")
+        stay = self._stays.get(note.get("reservation_id") or "")
+        token = (stay or {}).get("guest_token") or note.get("guest_token")
+        if token:
+            link = self.guest_link({"guest_token": token, "key": note.get("reservation_id")})
+            lines.append(f"Lien maison : {link['url']}")
         message = "\n".join(lines)
-        notification_id = f"ms_lumio_{note.get('reservation_id') or 'sejour'}"
+        notification_id = f"{DOMAIN}_{note.get('reservation_id') or 'sejour'}"
         await self.hass.services.async_call(
             "persistent_notification",
             "create",
             {
-                "title": f"MS Lumio — {note.get('guest') or 'Séjour'}",
+                "title": f"Usvegliu — {note.get('guest') or 'Séjour'}",
                 "message": message,
                 "notification_id": notification_id,
             },
@@ -336,7 +359,7 @@ class LumioRuntime:
             await self.hass.services.async_call(
                 "notify",
                 _notify_service_name(str(target)),
-                {"title": f"MS Lumio — {note.get('guest') or 'Séjour'}", "message": message},
+                {"title": f"Usvegliu — {note.get('guest') or 'Séjour'}", "message": message},
                 blocking=False,
             )
 
@@ -346,7 +369,7 @@ class LumioRuntime:
         await self.hass.services.async_call(
             "persistent_notification",
             "dismiss",
-            {"notification_id": f"ms_lumio_{key}"},
+            {"notification_id": f"{DOMAIN}_{key}"},
             blocking=False,
         )
 
@@ -360,7 +383,7 @@ class LumioRuntime:
         try:
             created = await async_ensure_dashboard(self.hass, entities)
         except Exception:  # noqa: BLE001 — dashboard failure must not revoke access
-            _LOGGER.warning("Tableau de bord MS Lumio non mis à jour")
+            _LOGGER.warning("Tableau de bord Usvegliu non mis à jour")
             created = False
         if created:
             self._dashboard_signature = signature
@@ -373,13 +396,19 @@ class LumioRuntime:
                 is_fixable=False,
                 severity=ir.IssueSeverity.WARNING,
                 translation_key="dashboard_missing",
-                translation_placeholders={"url_path": "ms-lumio"},
+                translation_placeholders={"url_path": DASHBOARD_URL},
             )
 
     def _dashboard_entity_ids(self) -> list[str]:
         """Entities to show, plus every entity of a selected device."""
-        entities = list(self.tenant_entity_ids())
-        devices = set(self.tenant_device_ids())
+        return self.expand_entity_ids(self.tenant_entity_ids(), self.tenant_device_ids())
+
+    def expand_entity_ids(self, entity_ids: list[str], device_ids: list[str]) -> list[str]:
+        """Merge explicit entities with every entity of the chosen devices."""
+        from .access import unique_strings
+
+        entities = unique_strings(entity_ids)
+        devices = set(device_ids or [])
         if not devices:
             return entities
         try:
@@ -394,6 +423,73 @@ class LumioRuntime:
             if entry.entity_id not in entities:
                 entities.append(entry.entity_id)
         return entities
+
+    def allowed_entity_ids(self, record: dict[str, Any]) -> list[str]:
+        """Entities this stay (or the preview) may read and control."""
+        from .access import resolve_stay_access
+
+        if record.get("preview") or record.get("key") == PREVIEW_KEY:
+            entities, devices = self.tenant_entity_ids(), self.tenant_device_ids()
+        else:
+            entities, devices, _remote = resolve_stay_access(
+                str(record.get("key") or ""),
+                overrides=self._overrides,
+                entity_ids=self.tenant_entity_ids(),
+                device_ids=self.tenant_device_ids(),
+                allow_remote=bool(self.entry.options.get(CONF_ALLOW_REMOTE, False)),
+            )
+        return self.expand_entity_ids(entities, devices)
+
+    def guest_record(self, token: str) -> dict[str, Any] | None:
+        """Stay or preview bound to the URL token, if still valid."""
+        return find_record_by_token(self._stays, self._preview, token, dt_util.now())
+
+    def guest_link(self, record: dict[str, Any]) -> dict[str, str]:
+        """Admin-facing path and public URL for one token."""
+        token = str(record.get("guest_token") or "")
+        path = guest_path(token) if token else ""
+        configured = str(self.entry.options.get(CONF_GUEST_BASE_URL) or "").strip()
+        url = public_guest_url(configured, token) if token else ""
+        if token and url.startswith("/"):
+            origin = getattr(self.hass.config, "internal_url", None) or getattr(
+                self.hass.config, "external_url", None
+            )
+            if origin:
+                url = f"{str(origin).rstrip('/')}{path}"
+        return {
+            "path": path,
+            "url": url,
+            "reservation_id": str(record.get("key") or ""),
+            "guest": str(record.get("guest") or ""),
+            "check_out": str(record.get("check_out") or ""),
+        }
+
+    async def _async_guest_link(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Return (and optionally mint) a guest URL without talking to UniFi."""
+        if data.get("essai"):
+            self._preview = build_preview_record(dt_util.now())
+            await self._persist(self._stays, self._shared)
+            link = self.guest_link(self._preview)
+            await self._async_notify(
+                {
+                    "reservation_id": PREVIEW_KEY,
+                    "guest": "Essai",
+                    "check_in": str(self._preview.get("check_in") or ""),
+                    "check_out": str(self._preview.get("check_out") or ""),
+                    "guest_token": str(self._preview.get("guest_token") or ""),
+                }
+            )
+            return {**link, "essai": True}
+        key = data.get("reservation_key")
+        resolved = self._resolve_key(str(key) if key else None)
+        record = self._stays.get(resolved)
+        if record is None:
+            raise UpdateFailed("unknown_reservation")
+        from .guest_session import ensure_guest_token
+
+        ensure_guest_token(record)
+        await self._persist(self._stays, self._shared)
+        return {**self.guest_link(record), "essai": False}
 
     def _device_sensitive(self, device_ids: list[str]) -> list[str]:
         if not device_ids:
@@ -452,6 +548,9 @@ class LumioRuntime:
         now = dt_util.now()
         current = select_current(self._stays, now)
         if current is None:
+            for record in self._stays.values():
+                if record.get("guest_token") and stay_is_open(record, now):
+                    return str(record["key"])
             raise UpdateFailed("no_active_stay")
         return str(current["key"])
 
@@ -460,6 +559,9 @@ class LumioRuntime:
         await _async_require_admin(self.hass, call)
         key = call.data.get("reservation_key")
         action = call.service
+        if action == "lien_maison":
+            async with self._lock:
+                return await self._async_guest_link(call.data)
         async with self._lock:
             resolved = None
             if action == "reglages_sejour":
@@ -523,7 +625,7 @@ def _snapshot(
     stays: dict[str, dict[str, Any]],
     shared: dict[str, Any] | None,
     now: object,
-    runtime: LumioRuntime,
+    runtime: UsvegliuRuntime,
 ) -> dict[str, Any]:
     current = select_current(stays, now)  # type: ignore[arg-type]
     if current is None:

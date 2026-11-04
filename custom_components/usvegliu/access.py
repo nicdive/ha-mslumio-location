@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 import secrets
 
-from .const import SENSITIVE_DOMAINS, TENANT_GROUP_NAME
+from .const import GROUP_PREFIX, SENSITIVE_DOMAINS, TENANT_GROUP_NAME
 
 ADMIN_GROUP_ID = "system-admin"
 
@@ -44,7 +44,7 @@ def sensitive_entity_ids(entity_ids: list[str]) -> list[str]:
 def group_id_for_username(username: str) -> str:
     """One group per tenant account, so two stays cannot share a policy."""
     safe = re.sub(r"[^a-z0-9-]", "", username.casefold())[:48] or "locataire"
-    return f"ms-lumio-{safe}"
+    return f"{GROUP_PREFIX}{safe}"
 
 
 def unique_strings(values: list[str] | None) -> list[str]:
@@ -154,7 +154,7 @@ async def async_ensure_group(
     """Create or update one tenant group and return its id."""
     from homeassistant.auth import models as auth_models
 
-    if group_id == ADMIN_GROUP_ID or not group_id.startswith("ms-lumio-"):
+    if group_id == ADMIN_GROUP_ID or not group_id.startswith(GROUP_PREFIX):
         raise TenantAccessError("refuse_admin")
     policy = build_tenant_policy(entity_ids, device_ids)
     auth = hass.auth  # type: ignore[attr-defined]

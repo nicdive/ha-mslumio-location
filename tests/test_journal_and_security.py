@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from custom_components.ms_lumio.access import (
+from custom_components.usvegliu.access import (
     ADMIN_GROUP_ID,
     TenantAccessError,
     assert_not_privileged,
@@ -17,10 +17,10 @@ from custom_components.ms_lumio.access import (
     resolve_stay_access,
     sensitive_entity_ids,
 )
-from custom_components.ms_lumio.const import SENSITIVE_DOMAINS
-from custom_components.ms_lumio.dashboard import build_dashboard_config
-from custom_components.ms_lumio.journal import Journal, JournalPathError, resolve_journal_path
-from custom_components.ms_lumio.redact import SecretLogFilter, redact
+from custom_components.usvegliu.const import SENSITIVE_DOMAINS
+from custom_components.usvegliu.dashboard import build_dashboard_config
+from custom_components.usvegliu.journal import Journal, JournalPathError, resolve_journal_path
+from custom_components.usvegliu.redact import SecretLogFilter, redact
 
 
 def test_journal_stays_inside_config_or_media(tmp_path: Path):
@@ -28,8 +28,8 @@ def test_journal_stays_inside_config_or_media(tmp_path: Path):
     media = tmp_path / "media"
     config.mkdir()
     media.mkdir()
-    inside = resolve_journal_path(config, "ms_lumio/journal.csv", [media])
-    assert inside == (config / "ms_lumio" / "journal.csv").resolve()
+    inside = resolve_journal_path(config, "usvegliu/journal.csv", [media])
+    assert inside == (config / "usvegliu" / "journal.csv").resolve()
     mounted = resolve_journal_path(config, str(media / "synology" / "journal.csv"), [media])
     assert mounted.is_relative_to(media.resolve())
     with pytest.raises(JournalPathError):
@@ -40,7 +40,7 @@ def test_journal_stays_inside_config_or_media(tmp_path: Path):
 
 @pytest.mark.asyncio
 async def test_csv_keeps_the_code_and_drops_passwords(tmp_path: Path, caplog):
-    journal = Journal(tmp_path / "ms_lumio" / "journal.csv")
+    journal = Journal(tmp_path / "usvegliu" / "journal.csv")
     legacy = tmp_path / "legacy.csv"
     legacy.write_text(
         "horodatage,action,reservation_id,locataire,debut,fin,voucher_id,code,"
@@ -105,6 +105,7 @@ def test_diagnostics_and_logs_redact_secrets():
                     "guest": "Jean Dupont",
                     "voucher_code": "ABCD12",
                     "password": "s3cret-password",
+                    "guest_token": "stay-token-secret",
                     "voucher_id": "voucher-1",
                 }
             ],
@@ -115,6 +116,7 @@ def test_diagnostics_and_logs_redact_secrets():
     assert payload["entry_data"]["host"] == "192.168.1.1"
     assert payload["stays"][0]["voucher_code"] == "**REDACTED**"
     assert payload["stays"][0]["password"] == "**REDACTED**"
+    assert payload["stays"][0]["guest_token"] == "**REDACTED**"
     assert payload["stays"][0]["guest"] == "**REDACTED**"
     assert payload["stays"][0]["voucher_id"] == "voucher-1"
     assert payload["empty"]["api_key"] == ""
@@ -158,7 +160,7 @@ def test_tenant_policy_is_explicit_and_sensitive_domains_are_flagged():
     assert "camera.entree" in confirmed["entities"]["entity_ids"]
     assert SENSITIVE_DOMAINS == {"camera", "lock", "alarm_control_panel"}
     assert group_id_for_username("loc-jean") != ADMIN_GROUP_ID
-    assert group_id_for_username("Locataire") == "ms-lumio-locataire"
+    assert group_id_for_username("Locataire") == "usvegliu-locataire"
     entities_only, devices_only, remote = resolve_stay_access(
         "stay",
         overrides={"stay": {"entity_ids": ["cover.x"], "allow_remote": True}},
@@ -207,7 +209,7 @@ def test_dashboard_only_lists_selected_entities():
 
 
 def test_sources_do_not_embed_a_credential():
-    root = Path(__file__).resolve().parents[1] / "custom_components" / "ms_lumio"
+    root = Path(__file__).resolve().parents[1] / "custom_components" / "usvegliu"
     for path in root.rglob("*.py"):
         text = path.read_text(encoding="utf-8")
         assert "X-API-KEY" in text or "api_key" in text or path.name != "unifi.py"

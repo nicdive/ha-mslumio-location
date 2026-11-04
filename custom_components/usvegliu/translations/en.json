@@ -46,7 +46,8 @@
           "lookahead_days": "Calendar lookahead (days)",
           "enable_vouchers": "Create UniFi vouchers",
           "enable_access": "Create guest accounts",
-          "print_event": "Print event on creation"
+          "print_event": "Print event on creation",
+          "guest_base_url": "Public web app URL"
         },
         "data_description": {
           "calendar_entity": "Any calendar entity (Airbnb, Booking, Google or local ICS).",
@@ -63,7 +64,8 @@
           "notify_service": "e.g. notify.mobile_app_phone. Empty = persistent notification only.",
           "journal_path": "Relative to the config folder, or absolute under config/ or a media folder (Synology share).",
           "title_blocklist": "Comma-separated substrings that are not guests (blocked dates).",
-          "print_event": "When enabled, the cleartext code is published on ms_lumio_print_voucher and may end up in traces. Leave off unless you print."
+          "print_event": "When enabled, the cleartext code is published on usvegliu_print_voucher and may end up in traces. Leave off unless you print.",
+          "guest_base_url": "Public origin, no path. e.g. https://www.usvegliu.fr — guest links become /s/<token>. Empty = Home Assistant internal URL."
         }
       },
       "reconfigure": {
@@ -97,7 +99,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "MS Lumio",
+        "title": "Usvegliu",
         "description": "The API key is not edited here. Use Reconfigure to change it.",
         "data": {
           "calendar_entity": "Reservation calendar",
@@ -118,11 +120,13 @@
           "lookahead_days": "Calendar lookahead (days)",
           "enable_vouchers": "Create UniFi vouchers",
           "enable_access": "Create guest accounts",
-          "print_event": "Print event on creation"
+          "print_event": "Print event on creation",
+          "guest_base_url": "Public web app URL"
         },
         "data_description": {
           "extra_days": "Voucher duration = stay + these days. UniFi starts the timer when the code is first redeemed.",
-          "print_event": "Publishes the cleartext code on the bus. Enable only for printing."
+          "print_event": "Publishes the cleartext code on the bus. Enable only for printing.",
+          "guest_base_url": "e.g. https://www.usvegliu.fr. Empty = Home Assistant internal URL."
         }
       }
     },
@@ -179,7 +183,7 @@
     },
     "imprimer_voucher": {
       "name": "Print voucher",
-      "description": "Fires ms_lumio_print_voucher with the cleartext code.",
+      "description": "Fires usvegliu_print_voucher with the cleartext code.",
       "fields": {
         "reservation_key": {
           "name": "Reservation"
@@ -192,7 +196,7 @@
     },
     "appliquer_tableau": {
       "name": "Apply dashboard",
-      "description": "Updates the ms-lumio dashboard."
+      "description": "Updates the usvegliu-sejour dashboard."
     },
     "reglages_sejour": {
       "name": "Stay settings",
@@ -211,12 +215,26 @@
         "confirm_sensitive": {"name": "Confirm camera, lock or alarm"},
         "reset": {"name": "Use the global setting again"}
       }
+    },
+    "lien_maison": {
+      "name": "House link",
+      "description": "Guest web app URL, or a 24-hour preview for thermostats and Nuki.",
+      "fields": {
+        "reservation_key": {
+          "name": "Reservation",
+          "description": "Empty = stay shown by the sensor."
+        },
+        "essai": {
+          "name": "Preview link (24 h)",
+          "description": "Ignores the calendar. Uses the entities currently selected."
+        }
+      }
     }
   },
   "issues": {
     "dashboard_missing": {
       "title": "Guest dashboard missing",
-      "description": "The integration could not create the dashboard “{url_path}”. Create a storage dashboard with URL ms-lumio (a hyphen is required), visible to non-admins, then call ms_lumio.appliquer_tableau. Other dashboards (cameras, locks) should be admin-only."
+      "description": "The integration could not create the dashboard “{url_path}”. Create a storage dashboard with URL usvegliu-sejour (a hyphen is required), visible to non-admins, then call usvegliu.appliquer_tableau. Other dashboards (cameras, locks) should be admin-only."
     }
   }
 }
