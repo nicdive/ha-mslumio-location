@@ -230,7 +230,7 @@ def _async_register_services(hass: Any) -> None:
         (SERVICE_RESEND, SupportsResponse.OPTIONAL),
         (SERVICE_PRINT, SupportsResponse.OPTIONAL),
         (SERVICE_EXPORT_JOURNAL, SupportsResponse.OPTIONAL),
-        (SERVICE_APPLY_DASHBOARD, SupportsResponse.NONE),
+        (SERVICE_APPLY_DASHBOARD, SupportsResponse.OPTIONAL),
         (SERVICE_STAY_SETTINGS, SupportsResponse.OPTIONAL),
         (SERVICE_GUEST_LINK, SupportsResponse.OPTIONAL),
     ):

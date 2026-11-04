@@ -138,6 +138,7 @@ class UsvegliuRuntime:
         self.coordinator: DataUpdateCoordinator[dict[str, Any]] | None = None
         self._accounts = _AccountBridge(self)
         self._dashboard_signature: str | None = None
+        self._last_dashboard: dict[str, Any] = {}
 
     def tenant_entity_ids(self) -> list[str]:
         """Entities selected for tenants, including the previous three lists."""
@@ -381,11 +382,12 @@ class UsvegliuRuntime:
         if signature == self._dashboard_signature:
             return
         try:
-            created = await async_ensure_dashboard(self.hass, entities)
+            outcome = await async_ensure_dashboard(self.hass, entities)
         except Exception:  # noqa: BLE001 — dashboard failure must not revoke access
             _LOGGER.warning("Tableau de bord Usvegliu non mis à jour")
-            created = False
-        if created:
+            outcome = {"ok": False, "reason": "exception", "url": DASHBOARD_URL}
+        self._last_dashboard = outcome
+        if outcome.get("ok"):
             self._dashboard_signature = signature
             ir.async_delete_issue(self.hass, DOMAIN, "dashboard_missing")
         else:
@@ -585,6 +587,11 @@ class UsvegliuRuntime:
             self.coordinator.async_set_updated_data(snapshot)
         if action == "exporter_journal":
             return {"path": str(self.journal.path)}
+        if action == "appliquer_tableau":
+            return {
+                "delivered": True,
+                **(self._last_dashboard or {}),
+            }
         if action == "imprimer_voucher":
             return {
                 "reservation_id": resolved,

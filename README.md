@@ -49,7 +49,7 @@ Le dépôt doit être **public**. HACS n'installe pas un dépôt privé.
 
 1. HACS → ⋮ → *Dépôts personnalisés*.
 2. URL `https://github.com/nicdive/ha-mslumio-location`, catégorie **Intégration**.
-3. Télécharger **Usvegliu** en choisissant une **release** (`0.4.0` ou plus), pas seulement le commit de `main`.
+3. Télécharger **Usvegliu** en choisissant une **release** (`0.4.1` ou plus), pas seulement le commit de `main`.
 4. Redémarrer Home Assistant.
 5. Paramètres → Appareils et services → Ajouter une intégration → **Usvegliu**.
 

@@ -18,7 +18,11 @@ from custom_components.usvegliu.access import (
     sensitive_entity_ids,
 )
 from custom_components.usvegliu.const import SENSITIVE_DOMAINS
-from custom_components.usvegliu.dashboard import build_dashboard_config
+from custom_components.usvegliu.dashboard import (
+    async_ensure_dashboard,
+    build_dashboard_config,
+    dashboard_card_count,
+)
 from custom_components.usvegliu.journal import Journal, JournalPathError, resolve_journal_path
 from custom_components.usvegliu.redact import SecretLogFilter, redact
 
@@ -198,7 +202,7 @@ def test_dashboard_only_lists_selected_entities():
     config = build_dashboard_config(
         ["climate.salon", "cover.sejour", "light.salon", "media_player.salon"]
     )
-    cards = config["views"][0]["cards"]
+    cards = config["views"][0]["sections"][0]["cards"]
     dumped = str(cards)
     assert "climate.salon" in dumped
     assert "cover.sejour" in dumped
@@ -206,6 +210,26 @@ def test_dashboard_only_lists_selected_entities():
     assert "media_player.salon" in dumped
     assert "camera." not in dumped
     assert "lock." not in dumped
+    assert config["views"][0]["type"] == "sections"
+    assert dashboard_card_count(config) == 5
+
+
+@pytest.mark.asyncio
+async def test_dashboard_saves_when_lovelace_already_has_the_path():
+    saved: list[dict] = []
+
+    class _Dash:
+        async def async_save(self, config):
+            saved.append(config)
+
+    class _Hass:
+        data = {"lovelace": {"dashboards": {"usvegliu-sejour": _Dash()}}}
+
+    result = await async_ensure_dashboard(_Hass(), ["climate.salon"])
+    assert result["ok"] is True
+    assert result["reason"] == "saved"
+    assert result["cards"] == 2
+    assert saved and saved[0]["views"][0]["sections"][0]["cards"]
 
 
 def test_sources_do_not_embed_a_credential():
