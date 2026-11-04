@@ -362,28 +362,89 @@
     return escapeHtml(value).replace(/"/g, "&quot;");
   }
 
+  function applyState(payload) {
+    state = payload;
+    error = "";
+    if (!state.climates.length && state.locks.length) section = "lock";
+    render();
+  }
+
+  function failState(err) {
+    error = err && err.message === "invalid_token" ? "invalid_token" : "error";
+    if (error !== "invalid_token") {
+      root.innerHTML = `<div class="brand">USVEGLIU</div><p class="error">Impossible d’ouvrir la maison pour le moment.</p>`;
+      return;
+    }
+    render();
+  }
+
   function refresh() {
     if (!token) {
       render();
       return;
     }
     api("/api/usvegliu/guest/state")
-      .then((payload) => {
-        state = payload;
-        error = "";
-        if (!state.climates.length && state.locks.length) section = "lock";
-        render();
-      })
-      .catch((err) => {
-        error = err.message === "invalid_token" ? "invalid_token" : "error";
-        if (error !== "invalid_token") {
-          root.innerHTML = `<div class="brand">USVEGLIU</div><p class="error">Impossible d’ouvrir la maison pour le moment.</p>`;
-          return;
-        }
-        render();
-      });
+      .then(applyState)
+      .catch(failState);
   }
+
+  let source = null;
+  let pollTimer = null;
+  let retries = 0;
+
+  function stopLive() {
+    if (source) {
+      source.close();
+      source = null;
+    }
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  }
+
+  function startPoll() {
+    if (pollTimer) return;
+    pollTimer = setInterval(refresh, 8000);
+  }
+
+  function startStream() {
+    if (!token || !window.EventSource) {
+      startPoll();
+      return;
+    }
+    stopLive();
+    const url = "/api/usvegliu/guest/stream?token=" + encodeURIComponent(token);
+    source = new EventSource(url);
+    source.addEventListener("state", (event) => {
+      retries = 0;
+      try {
+        applyState(JSON.parse(event.data));
+      } catch (err) {
+        refresh();
+      }
+    });
+    source.addEventListener("expired", () => {
+      stopLive();
+      failState({ message: "invalid_token" });
+    });
+    source.onerror = () => {
+      retries += 1;
+      if (retries < 3) return;
+      if (source) {
+        source.close();
+        source = null;
+      }
+      startPoll();
+    };
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) return;
+    refresh();
+  });
 
   render();
   refresh();
+  startStream();
 })();

@@ -232,6 +232,26 @@ async def test_dashboard_saves_when_lovelace_already_has_the_path():
     assert saved and saved[0]["views"][0]["sections"][0]["cards"]
 
 
+def test_guest_stream_is_server_sent_events():
+    text = (
+        Path(__file__).resolve().parents[1]
+        / "custom_components"
+        / "usvegliu"
+        / "http.py"
+    ).read_text(encoding="utf-8")
+    assert "/guest/stream" in text
+    assert "text/event-stream" in text
+    js = (
+        Path(__file__).resolve().parents[1]
+        / "custom_components"
+        / "usvegliu"
+        / "www"
+        / "app.js"
+    ).read_text(encoding="utf-8")
+    assert "EventSource" in js
+    assert "guest/stream" in js
+
+
 def test_sources_do_not_embed_a_credential():
     root = Path(__file__).resolve().parents[1] / "custom_components" / "usvegliu"
     for path in root.rglob("*.py"):

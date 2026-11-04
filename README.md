@@ -49,7 +49,7 @@ Le dépôt doit être **public**. HACS n'installe pas un dépôt privé.
 
 1. HACS → ⋮ → *Dépôts personnalisés*.
 2. URL `https://github.com/nicdive/ha-mslumio-location`, catégorie **Intégration**.
-3. Télécharger **Usvegliu** en choisissant une **release** (`0.4.1` ou plus), pas seulement le commit de `main`.
+3. Télécharger **Usvegliu** en choisissant une **release** (`0.5.0` ou plus), pas seulement le commit de `main`.
 4. Redémarrer Home Assistant.
 5. Paramètres → Appareils et services → Ajouter une intégration → **Usvegliu**.
 
@@ -309,7 +309,8 @@ La web app écoute sur Home Assistant :
 | --- | --- |
 | `/usvegliu/s/<token>` | page locataire |
 | `/usvegliu/static/` | CSS / JS |
-| `/api/usvegliu/guest/state` | état |
+| `/api/usvegliu/guest/state` | état (un coup) |
+| `/api/usvegliu/guest/stream` | état en temps réel (SSE) |
 | `/api/usvegliu/guest/climate` | commandes thermostat |
 | `/api/usvegliu/guest/lock` | Nuki |
 
@@ -330,6 +331,8 @@ location /api/usvegliu/ {
     proxy_pass https://127.0.0.1:8123/api/usvegliu/;
     proxy_set_header Host $host;
     proxy_ssl_verify off;
+    proxy_buffering off;
+    proxy_cache off;
 }
 ```
 

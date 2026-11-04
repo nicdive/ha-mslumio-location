@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.5.0] — 2026-11-04
+
+### Ajouté
+- Web app Maison en **temps réel** : `GET /api/usvegliu/guest/stream` (SSE) pousse clim et Nuki à chaque `state_changed`. Repli sur un polling 8 s si le flux coupe.
+
+[0.5.0]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.5.0
+
 ## [0.4.1] — 2026-11-04
 
 ### Corrigé

@@ -7,6 +7,8 @@ the stay allow-list before any service is called.
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -35,6 +37,7 @@ def async_setup_http(hass: Any) -> None:
 
     hass.http.register_view(GuestPageView())
     hass.http.register_view(GuestStateView())
+    hass.http.register_view(GuestStreamView())
     hass.http.register_view(GuestClimateView())
     hass.http.register_view(GuestLockView())
     register = getattr(hass.http, "async_register_static_paths", None)
@@ -134,6 +137,28 @@ def _serialize_lock(hass: Any, entity_id: str) -> dict[str, Any] | None:
     }
 
 
+def _snapshot(hass: Any, runtime: Any, record: dict[str, Any]) -> dict[str, Any]:
+    """Stay header plus every allowed climate and lock."""
+    allowed = runtime.allowed_entity_ids(record)
+    climates, locks = _partition(hass, allowed)
+    return {
+        "guest": record.get("guest") or "",
+        "check_in": record.get("check_in") or "",
+        "check_out": record.get("check_out") or "",
+        "preview": bool(record.get("preview")),
+        "climates": [
+            item
+            for entity_id in climates
+            if (item := _serialize_climate(hass, entity_id))
+        ],
+        "locks": [
+            item
+            for entity_id in locks
+            if (item := _serialize_lock(hass, entity_id))
+        ],
+    }
+
+
 def _partition(hass: Any, entity_ids: list[str]) -> tuple[list[str], list[str]]:
     climates: list[str] = []
     locks: list[str] = []
@@ -209,26 +234,84 @@ class GuestStateView(HomeAssistantView):
             return _json_error(self, 503, "not_loaded")
         if record is None:
             return _json_error(self, 401, "invalid_token")
-        allowed = runtime.allowed_entity_ids(record)
-        climates, locks = _partition(hass, allowed)
-        return self.json(
-            {
-                "guest": record.get("guest") or "",
-                "check_in": record.get("check_in") or "",
-                "check_out": record.get("check_out") or "",
-                "preview": bool(record.get("preview")),
-                "climates": [
-                    item
-                    for entity_id in climates
-                    if (item := _serialize_climate(hass, entity_id))
-                ],
-                "locks": [
-                    item
-                    for entity_id in locks
-                    if (item := _serialize_lock(hass, entity_id))
-                ],
-            }
+        return self.json(_snapshot(hass, runtime, record))
+
+
+class GuestStreamView(HomeAssistantView):
+    """Push climate and lock state as soon as Home Assistant changes."""
+
+    requires_auth = False
+    cors_allowed = True
+    url = f"/api/{DOMAIN}/guest/stream"
+    name = f"api:{DOMAIN}:guest_stream"
+
+    async def get(self, request: Any) -> Any:
+        from aiohttp import web
+
+        hass, runtime, record = await _bound(request)
+        if runtime is None:
+            return _json_error(self, 503, "not_loaded")
+        if record is None:
+            return _json_error(self, 401, "invalid_token")
+
+        token = _token_from(request)
+        response = web.StreamResponse(
+            status=200,
+            headers={
+                "Content-Type": "text/event-stream; charset=utf-8",
+                "Cache-Control": "no-cache, no-transform",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
         )
+        await response.prepare(request)
+        queue: asyncio.Queue[str] = asyncio.Queue(maxsize=4)
+
+        def notify(kind: str) -> None:
+            try:
+                queue.put_nowait(kind)
+            except asyncio.QueueFull:
+                pass
+
+        def listener(event: Any) -> None:
+            current = runtime.guest_record(token)
+            if current is None:
+                notify("expired")
+                return
+            entity_id = (event.data or {}).get("entity_id")
+            if entity_id and entity_id in runtime.allowed_entity_ids(current):
+                notify("state")
+
+        unsub = hass.bus.async_listen("state_changed", listener)
+
+        async def emit(name: str, payload: dict[str, Any]) -> None:
+            body = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+            await response.write(f"event: {name}\ndata: {body}\n\n".encode())
+
+        try:
+            await emit("state", _snapshot(hass, runtime, record))
+            while True:
+                try:
+                    kind = await asyncio.wait_for(queue.get(), timeout=20)
+                    while not queue.empty():
+                        kind = queue.get_nowait()
+                except asyncio.TimeoutError:
+                    current = runtime.guest_record(token)
+                    if current is None:
+                        await emit("expired", {"error": "invalid_token"})
+                        break
+                    await response.write(b": ping\n\n")
+                    continue
+                current = runtime.guest_record(token)
+                if current is None or kind == "expired":
+                    await emit("expired", {"error": "invalid_token"})
+                    break
+                await emit("state", _snapshot(hass, runtime, current))
+        except (ConnectionResetError, asyncio.CancelledError, BrokenPipeError):
+            pass
+        finally:
+            unsub()
+        return response
 
 
 class GuestClimateView(HomeAssistantView):
