@@ -209,9 +209,20 @@ Mesures à avoir en place avant d'activer l'option : mot de passe fort (celui g�
 
 Le mot de passe est généré dans Home Assistant (`token_urlsafe`, sous la limite bcrypt de 72 octets). Il n'est pas écrit dans les logs, ni dans le CSV, ni dans le stockage du séjour. Il apparaît dans la notification admin, à noter tout de suite. Au départ, cette notification est retirée. Pour en obtenir un autre : `usvegliu.regenerer_acces`.
 
-Tableau de bord : URL `usvegliu-sejour`, titre **Séjour**, visible des non-administrateurs, cartes thermostat / volets / éclairage. L'intégration le crée si la collection Lovelace en mémoire est joignable (commande websocket `lovelace/dashboards/create`). Sinon une réparation l'indique. Créer alors un tableau de stockage d'URL `usvegliu-sejour` (le tiret est obligatoire) et appeler `usvegliu.appliquer_tableau`.
+Tableau de bord : URL `usvegliu-sejour`, titre **Séjour**, visible des non-administrateurs, cartes thermostat / volets / éclairage. L'intégration le crée si la collection Lovelace en mémoire est joignable (commande websocket `lovelace/dashboards/create`). Sinon une réparation l'indique. Créer alors un tableau de stockage d'URL `usvegliu-sejour` (le tiret est obligatoire) et appeler `usvegliu.appliquer_tableau`. Le compte locataire a ce tableau comme accueil (`default_panel`), pour ne pas ouvrir la vue Home de HA 2026.
 
 Mettre les autres tableaux (vue d'ensemble, caméras, serrures) en **réservé aux administrateurs**. L'intégration ne le fait pas toute seule, pour ne pas masquer l'interface de l'owner.
+
+### Écran « Chargement des données… » après le mot de passe
+
+Le formulaire peut accepter le mot de passe et rester ensuite sur le splash. Deux causes distinctes :
+
+1. **Accueil Home Assistant.** HA 2026 ouvre le tableau Home (zones, toutes les entités). Un compte restreint y reste parfois bloqué. L'intégration pose maintenant **Séjour** comme tableau par défaut du locataire. Mettre à jour le composant, redémarrer, puis `usvegliu.regenerer_acces` (ou attendre le cycle de 15 min) pour l'écrire sur le compte déjà créé.
+2. **Tailscale n'est pas « local ».** Home Assistant ne traite comme locales que les RFC1918 (`10/8`, `172.16/12`, `192.168/16`). Une IP Tailscale `100.64.0.0/10` est refusée pour un compte `local_only` **au websocket** (HA 2026.4+), pas forcément au formulaire. D'où un login « ok » puis un chargement infini sur `http://ha:8123`.
+
+Pour un essai du **compte HA** depuis Tailscale : activer **Accès internet pendant le séjour**, enregistrer, puis `usvegliu.regenerer_acces`. Sur le VLAN hotspot de la villa (IP privée), laisser l'option coupée. Le **lien Maison** n'utilise pas ce compte : il fonctionne déjà sur `ha:8123` sans ce réglage.
+
+Pas besoin d'assigner un groupe dans Paramètres → Personnes : l'intégration crée `usvegliu-<identifiant>` toute seule. La colonne Groupe de l'UI peut rester vide.
 
 ## Journal et Synology
 
@@ -353,7 +364,7 @@ Les tests couvrent le client UniFi (contrôleur HTTP local, clé dans `X-API-KEY
 - Schéma v11 non confirmé sur un UDM Pro Max de cette maison. HTTP 400 = s'arrêter et lire l'OpenAPI locale.
 - Groupe locataire via une API interne de Home Assistant. À recontrôler après chaque montée de version majeure, y compris le filtrage du journal.
 - Pas d'ACL sur les services sans entité ni, dans le code lu, sur le journal. Le test manuel locataire fait partie de la mise en service.
-- L'accès internet n'est qu'un drapeau `local_only`. Sans Nabu Casa ou un proxy déjà en place, le locataire distant n'arrive pas.
+- L'accès internet n'est qu'un drapeau `local_only`. Sans Nabu Casa ou un proxy déjà en place, le locataire distant n'arrive pas. Tailscale (`100.x`, MagicDNS `ha`) n'est pas local pour ce drapeau : le formulaire peut passer, le websocket non.
 - Le tableau Lovelace n'est créé que si la collection déjà chargée par HA est retrouvée. Sinon, création manuelle d'URL `usvegliu-sejour`.
 - Un seul capteur de code : le séjour en cours, ou à défaut le prochain.
 - Compte partagé : un seul mot de passe pour les séjours qui se chevauchent.
