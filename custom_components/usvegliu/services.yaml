@@ -76,6 +76,12 @@ appliquer_tableau:
   name: Appliquer le tableau de bord
   description: Recrée le tableau locataire et la console propriétaire.
 
+relire_calendrier:
+  name: Relire le calendrier
+  description: >
+    Relance tout de suite un cycle Usvegliu (calendrier, vouchers, comptes HA).
+    Sans attendre les 15 minutes. Administrateurs et utilisateurs avec droits.
+
 reglages_sejour:
   name: Réglages d'un séjour
   description: >

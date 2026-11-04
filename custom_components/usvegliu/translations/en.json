@@ -245,6 +245,10 @@
       "name": "Apply dashboard",
       "description": "Updates the guest dashboard and the owner console."
     },
+    "relire_calendrier": {
+      "name": "Reload calendar",
+      "description": "Runs a cycle now: calendar, vouchers and Home Assistant accounts."
+    },
     "reglages_sejour": {
       "name": "Stay settings",
       "description": "Replaces the entity list and internet access for one reservation. Reset returns to the global setting.",

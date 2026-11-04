@@ -740,7 +740,11 @@ class UsvegliuRuntime:
             resolved = None
             if action == "reglages_sejour":
                 self._apply_stay_settings(call.data)
-            elif action not in {"appliquer_tableau", "exporter_journal"}:
+            elif action not in {
+                "appliquer_tableau",
+                "exporter_journal",
+                "relire_calendrier",
+            }:
                 resolved = self._resolve_key(key)
             if action == "regenerer_voucher" and resolved:
                 self._force_voucher.add(resolved)
@@ -756,6 +760,8 @@ class UsvegliuRuntime:
                 self._print.add(resolved)
             elif action == "appliquer_tableau":
                 self._dashboard_signature = None
+            elif action == "relire_calendrier":
+                self._dashboard_signature = None
             snapshot, result = await self._sync_locked()
             printed = self._stays.get(resolved) if resolved else None
         await self._emit(result)
@@ -767,6 +773,12 @@ class UsvegliuRuntime:
             return {
                 "delivered": True,
                 **(self._last_dashboard or {}),
+            }
+        if action == "relire_calendrier":
+            return {
+                "delivered": True,
+                "stay_count": snapshot.get("stay_count"),
+                "guest": snapshot.get("guest"),
             }
         if action == "imprimer_voucher":
             return {

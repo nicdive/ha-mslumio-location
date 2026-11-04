@@ -350,6 +350,8 @@ def test_owner_console_dashboard_has_live_credentials_and_actions():
     assert "s.password" not in dumped
     assert "comptes" in dumped
     assert dumped.count("usvegliu.regenerer_acces") == 1
+    assert "usvegliu.relire_calendrier" in dumped
+    assert "Relire le calendrier" in dumped
     assert "Réglages Usvegliu" in dumped
     assert "state_attr('sensor.usvegliu_reglages', 'settings')" in dumped
 
@@ -655,6 +657,8 @@ def test_guest_stream_is_server_sent_events():
     ).read_text(encoding="utf-8")
     assert "EventSource" in js
     assert "guest/stream" in js
+    assert "pendingClimate" in js
+    assert "flushClimate" in js
     assert "modeLabel" in js
     assert "heating" in js
     assert "cooling" in js

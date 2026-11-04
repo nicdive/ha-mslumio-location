@@ -23,6 +23,7 @@ from .const import (
     SERVICE_APPLY_DASHBOARD,
     SERVICE_EXPORT_JOURNAL,
     SERVICE_GUEST_LINK,
+    SERVICE_REFRESH_CALENDAR,
     SERVICE_PRINT,
     SERVICE_REGENERATE_ACCESS,
     SERVICE_REGENERATE_VOUCHER,
@@ -435,6 +436,13 @@ def _tools_card() -> dict[str, Any]:
     return _entities_actions(
         "Outils",
         [
+            _action_row(
+                "Relire le calendrier",
+                "mdi:calendar-refresh",
+                SERVICE_REFRESH_CALENDAR,
+                "Relire le calendrier maintenant ? Les accès Wi-Fi et HA suivront les réservations.",
+                action_name="Lire",
+            ),
             _action_row(
                 "Rafraîchir les tableaux",
                 "mdi:view-dashboard-edit",

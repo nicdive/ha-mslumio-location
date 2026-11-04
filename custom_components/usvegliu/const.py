@@ -110,6 +110,7 @@ SERVICE_RESEND: Final = "renvoyer_notification"
 SERVICE_PRINT: Final = "imprimer_voucher"
 SERVICE_EXPORT_JOURNAL: Final = "exporter_journal"
 SERVICE_APPLY_DASHBOARD: Final = "appliquer_tableau"
+SERVICE_REFRESH_CALENDAR: Final = "relire_calendrier"
 SERVICE_STAY_SETTINGS: Final = "reglages_sejour"
 SERVICE_GUEST_LINK: Final = "lien_maison"
 

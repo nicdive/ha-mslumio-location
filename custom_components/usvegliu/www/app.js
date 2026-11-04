@@ -441,6 +441,47 @@
     patchList("climates", entityId, patch);
   }
 
+  const pendingClimate = {};
+  let climateSeq = 0;
+  const HOLD_MS = 8000;
+  const DEBOUNCE_MS = 280;
+
+  function climateMatches(remote, patch) {
+    if (!remote || !patch) return false;
+    if ("setpoint" in patch && Number(remote.setpoint) !== Number(patch.setpoint)) {
+      return false;
+    }
+    if ("on" in patch && Boolean(remote.on) !== Boolean(patch.on)) return false;
+    if ("fan" in patch && Number(remote.fan) !== Number(patch.fan)) return false;
+    return true;
+  }
+
+  function holdClimate(entityId, patch) {
+    climateSeq += 1;
+    const prev = pendingClimate[entityId];
+    if (prev && prev.timer) clearTimeout(prev.timer);
+    pendingClimate[entityId] = {
+      seq: climateSeq,
+      patch: { ...(prev && prev.patch), ...patch },
+      since: Date.now(),
+      timer: null,
+    };
+    return pendingClimate[entityId];
+  }
+
+  function mergeClimateHolds(rooms) {
+    return (rooms || []).map((room) => {
+      const hold = pendingClimate[room.entity_id];
+      if (!hold) return room;
+      if (Date.now() - hold.since > HOLD_MS || climateMatches(room, hold.patch)) {
+        if (hold.timer) clearTimeout(hold.timer);
+        delete pendingClimate[room.entity_id];
+        return room;
+      }
+      return { ...room, ...hold.patch };
+    });
+  }
+
   function onAction(event) {
     const button = event.currentTarget;
     const act = button.getAttribute("data-act");
@@ -519,17 +560,36 @@
   }
 
   function commandClimate(entityId, body) {
-    patchLocal(entityId, body);
+    const hold = holdClimate(entityId, body);
+    patchLocal(entityId, hold.patch);
     render();
+    hold.timer = setTimeout(() => flushClimate(entityId, hold.seq), DEBOUNCE_MS);
+  }
+
+  function flushClimate(entityId, seq) {
+    const hold = pendingClimate[entityId];
+    if (!hold || hold.seq !== seq) return;
+    hold.timer = null;
+    const body = hold.patch;
     api("/api/usvegliu/guest/climate", {
       method: "POST",
       body: JSON.stringify({ entity_id: entityId, ...body }),
     })
       .then((updated) => {
-        patchLocal(entityId, updated);
+        if (!pendingClimate[entityId] || pendingClimate[entityId].seq !== seq) return;
+        if (updated && climateMatches(updated, body)) {
+          delete pendingClimate[entityId];
+          patchLocal(entityId, updated);
+        } else if (updated) {
+          patchLocal(entityId, { ...updated, ...body });
+        }
         render();
       })
-      .catch(() => refresh());
+      .catch(() => {
+        if (!pendingClimate[entityId] || pendingClimate[entityId].seq !== seq) return;
+        delete pendingClimate[entityId];
+        refresh();
+      });
   }
 
   function commandEntity(listKey, entityId, action, optimistic) {
@@ -560,7 +620,9 @@
   }
 
   function applyState(payload) {
-    state = payload;
+    const next = payload || {};
+    if (next.climates) next.climates = mergeClimateHolds(next.climates);
+    state = next;
     error = "";
     render();
   }
