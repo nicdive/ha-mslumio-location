@@ -57,7 +57,7 @@
         },
         "data_description": {
           "calendar_entity": "N'importe quelle entité calendar (ICS Airbnb, Booking, Google, local).",
-          "lead_days": "Le compte et le lien Maison sont émis ce nombre de jours avant l'arrivée. Ils ne s'activent que le jour J. Défaut : 3.",
+          "lead_days": "Le voucher Wi-Fi, le compte et le lien Maison sont émis ce nombre de jours avant l'arrivée. Compte et lien ne s'activent que le jour J. Défaut : 3.",
           "device_limit": "Nombre d'appareils autorisés par le même code. Défaut : 10.",
           "download_mbps": "Converti en kbit/s pour l'API (100 Mbit/s = 100000 kbit/s). Défaut : 100.",
           "upload_mbps": "Défaut : 100.",

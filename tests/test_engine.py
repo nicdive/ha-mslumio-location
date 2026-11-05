@@ -487,11 +487,9 @@ async def test_revoke_voucher_holds_until_regenerate():
 
 
 @pytest.mark.asyncio
-async def test_voucher_and_login_wait_for_arrival_day():
+async def test_voucher_is_ready_in_the_lead_window_login_waits():
     unifi = FakeUnifi()
     accounts = FakeAccounts()
-    name = "Jean Dupont 2026-07-10/2026-07-17"
-    unifi.vouchers.append(_Voucher("early", "TOOEARLY", name))
     lead_plan = _plan(LEAD)
     held = await async_synchronize(
         lead_plan,
@@ -504,9 +502,8 @@ async def test_voucher_and_login_wait_for_arrival_day():
         enable_access=True,
     )
     key = lead_plan.ensure[0].key
-    assert unifi.created == 0
-    assert "early" in unifi.deleted
-    assert not held.stays[key].get("voucher_code")
+    assert unifi.created == 1
+    assert held.stays[key]["voucher_code"] == "CODE1"
     assert len(held.stays[key]["guest_token"]) >= 16
     assert accounts.created == 1
     uid = str(held.stays[key]["user_id"])

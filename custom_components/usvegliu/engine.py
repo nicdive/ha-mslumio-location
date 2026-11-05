@@ -221,15 +221,7 @@ async def async_synchronize(
             now,
         )
         if enable_vouchers and vouchers is not None and listed is not None:
-            if not active:
-                await _hold_voucher(
-                    record,
-                    item,
-                    result,
-                    vouchers=vouchers,
-                    listed=listed,
-                )
-            elif record.get("voucher_revoked"):
+            if record.get("voucher_revoked"):
                 await _clear_voucher(record, result, vouchers=vouchers, listed=listed)
             else:
                 await _ensure_voucher(
@@ -590,31 +582,6 @@ async def _ensure_shared(
         result.events.append(_event_from("acces_cree", row_stay))
         for record in result.stays.values():
             _queue_notification(result, record, password=fresh_password)
-
-
-async def _hold_voucher(
-    record: dict[str, Any],
-    item: StayPlan,
-    result: CycleResult,
-    *,
-    vouchers: VoucherDirectory,
-    listed: list[Any] | None,
-) -> None:
-    """Drop UniFi vouchers until arrival day so the portal cannot be used early.
-
-    UniFi starts the duration clock at first authorization and has no delayed
-    start. The stay (token, HA user) stays issued on the Console.
-    """
-    await _clear_voucher(record, result, vouchers=vouchers, listed=listed)
-    if listed is None:
-        return
-    for voucher in list(_match_name(listed, item.voucher.name)):
-        voucher_id = str(getattr(voucher, "id", "") or "")
-        if not voucher_id:
-            continue
-        await vouchers.async_delete_voucher(voucher_id)
-        _drop_listed(listed, voucher_id)
-        result.deleted_vouchers += 1
 
 
 async def _clear_voucher(
