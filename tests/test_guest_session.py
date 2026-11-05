@@ -53,8 +53,11 @@ def test_stay_open_until_checkout_including_before_arrival():
     assert stay_is_active(record, now) is False
     assert stay_is_active(record, datetime(2026, 7, 10, 0, tzinfo=UTC)) is True
     assert stay_is_active(record, datetime(2026, 7, 10, 6, tzinfo=UTC)) is True
-    assert stay_is_open(record, datetime(2026, 7, 17, 0, tzinfo=UTC)) is False
-    assert stay_is_active(record, datetime(2026, 7, 17, 0, tzinfo=UTC)) is False
+    assert stay_is_active(record, datetime(2026, 7, 17, 18, tzinfo=UTC)) is True
+    assert stay_is_active(record, datetime(2026, 7, 18, 0, tzinfo=UTC)) is False
+    assert stay_is_issued(record, datetime(2026, 7, 18, 12, tzinfo=UTC)) is True
+    assert stay_is_open(record, datetime(2026, 7, 19, 0, tzinfo=UTC)) is False
+    assert stay_is_issued(record, datetime(2026, 7, 19, 0, tzinfo=UTC)) is False
     afternoon = {
         "check_in": "2026-07-10T15:00:00+02:00",
         "check_out": "2026-07-17T10:00:00+02:00",
@@ -84,6 +87,9 @@ def test_find_token_prefers_live_stay_over_expired_preview():
     early = datetime(2026, 7, 8, tzinfo=UTC)
     assert find_record_by_token(stays, None, token, early) is None
     assert find_record_by_token(stays, None, token, early, require_active=False) is stays["a"]
+    after = datetime(2026, 7, 18, 12, tzinfo=UTC)
+    assert find_record_by_token(stays, None, token, after) is None
+    assert find_record_by_token(stays, None, token, after, require_active=False) is stays["a"]
 
 
 def test_open_issued_records_keeps_active_stays_and_live_preview():

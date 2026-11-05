@@ -61,7 +61,7 @@
           "device_limit": "Nombre d'appareils autorisés par le même code. Défaut : 10.",
           "download_mbps": "Converti en kbit/s pour l'API (100 Mbit/s = 100000 kbit/s). Défaut : 100.",
           "upload_mbps": "Défaut : 100.",
-          "extra_days": "La durée du voucher est le séjour plus ce nombre de jours. Défaut : 1. UniFi démarre ce compteur à la première utilisation du code, pas à l'arrivée.",
+          "extra_days": "Le voucher Wi-Fi reste ce nombre de jours après la journée de départ, puis il est retiré. Défaut : 1. Le lien Maison s'arrête dès la fin du jour de départ.",
           "access_mode": "Un compte par séjour, ou un compte « locataire » dont le mot de passe change.",
           "tenant_entities": "Tous les domaines. Les caméras, serrures et alarmes ne sont pas cochées : les ajouter exige la confirmation ci-dessous.",
           "tenant_devices": "Toutes les entités de l'appareil sont autorisées, y compris celles ajoutées plus tard. Un appareil qui contient une caméra, une serrure ou une alarme exige la confirmation.",
@@ -142,7 +142,7 @@
           "alarm_code": "Code alarme (serveur)"
         },
         "data_description": {
-          "extra_days": "Durée du voucher = séjour + ces jours. Le compteur UniFi part à la première saisie du code.",
+          "extra_days": "Le voucher reste ces jours après le départ, puis il est retiré. Le lien Maison s'arrête à la fin du jour de départ.",
           "allow_remote": "À activer pour un essai du compte HA via Tailscale : une IP 100.x n'est pas locale, le frontend reste alors sur « Chargement des données ».",
           "print_event": "Place le code en clair sur le bus. À n'activer que pour l'impression.",
           "guest_base_url": "Ex. https://www.usvegliu.fr. Vide = adresse interne de Home Assistant.",

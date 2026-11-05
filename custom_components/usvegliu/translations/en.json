@@ -61,7 +61,7 @@
           "device_limit": "Devices allowed to use the same code. Default: 10.",
           "download_mbps": "Converted to kbit/s for the API (100 Mbit/s = 100000 kbit/s). Default: 100.",
           "upload_mbps": "Default: 100.",
-          "extra_days": "Voucher duration is the stay plus this many days. Default: 1. UniFi starts that timer at the first use of the code, not at check-in.",
+          "extra_days": "The Wi-Fi voucher stays this many days after the departure day, then it is deleted. Default: 1. The Maison link stops at the end of departure day.",
           "access_mode": "One account per stay, or a single guest account whose password rotates.",
           "tenant_entities": "Any domain. Cameras, locks and alarms are not selected: adding them requires the confirmation below.",
           "tenant_devices": "Every entity of the device is allowed, including ones added later. A device that contains a camera, lock or alarm requires confirmation.",
@@ -142,7 +142,7 @@
           "alarm_code": "Alarm code (server)"
         },
         "data_description": {
-          "extra_days": "Voucher duration = stay + these days. UniFi starts the timer when the code is first redeemed.",
+          "extra_days": "The voucher stays these days after departure, then it is deleted. The Maison link stops at the end of departure day.",
           "allow_remote": "Turn this on to try the HA account over Tailscale: a 100.x address is not local, so the frontend stays on Loading data.",
           "print_event": "Publishes the cleartext code on the bus. Enable only for printing.",
           "guest_base_url": "e.g. https://www.usvegliu.fr. Empty = Home Assistant internal URL.",

@@ -10,7 +10,8 @@ import re
 import secrets
 from typing import Any
 
-from .const import DEFAULT_WIFI_SSID, DOMAIN
+from .const import DEFAULT_EXTRA_DAYS, DEFAULT_WIFI_SSID, DOMAIN
+from .planning import maison_closes_at, wifi_revokes_at
 
 PREVIEW_KEY = "__usvegliu_preview__"
 PREVIEW_HOURS = 24
@@ -80,21 +81,47 @@ def parse_iso(value: Any, tzinfo: timezone | None = None) -> datetime | None:
     return parsed
 
 
-def stay_is_issued(record: dict[str, Any], now: datetime) -> bool:
-    """True while the stay is still on the owner Console.
-
-    Credentials may already exist (lead window) and remain listed until
-    check-out. Guest use is gated separately by ``stay_is_active``.
-    """
+def stay_access_end(record: dict[str, Any], now: datetime) -> datetime | None:
+    """Maison link and HA login stop at the end of the departure day."""
     end = parse_iso(record.get("check_out"), now.tzinfo)
     if end is None:
-        return False
-    return now < end
+        return None
+    if record.get("preview"):
+        return end
+    return maison_closes_at(end)
 
 
-def stay_is_open(record: dict[str, Any], now: datetime) -> bool:
+def stay_wifi_end(
+    record: dict[str, Any],
+    now: datetime,
+    extra_days: int = DEFAULT_EXTRA_DAYS,
+) -> datetime | None:
+    """UniFi voucher is deleted one extra day after departure, by default."""
+    end = parse_iso(record.get("check_out"), now.tzinfo)
+    if end is None:
+        return None
+    if record.get("preview"):
+        return end
+    return wifi_revokes_at(end, extra_days)
+
+
+def stay_is_issued(
+    record: dict[str, Any],
+    now: datetime,
+    extra_days: int = DEFAULT_EXTRA_DAYS,
+) -> bool:
+    """True while the stay is still on the owner Console (Wi-Fi window)."""
+    close = stay_wifi_end(record, now, extra_days)
+    return close is not None and now < close
+
+
+def stay_is_open(
+    record: dict[str, Any],
+    now: datetime,
+    extra_days: int = DEFAULT_EXTRA_DAYS,
+) -> bool:
     """Issued stay, including the days before arrival. Owner Console."""
-    return stay_is_issued(record, now)
+    return stay_is_issued(record, now, extra_days)
 
 
 def stay_activation_start(record: dict[str, Any], now: datetime) -> datetime | None:
@@ -108,28 +135,30 @@ def stay_activation_start(record: dict[str, Any], now: datetime) -> datetime | N
 
 
 def stay_is_active(record: dict[str, Any], now: datetime) -> bool:
-    """True when voucher, HA login and Maison link may actually be used.
+    """True when the Maison link and HA login may be used.
 
-    Arrival day, not the check-in hour: a 15:00 booking opens at local
-    midnight that day. A 24 h preview is usable as soon as it is minted.
+    From local midnight of the arrival day through the end of the planned
+    departure day. A 24 h preview is usable as soon as it is minted.
     """
-    if not stay_is_issued(record, now):
-        return False
     begin = stay_activation_start(record, now)
-    if begin is None:
+    close = stay_access_end(record, now)
+    if begin is None or close is None:
         return False
-    return now >= begin
+    return begin <= now < close
 
 
 def open_issued_records(
     stays: dict[str, dict[str, Any]],
     preview: dict[str, Any] | None,
     now: datetime,
+    extra_days: int = DEFAULT_EXTRA_DAYS,
 ) -> list[dict[str, Any]]:
-    """Provisioned stays still usable, then a live preview, by check-in."""
-    records = [record for record in stays.values() if stay_is_open(record, now)]
+    """Provisioned stays still listed, then a live preview, by check-in."""
+    records = [
+        record for record in stays.values() if stay_is_issued(record, now, extra_days)
+    ]
     records.sort(key=lambda record: str(record.get("check_in") or ""))
-    if isinstance(preview, dict) and stay_is_open(preview, now):
+    if isinstance(preview, dict) and stay_is_issued(preview, now, extra_days):
         records.append(preview)
     return records
 
@@ -321,6 +350,7 @@ def find_record_by_token(
     now: datetime,
     *,
     require_active: bool = True,
+    extra_days: int = DEFAULT_EXTRA_DAYS,
 ) -> dict[str, Any] | None:
     """Return the stay or preview bound to ``token``.
 
@@ -332,11 +362,13 @@ def find_record_by_token(
         return None
     found: dict[str, Any] | None = None
     if isinstance(preview, dict) and preview.get("guest_token") == token:
-        if stay_is_issued(preview, now):
+        if stay_is_issued(preview, now, extra_days):
             found = preview
     if found is None:
         for record in stays.values():
-            if record.get("guest_token") == token and stay_is_issued(record, now):
+            if record.get("guest_token") == token and stay_is_issued(
+                record, now, extra_days
+            ):
                 found = record
                 break
     if found is None:

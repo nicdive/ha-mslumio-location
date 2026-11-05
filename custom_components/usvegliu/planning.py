@@ -137,6 +137,26 @@ def stay_key(
     return hashlib.sha256(raw.encode()).hexdigest()[:20]
 
 
+def end_of_local_day(value: datetime) -> datetime:
+    """First instant of the next local calendar day."""
+    nxt = datetime.combine(value.date() + timedelta(days=1), time.min)
+    if value.tzinfo is not None:
+        return nxt.replace(tzinfo=value.tzinfo)
+    return nxt
+
+
+def maison_closes_at(check_out: datetime) -> datetime:
+    """Maison link stops at the end of the planned departure day."""
+    return end_of_local_day(check_out)
+
+
+def wifi_revokes_at(
+    check_out: datetime, extra_days: int = DEFAULT_EXTRA_DAYS
+) -> datetime:
+    """UniFi voucher is deleted this instant (departure day + extra days)."""
+    return maison_closes_at(check_out) + timedelta(days=max(int(extra_days), 0))
+
+
 def time_limit_minutes(check_in: datetime, check_out: datetime, extra_days: int) -> int:
     """Stay length plus the configured extra day, in minutes.
 
@@ -234,9 +254,10 @@ def build_plan(
 ) -> SyncPlan:
     """Decide which stays are active and which stored keys must be revoked.
 
-    A stay is provisioned from ``lead_days`` before check-in until check-out.
-    A known key that disappeared from the calendar is treated as a cancellation
-    when it was previously stored (the caller only passes keys it still tracks).
+    A stay is provisioned from ``lead_days`` before check-in until the Wi-Fi
+    extra day after departure. A known key that disappeared from the calendar
+    is treated as a cancellation when it was previously stored (the caller
+    only passes keys it still tracks).
     """
     ensure: list[StayPlan] = []
     active_keys: set[str] = set()
@@ -245,7 +266,8 @@ def build_plan(
     for stay in stays:
         active_keys.add(stay.key)
         window_open = stay.check_in - lead
-        if now < window_open or now >= stay.check_out:
+        wifi_until = wifi_revokes_at(stay.check_out, extra_days)
+        if now < window_open or now >= wifi_until:
             continue
         spec = VoucherSpec(
             name=voucher_name(stay.guest, stay.check_in.date(), stay.check_out.date()),
@@ -293,7 +315,11 @@ def default_blocklist() -> tuple[str, ...]:
     return parse_blocklist(DEFAULT_TITLE_BLOCKLIST)
 
 
-def select_current(stored: dict[str, dict], now: datetime) -> dict | None:
+def select_current(
+    stored: dict[str, dict],
+    now: datetime,
+    extra_days: int = DEFAULT_EXTRA_DAYS,
+) -> dict | None:
     """Pick the stay whose code the sensor should show."""
     covering: list[tuple[datetime, dict]] = []
     upcoming: list[tuple[datetime, dict]] = []
@@ -309,7 +335,8 @@ def select_current(stored: dict[str, dict], now: datetime) -> dict | None:
             start = start.replace(tzinfo=now.tzinfo)
         if end.tzinfo is None and now.tzinfo is not None:
             end = end.replace(tzinfo=now.tzinfo)
-        if start <= now < end:
+        wifi_until = wifi_revokes_at(end, extra_days)
+        if start <= now < wifi_until:
             covering.append((start, record))
         elif now < start:
             upcoming.append((start, record))
