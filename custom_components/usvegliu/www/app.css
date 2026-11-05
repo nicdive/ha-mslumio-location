@@ -219,29 +219,34 @@ h1 {
 
 .info-row {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   width: 100%;
   padding: 18px 0;
   border-bottom: 1px solid var(--line);
   text-align: left;
-  background: transparent;
 }
 
 .info-row:last-child {
   border-bottom: none;
 }
 
+.info-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .info-label {
   font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--muted);
 }
 
 .info-value {
+  margin-top: 6px;
   font-family: var(--serif);
   font-size: 28px;
   line-height: 1.15;
@@ -249,14 +254,21 @@ h1 {
   word-break: break-word;
 }
 
-.info-hint {
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  color: var(--muted);
+.copy-btn {
+  flex-shrink: 0;
+  min-width: 84px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 18px;
+  border: 1px solid var(--ink);
+  font-family: var(--serif);
+  font-size: 15px;
+  background: transparent;
 }
 
-button.info-row:active:not(:disabled) {
-  opacity: 0.72;
+.copy-btn.done {
+  background: var(--ink);
+  color: var(--paper);
 }
 
 .segment {
@@ -427,6 +439,30 @@ button.info-row:active:not(:disabled) {
   color: var(--ink);
   font-size: 12px;
   font-family: var(--serif);
+}
+
+.fan-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 54px;
+  height: 34px;
+  padding: 0 10px 0 8px;
+  border-radius: 17px;
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+  background: var(--bg);
+  font-family: var(--serif);
+  font-size: 15px;
+}
+
+.fan-chip:disabled {
+  opacity: 0.35;
+}
+
+.fan-chip .wind {
+  flex-shrink: 0;
+  color: var(--ink-soft);
 }
 
 .badge:disabled,
@@ -606,8 +642,15 @@ button.info-row:active:not(:disabled) {
 }
 
 .fan-line .label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-family: var(--serif);
   font-size: 18px;
+}
+
+.fan-line .label .wind {
+  flex-shrink: 0;
 }
 
 .fan-line .fan-row {
