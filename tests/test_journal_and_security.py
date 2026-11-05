@@ -695,6 +695,8 @@ def test_guest_stream_is_server_sent_events():
     assert 'data-act="tab"' in js
     assert "dock" in js
     assert "windGlyph" in js
+    assert "modeTabLabel" in js
+    assert "homeNote" not in js
     assert "Ventilation" in js
     assert "Copier" in js
     assert "copy-btn" in js
