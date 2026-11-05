@@ -171,12 +171,26 @@
     );
   }
 
+  function stayShareUrl() {
+    const info = (state && state.informations) || {};
+    const fromState = String(info.lien_maison || "").trim();
+    try {
+      const page = new URL(window.location.href);
+      page.search = "";
+      page.hash = "";
+      if (page.pathname.indexOf("/s/") !== -1) return page.toString();
+    } catch (err) {
+      /* ignore */
+    }
+    return fromState;
+  }
+
   function hasInfo() {
     const info = (state && state.informations) || {};
     const ssid = String(info.wifi_ssid || "").trim();
     const revoked = Boolean(info.voucher_revoked);
     const code = revoked ? "" : String(info.voucher_code || "").trim();
-    return Boolean(ssid || code || revoked);
+    return Boolean(ssid || code || revoked || stayShareUrl() || info.qr_svg);
   }
 
   function metricByKind(kind) {
@@ -300,17 +314,39 @@
     </div>`;
   }
 
+  function safeQrSvg(raw) {
+    const text = String(raw || "").trim();
+    if (!text.startsWith("<svg") || text.indexOf("</svg>") === -1) return "";
+    if (/<script/i.test(text) || /on[a-z]+=/i.test(text)) return "";
+    return text;
+  }
+
+  function shareSection() {
+    const info = (state && state.informations) || {};
+    const url = stayShareUrl();
+    const qr = safeQrSvg(info.qr_svg);
+    if (!url && !qr) return "";
+    return `<section class="sheet info-sheet share-sheet">
+      <div class="info-label">Partager l'app</div>
+      ${qr ? `<div class="qr-frame" aria-label="QR code de l'app Maison">${qr}</div>` : ""}
+      <p class="share-hint">Scannez pour ouvrir la maison sur un autre téléphone.</p>
+      ${url ? infoRow("Lien Maison", url, true, "lien") : ""}
+    </section>`;
+  }
+
   function infoSection() {
     const info = (state && state.informations) || {};
     const ssid = String(info.wifi_ssid || "").trim();
     const revoked = Boolean(info.voucher_revoked);
     const code = revoked ? "" : String(info.voucher_code || "").trim();
-    if (!ssid && !code && !revoked) return "";
     const rows = [];
     if (ssid) rows.push(infoRow("Réseau Wi-Fi", ssid, true, "ssid"));
     if (revoked) rows.push(infoRow("Code Wi-Fi", "Révoqué", false, "code"));
     else if (code) rows.push(infoRow("Code Wi-Fi", code, true, "code"));
-    return `<section class="sheet info-sheet">${rows.join("")}</section>`;
+    const wifi = rows.length ? `<section class="sheet info-sheet">${rows.join("")}</section>` : "";
+    const share = shareSection();
+    if (!wifi && !share) return "";
+    return `${wifi}${share}`;
   }
 
   function weatherGlyph(kind) {

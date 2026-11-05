@@ -139,6 +139,8 @@ def test_diagnostics_and_logs_redact_secrets():
     assert payload["stays"][0]["guest"] == "**REDACTED**"
     linked = redact({"lien_maison": "https://www.usvegliu.fr/s/stay-token-secret"})
     assert linked["lien_maison"] == "**REDACTED**"
+    qr = redact({"qr_svg": "<svg xmlns='http://www.w3.org/2000/svg'></svg>"})
+    assert qr["qr_svg"] == "**REDACTED**"
     invite = redact({"message_invite": "Bonjour Ada,\nCode d'accès : ABCD12"})
     assert invite["message_invite"] == "**REDACTED**"
     assert payload["stays"][0]["voucher_id"] == "voucher-1"
@@ -654,6 +656,12 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert "Réseau Wi-Fi" in js
     assert "Code Wi-Fi" in js
     assert "data-act=\"copy\"" in js
+    assert "qr_svg" in http
+    assert "_guest_share_url" in http
+    assert "X-Forwarded-Host" in http
+    assert "function shareSection" in js
+    assert "Partager l'app" in js
+    assert "safeQrSvg" in js
 
 
 def test_guest_app_javascript_parses():
@@ -728,6 +736,10 @@ def test_guest_stream_is_server_sent_events():
     assert "wifi_ssid" in text
     assert "voucher_code" in text
     assert "informations" in text
+    assert "qr_svg" in text
+    assert "lien_maison" in text
+    assert "share-sheet" in js
+    assert "qr-frame" in js
     assert "weatherCard" in js
     assert "Lumio" in js
     assert "poolPage" in js
