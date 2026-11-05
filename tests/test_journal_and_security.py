@@ -690,6 +690,11 @@ def test_guest_stream_is_server_sent_events():
     assert "Accès" in js
     assert "Informations" in js
     assert "infoSection" in js
+    assert "infoPage" in js
+    assert "homePage" in js
+    assert 'data-act="tab"' in js
+    assert "dock" in js
+    assert "group-label" not in js
     assert "wifi_ssid" in text
     assert "voucher_code" in text
     assert "informations" in text

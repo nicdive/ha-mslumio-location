@@ -1,9 +1,17 @@
 (function () {
   const root = document.getElementById("app");
   const token = readToken();
+  function readScreen() {
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    if (tab === "climate" || tab === "lights" || tab === "access" || tab === "info") {
+      return tab;
+    }
+    return "home";
+  }
+
   let state = null;
-  let screen = "home";
-  let listMode = "pieces";
+  let screen = readScreen();
+  let listMode = "reglage";
   let roomId = null;
   let error = "";
 
@@ -41,15 +49,18 @@
     return n % 1 === 0 ? String(n) : n.toFixed(1);
   }
 
-  function grouped(rooms) {
-    const groups = [];
-    rooms.forEach((room) => {
-      const name = room.group || "Maison";
-      const last = groups[groups.length - 1];
-      if (last && last.name === name) last.rooms.push(room);
-      else groups.push({ name, rooms: [room] });
-    });
-    return groups;
+  function icon(kind) {
+    const icons = {
+      home: '<path d="M4 11.2 L12 4.4 L20 11.2 V20 H14.4 V14.2 H9.6 V20 H4 Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>',
+      climate:
+        '<path d="M12 3.6 V8.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="12" cy="14.4" r="4.4" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M12 8.2 V10" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+      lights:
+        '<path d="M12 3.6 a6 6 0 0 1 3.4 10.9 V16.6 H8.6 V14.5 A6 6 0 0 1 12 3.6 Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9.4 19.2 H14.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+      access:
+        '<circle cx="9.2" cy="12" r="3.4" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M12.4 12 H20 V14.6 H17.4 V17" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
+      info: '<path d="M4.6 16.6 L7.2 9.2 H9.8 L7.2 16.6 Z M12.2 7.4 H19.4 M12.2 12 H19.4 M12.2 16.6 H17.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
+    };
+    return `<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">${icons[kind] || ""}</svg>`;
   }
 
   function backArrow() {
@@ -105,28 +116,6 @@
     return `${start.getDate()} ${months[start.getMonth()]} ${start.getFullYear()} – ${end.getDate()} ${months[end.getMonth()]} ${end.getFullYear()}`;
   }
 
-  function masthead(withBack) {
-    if (withBack) {
-      return `<header class="masthead masthead-room">
-        ${backArrow()}
-        <div class="wordmark">Usvegliu</div>
-      </header>`;
-    }
-    if (!state) {
-      return `<header class="masthead"><div class="wordmark">Usvegliu</div></header>`;
-    }
-    const guest = String(state.guest || "").trim();
-    const dates = state.preview
-      ? "Visite d'essai"
-      : formatStayDates(state.check_in, state.check_out);
-    return `<header class="masthead">
-      <div class="wordmark">Usvegliu</div>
-      <p class="kicker">${greeting()}</p>
-      <h1 class="welcome">${guest ? escapeHtml(guest) : "Bienvenue"}</h1>
-      ${dates ? `<p class="stay-dates">${escapeHtml(dates)}</p>` : ""}
-    </header>`;
-  }
-
   function modeLabel() {
     if (state && state.mode_label) return state.mode_label;
     return state && state.mode === "heat" ? "Chauffage" : "Climatisation";
@@ -150,15 +139,81 @@
     return "";
   }
 
-  function modeSwitch() {
-    return `<div class="segment" role="tablist">
-      <button type="button" data-act="mode" data-id="pieces" class="${listMode === "pieces" ? "on" : ""}">Pièces</button>
-      <button type="button" data-act="mode" data-id="reglage" class="${listMode === "reglage" ? "on" : ""}">Régler</button>
+  function hasAccess() {
+    return Boolean(
+      ((state && state.locks) || []).length ||
+        ((state && state.garages) || []).length ||
+        ((state && state.gates) || []).length ||
+        ((state && state.shutters) || []).length ||
+        ((state && state.alarms) || []).length
+    );
+  }
+
+  function hasInfo() {
+    const info = (state && state.informations) || {};
+    const ssid = String(info.wifi_ssid || "").trim();
+    const revoked = Boolean(info.voucher_revoked);
+    const code = revoked ? "" : String(info.voucher_code || "").trim();
+    return Boolean(ssid || code || revoked);
+  }
+
+  function tabItems() {
+    const items = [{ id: "home", label: "Maison", icon: "home" }];
+    if (((state && state.climates) || []).length) {
+      items.push({ id: "climate", label: "Clim", icon: "climate" });
+    }
+    if (((state && state.lights) || []).length || ((state && state.scenes) || []).length) {
+      items.push({ id: "lights", label: "Lumière", icon: "lights" });
+    }
+    if (hasAccess()) items.push({ id: "access", label: "Accès", icon: "access" });
+    if (hasInfo()) items.push({ id: "info", label: "Infos", icon: "info" });
+    return items;
+  }
+
+  function normalizeScreen() {
+    if (screen === "room") return;
+    const allowed = new Set(tabItems().map((item) => item.id));
+    if (!allowed.has(screen)) screen = "home";
+  }
+
+  function dock() {
+    if (screen === "room") return "";
+    return `<nav class="dock" aria-label="Navigation">
+      ${tabItems()
+        .map(
+          (item) => `<button class="dock-item${screen === item.id ? " on" : ""}" type="button" data-act="tab" data-id="${item.id}">
+          ${icon(item.icon)}
+          <span>${escapeHtml(item.label)}</span>
+        </button>`
+        )
+        .join("")}
+    </nav>`;
+  }
+
+  function brandBar(withBack) {
+    return `<header class="brand${withBack ? " brand-room" : ""}">
+      ${withBack ? backArrow() : ""}
+      <div class="wordmark">Usvegliu</div>
+    </header>`;
+  }
+
+  function welcomeHead() {
+    const guest = String((state && state.guest) || "").trim();
+    const dates = state && state.preview
+      ? "Visite d'essai"
+      : formatStayDates(state && state.check_in, state && state.check_out);
+    return `<div class="hero">
+      <p class="kicker">${greeting()}</p>
+      <h1 class="welcome">${guest ? escapeHtml(guest) : "Bienvenue"}</h1>
+      ${dates ? `<p class="stay-dates">${escapeHtml(dates)}</p>` : ""}
     </div>`;
   }
 
-  function sectionTitle(title) {
-    return `<h2 class="panel-title">${escapeHtml(title)}</h2>`;
+  function pageHead(title, kicker) {
+    return `<div class="hero hero-page">
+      ${kicker ? `<p class="kicker">${escapeHtml(kicker)}</p>` : ""}
+      <h1 class="welcome">${escapeHtml(title)}</h1>
+    </div>`;
   }
 
   function copyText(text) {
@@ -194,6 +249,7 @@
     return `<${tag} class="info-row"${extra}>
       <div class="info-label">${escapeHtml(label)}</div>
       <div class="info-value">${escapeHtml(value)}</div>
+      ${copyable ? '<div class="info-hint">Toucher pour copier</div>' : ""}
     </${tag}>`;
   }
 
@@ -207,7 +263,7 @@
     if (ssid) rows.push(infoRow("Réseau Wi-Fi", ssid, true));
     if (revoked) rows.push(infoRow("Code Wi-Fi", "Révoqué", false));
     else if (code) rows.push(infoRow("Code Wi-Fi", code, true));
-    return `<section class="panel">${sectionTitle("Informations")}${rows.join("")}</section>`;
+    return `<section class="sheet info-sheet">${rows.join("")}</section>`;
   }
 
   function metricsView() {
@@ -225,56 +281,53 @@
       .join("")}</div>`;
   }
 
+  function modeSwitch() {
+    return `<div class="segment" role="tablist">
+      <button type="button" data-act="mode" data-id="reglage" class="${listMode === "reglage" ? "on" : ""}">Régler</button>
+      <button type="button" data-act="mode" data-id="pieces" class="${listMode === "pieces" ? "on" : ""}">Aperçu</button>
+    </div>`;
+  }
+
   function piecesView() {
-    const rooms = state.climates || [];
+    const rooms = (state && state.climates) || [];
     if (!rooms.length) return "";
-    return grouped(rooms)
+    return `<div class="climate-list">${rooms
       .map(
-        (group) => `<div>
-        <div class="group-label">${escapeHtml(group.name)}</div>
-        ${group.rooms
-          .map(
-            (room) => `<button class="row${activityClass(room)}" type="button" data-act="open" data-id="${escapeAttr(room.entity_id)}">
-            <span>${escapeHtml(room.name)}</span>
-            <span class="${room.on ? "" : "off"}">${room.on ? `${formatTemp(room.measured)}°` : "Éteint"}</span>
-          </button>`
-          )
-          .join("")}
-      </div>`
+        (room) => `<button class="room-card${activityClass(room)}" type="button" data-act="open" data-id="${escapeAttr(room.entity_id)}">
+        <span class="room-card-name">${escapeHtml(room.name)}</span>
+        <span class="room-card-temp${room.on ? "" : " off"}">${room.on ? `${formatTemp(room.measured)}°` : "Éteint"}</span>
+      </button>`
       )
-      .join("");
+      .join("")}</div>`;
   }
 
   function adjustView() {
-    const rooms = state.climates || [];
+    const rooms = (state && state.climates) || [];
     if (!rooms.length) return "";
-    return grouped(rooms)
-      .map(
-        (group) => `<div>
-        <div class="group-label">${escapeHtml(group.name)}</div>
-        ${group.rooms
-          .map((room) => {
-            const dim = room.on ? "" : " muted";
-            return `<div class="adjust${activityClass(room)}">
-              <button class="power ${room.on ? "on" : ""}" type="button" data-act="on" data-id="${escapeAttr(room.entity_id)}" aria-label="${room.on ? "Éteindre" : "Allumer"}">${powerGlyph(14)}</button>
-              <button class="name${dim}" type="button" data-act="open" data-id="${escapeAttr(room.entity_id)}">${escapeHtml(room.name)}</button>
-              <span class="measured${dim}">${formatTemp(room.measured)}°</span>
-              <button class="badge" type="button" data-act="fan" data-id="${escapeAttr(room.entity_id)}" ${room.on ? "" : "disabled"}>${room.fan || 2}</button>
-              <div class="setpoint">
-                <button class="chevron" type="button" data-act="minus" data-id="${escapeAttr(room.entity_id)}" ${room.on ? "" : "disabled"} aria-label="Moins">
-                  <svg width="10" height="16" viewBox="0 0 10 16"><path d="M8 1 L2 8 L8 15" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </button>
-                <span class="${dim}">${formatTemp(room.setpoint)}°</span>
-                <button class="chevron" type="button" data-act="plus" data-id="${escapeAttr(room.entity_id)}" ${room.on ? "" : "disabled"} aria-label="Plus">
-                  <svg width="10" height="16" viewBox="0 0 10 16"><path d="M2 1 L8 8 L2 15" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </button>
-              </div>
-            </div>`;
-          })
-          .join("")}
-      </div>`
-      )
-      .join("");
+    return `<div class="climate-list">${rooms
+      .map((room) => {
+        const dim = room.on ? "" : " muted";
+        return `<div class="adjust${activityClass(room)}">
+          <div class="adjust-top">
+            <button class="name${dim}" type="button" data-act="open" data-id="${escapeAttr(room.entity_id)}">${escapeHtml(room.name)}</button>
+            <span class="measured${dim}">${formatTemp(room.measured)}°</span>
+          </div>
+          <div class="adjust-controls">
+            <button class="power ${room.on ? "on" : ""}" type="button" data-act="on" data-id="${escapeAttr(room.entity_id)}" aria-label="${room.on ? "Éteindre" : "Allumer"}">${powerGlyph(14)}</button>
+            <button class="badge" type="button" data-act="fan" data-id="${escapeAttr(room.entity_id)}" ${room.on ? "" : "disabled"}>${room.fan || 2}</button>
+            <div class="setpoint">
+              <button class="chevron" type="button" data-act="minus" data-id="${escapeAttr(room.entity_id)}" ${room.on ? "" : "disabled"} aria-label="Moins">
+                <svg width="10" height="16" viewBox="0 0 10 16"><path d="M8 1 L2 8 L8 15" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <span class="${dim}">${formatTemp(room.setpoint)}°</span>
+              <button class="chevron" type="button" data-act="plus" data-id="${escapeAttr(room.entity_id)}" ${room.on ? "" : "disabled"} aria-label="Plus">
+                <svg width="10" height="16" viewBox="0 0 10 16"><path d="M2 1 L8 8 L2 15" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>`;
+      })
+      .join("")}</div>`;
   }
 
   function polar(cx, cy, r, angle) {
@@ -329,32 +382,23 @@
   }
 
   function climateSection() {
-    const rooms = state.climates || [];
+    const rooms = (state && state.climates) || [];
     if (!rooms.length) return "";
-    return `<section class="panel">
-      ${sectionTitle(modeLabel())}
-      ${modeSwitch()}
-      ${listMode === "reglage" ? adjustView() : piecesView()}
-    </section>`;
+    return `${modeSwitch()}${listMode === "pieces" ? piecesView() : adjustView()}`;
   }
 
   function lightsSection() {
-    const lights = state.lights || [];
-    const scenes = state.scenes || [];
+    const lights = (state && state.lights) || [];
+    const scenes = (state && state.scenes) || [];
     if (!lights.length && !scenes.length) return "";
-    const lightRows = grouped(lights)
-      .map((group) => {
-        const label = lights.length && group.name !== "Maison" ? `<div class="group-label">${escapeHtml(group.name)}</div>` : "";
-        return `${label}${group.rooms
-          .map(
-            (light) => `<button class="row" type="button" data-act="light" data-id="${escapeAttr(light.entity_id)}">
-            <span>${escapeHtml(light.name)}</span>
-            <span class="${light.on ? "" : "off"}">${light.on ? "Allumée" : "Éteinte"}</span>
-          </button>`
-          )
-          .join("")}`;
-      })
-      .join("");
+    const lightRows = `<div class="light-list">${lights
+      .map(
+        (light) => `<button class="row" type="button" data-act="light" data-id="${escapeAttr(light.entity_id)}">
+          <span>${escapeHtml(light.name)}</span>
+          <span class="${light.on ? "" : "off"}">${light.on ? "Allumée" : "Éteinte"}</span>
+        </button>`
+      )
+      .join("")}</div>`;
     const sceneRow = scenes.length
       ? `<div class="scenes">${scenes
           .map(
@@ -363,7 +407,7 @@
           )
           .join("")}</div>`
       : "";
-    return `<section class="panel">${sectionTitle("Lumière")}${lightRows}${sceneRow}</section>`;
+    return `${sceneRow}${lights.length ? lightRows : ""}`;
   }
 
   function coverStatus(item) {
@@ -394,12 +438,14 @@
   }
 
   function accessSection() {
-    const locks = state.locks || [];
-    const garages = state.garages || [];
-    const gates = state.gates || [];
-    const shutters = state.shutters || [];
-    const alarms = state.alarms || [];
-    if (!locks.length && !garages.length && !gates.length && !alarms.length && !shutters.length) return "";
+    const locks = (state && state.locks) || [];
+    const garages = (state && state.garages) || [];
+    const gates = (state && state.gates) || [];
+    const shutters = (state && state.shutters) || [];
+    const alarms = (state && state.alarms) || [];
+    if (!locks.length && !garages.length && !gates.length && !alarms.length && !shutters.length) {
+      return "";
+    }
     const lockRows = locks.map((lock) =>
       accessRow(
         lock,
@@ -413,12 +459,12 @@
       return accessRow(item, coverStatus(item), { label: next.label, cmd: next.action, filled: item.open }, "cover");
     });
     const shutterBlock = shutters.length
-      ? `<div class="group-label">Volets</div>${shutters
+      ? shutters
           .map((item) => {
             const next = coverAction(item);
             return accessRow(item, coverStatus(item), { label: next.label, cmd: next.action, filled: item.open }, "cover");
           })
-          .join("")}`
+          .join("")
       : "";
     const alarmRows = alarms.map((alarm) =>
       accessRow(
@@ -431,19 +477,61 @@
         alarm.state === "triggered" ? " triggered" : ""
       )
     );
-    return `<section class="panel">${sectionTitle("Accès")}${lockRows.join("")}${coverRows.join("")}${shutterBlock}${alarmRows.join("")}</section>`;
+    return `<div class="access-list">${lockRows.join("")}${coverRows.join("")}${shutterBlock}${alarmRows.join("")}</div>`;
   }
 
-  function homeView() {
-    const body = `${metricsView()}${infoSection()}${climateSection()}${lightsSection()}${accessSection()}`;
-    if (!body.trim()) {
-      return `${masthead(false)}<p class="empty">Les équipements de votre séjour apparaîtront ici.</p>`;
-    }
-    return `${masthead(false)}${body}`;
+  function homeNote() {
+    const bits = [];
+    if (((state && state.climates) || []).length) bits.push(modeLabel());
+    if (((state && state.lights) || []).length) bits.push("Lumière");
+    if (hasAccess()) bits.push("Accès");
+    if (!bits.length) return "";
+    return `<p class="home-note">${escapeHtml(bits.join(" · "))}</p>`;
+  }
+
+  function homePage() {
+    const metrics = metricsView();
+    return `${welcomeHead()}${metrics}${homeNote()}`;
+  }
+
+  function climatePage() {
+    const body = climateSection();
+    if (!body) return `${pageHead(modeLabel())}<p class="empty">Aucun thermostat pour ce séjour.</p>`;
+    return `${pageHead(modeLabel())}${body}`;
+  }
+
+  function lightsPage() {
+    const body = lightsSection();
+    if (!body) return `${pageHead("Lumière")}<p class="empty">Aucune lumière pour ce séjour.</p>`;
+    return `${pageHead("Lumière")}${body}`;
+  }
+
+  function accessPage() {
+    const body = accessSection();
+    if (!body) return `${pageHead("Accès")}<p class="empty">Aucun accès pour ce séjour.</p>`;
+    return `${pageHead("Accès")}${body}`;
+  }
+
+  function infoPage() {
+    const body = infoSection();
+    if (!body) return `${pageHead("Informations")}<p class="empty">Aucune information pour ce séjour.</p>`;
+    return `${pageHead("Informations")}${body}`;
+  }
+
+  function pageView() {
+    if (screen === "climate") return climatePage();
+    if (screen === "lights") return lightsPage();
+    if (screen === "access") return accessPage();
+    if (screen === "info") return infoPage();
+    return homePage();
+  }
+
+  function appChrome(inner, withBack) {
+    return `<div class="shell${withBack ? " shell-room" : ""}">${brandBar(withBack)}${dock()}<main class="stage">${inner}</main></div>`;
   }
 
   function statusPage(message, kind) {
-    return `<div class="status"><header class="masthead"><div class="wordmark">Usvegliu</div></header><p class="${kind || "error"}">${message}</p></div>`;
+    return `<div class="status">${brandBar(false)}<p class="${kind || "error"}">${message}</p></div>`;
   }
 
   function render() {
@@ -459,17 +547,21 @@
       root.innerHTML = statusPage("La maison s’ouvre…", "empty");
       return;
     }
+    normalizeScreen();
     if (screen === "room") {
       const room = (state.climates || []).find((item) => item.entity_id === roomId);
       if (!room) {
-        screen = "home";
+        screen = "climate";
       } else {
-        root.innerHTML = `${masthead(true)}<div class="room-hero"><p class="kicker">${escapeHtml(modeLabel())}</p><h1 class="welcome">${escapeHtml(room.name)}</h1></div>${dialView(room)}`;
+        root.innerHTML = appChrome(
+          `${pageHead(room.name, modeLabel())}${dialView(room)}`,
+          true
+        );
         bind();
         return;
       }
     }
-    root.innerHTML = homeView();
+    root.innerHTML = appChrome(pageView(), false);
     bind();
   }
 
@@ -536,7 +628,13 @@
     const act = button.getAttribute("data-act");
     const id = button.getAttribute("data-id");
     if (act === "back") {
-      screen = "home";
+      screen = "climate";
+      render();
+      return;
+    }
+    if (act === "tab") {
+      screen = id;
+      window.scrollTo(0, 0);
       render();
       return;
     }
