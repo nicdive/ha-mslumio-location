@@ -369,6 +369,7 @@ def _snapshot(hass: Any, runtime: Any, record: dict[str, Any]) -> dict[str, Any]
         "mode": house_mode,
         "mode_label": house_mode_label(house_mode),
         "metrics": metrics,
+        "weather": runtime.weather(),
         "climates": [
             item
             for entity_id in climates
@@ -477,6 +478,7 @@ class GuestStateView(HomeAssistantView):
             return _json_error(self, 503, "not_loaded")
         if record is None:
             return _json_error(self, 401, "invalid_token")
+        await runtime.async_ensure_weather()
         return self.json(_snapshot(hass, runtime, record))
 
 
@@ -532,6 +534,7 @@ class GuestStreamView(HomeAssistantView):
             await response.write(f"event: {name}\ndata: {body}\n\n".encode())
 
         try:
+            await runtime.async_ensure_weather()
             await emit("state", _snapshot(hass, runtime, record))
             while True:
                 try:

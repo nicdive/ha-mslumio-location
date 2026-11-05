@@ -305,10 +305,11 @@ Sans UID calendrier, la clé est un condensat du nom et des dates : renommer le 
 
 ## Web app locataire
 
-La web app **Maison** est servie par le même Home Assistant. Le locataire n'ouvre pas l'UI admin : un lien avec jeton suffit. L'interface est une application à sections (accueil, clim, lumière, accès, infos), adaptée au téléphone et à l'iPad mini. Le bandeau reprend le logo **U Svegliu**.
+La web app **Maison** est servie par le même Home Assistant. Le locataire n'ouvre pas l'UI admin : un lien avec jeton suffit. L'interface est une application à sections (accueil, clim, pool, lumière, accès, infos), adaptée au téléphone et à l'iPad mini. Le bandeau reprend le logo **U Svegliu**.
 
-- **Maison** : accueil nominatif, dates du séjour, températures extérieur / piscine / pH.
-- **Clim** : thermostats autorisés (marche / arrêt, consigne, ventilation) ; titre **Chauffage** ou **Climatisation** selon le switch du propriétaire.
+- **Maison** : accueil nominatif, dates du séjour, météo du jour à Calvi.
+- **Clim** : thermostats autorisés (marche / arrêt, consigne, ventilation) ; titre **Chauffage** ou **Climatisation** selon le switch du propriétaire. Température extérieure en coin.
+- **Pool** : température et pH de la piscine.
 - **Lumière** : lumières et scénarios.
 - **Accès** : porte, garage, portail, alarme, volets.
 - **Infos** : nom du réseau Wi-Fi et code voucher. Pas sur l'accueil.

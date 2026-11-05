@@ -74,8 +74,8 @@
           "guest_base_url": "Origine vitrine, sans chemin. Ex. https://www.usvegliu.fr — le lien locataire sera /s/<token>. Vide = URL interne de Home Assistant.",
           "wifi_ssid": "SSID affiché au locataire dans Informations. Vide = le nom n'apparaît pas.",
           "house_mode_entity": "Interrupteur du propriétaire. Allumé = climatisation, éteint = chauffage. Le locataire le lit, il ne le commande pas.",
-          "outdoor_temperature": "Affichée en tête de la web app. Lecture seule.",
-          "pool_temperature": "Affichée en tête de la web app. Lecture seule.",
+          "outdoor_temperature": "Affichée en coin sur la page Clim. Lecture seule.",
+          "pool_temperature": "Affichée dans l'onglet Pool. Lecture seule.",
           "pool_ph": "Optionnel. Lecture seule.",
           "alarm_code": "Utilisé côté serveur pour armer/désarmer. Jamais envoyé au navigateur. Vide = conserver le code déjà enregistré."
         }
@@ -148,8 +148,8 @@
           "guest_base_url": "Ex. https://www.usvegliu.fr. Vide = adresse interne de Home Assistant.",
           "wifi_ssid": "SSID affiché au locataire dans Informations. Vide = le nom n'apparaît pas.",
           "house_mode_entity": "Allumé = climatisation, éteint = chauffage. Le locataire le lit, il ne le commande pas.",
-          "outdoor_temperature": "Lecture seule sur la web app.",
-          "pool_temperature": "Lecture seule sur la web app.",
+          "outdoor_temperature": "Lecture seule, en coin sur la page Clim.",
+          "pool_temperature": "Lecture seule, dans l'onglet Pool.",
           "pool_ph": "Optionnel, lecture seule.",
           "alarm_code": "Jamais envoyé au navigateur. Vide = ne pas changer."
         }
