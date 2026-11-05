@@ -129,6 +129,13 @@
     return state && state.mode === "heat" ? "Chauffage" : "Climatisation";
   }
 
+  function modeTabLabel() {
+    if (state && (state.mode === "heat" || state.mode_label === "Chauffage")) {
+      return "Chauffage";
+    }
+    return "Clim";
+  }
+
   function activityOf(room) {
     const mode = (state && state.mode) || "cool";
     if (!room || !room.on) return "off";
@@ -168,7 +175,7 @@
   function tabItems() {
     const items = [{ id: "home", label: "Maison", icon: "home" }];
     if (((state && state.climates) || []).length) {
-      items.push({ id: "climate", label: "Clim", icon: "climate" });
+      items.push({ id: "climate", label: modeTabLabel(), icon: "climate" });
     }
     if (((state && state.lights) || []).length || ((state && state.scenes) || []).length) {
       items.push({ id: "lights", label: "Lumière", icon: "lights" });
@@ -504,18 +511,9 @@
     return `<div class="access-list">${lockRows.join("")}${coverRows.join("")}${shutterBlock}${alarmRows.join("")}</div>`;
   }
 
-  function homeNote() {
-    const bits = [];
-    if (((state && state.climates) || []).length) bits.push(modeLabel());
-    if (((state && state.lights) || []).length) bits.push("Lumière");
-    if (hasAccess()) bits.push("Accès");
-    if (!bits.length) return "";
-    return `<p class="home-note">${escapeHtml(bits.join(" · "))}</p>`;
-  }
-
   function homePage() {
     const metrics = metricsView();
-    return `${welcomeHead()}${metrics}${homeNote()}`;
+    return `${welcomeHead()}${metrics}`;
   }
 
   function climatePage() {
