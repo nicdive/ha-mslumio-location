@@ -290,7 +290,7 @@ def _stay_markdown(
         "or (s.mot_de_passe if s else none) %}\n"
         f"{{% set ssid = ((s.wifi_ssid if s else '') or (s.reseau_wifi if s else '') "
         f"or reglages.wifi_ssid or state_attr('{entity}', 'reseau_wifi') "
-        f"or state_attr('{entity}', 'wifi_ssid') or '') | trim %}}\n"
+        f"or state_attr('{entity}', 'wifi_ssid') or 'Usvegliu-Guest') | trim %}}\n"
         "{% if s %}\n"
         "{% set debut = (s.check_in or '')[:10] %}\n"
         "{% set fin = (s.check_out or '')[:10] %}\n"

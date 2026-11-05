@@ -1,4 +1,4 @@
-"""Calvi daily weather for the guest home screen.
+"""Lumio daily weather for the guest home screen.
 
 Open-Meteo, no key. The guest app only sees the already-mapped snapshot.
 """
@@ -8,9 +8,9 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-CALVI_LAT = 42.5687
-CALVI_LON = 8.7575
-CALVI_NAME = "Calvi"
+LUMIO_LAT = 42.578
+LUMIO_LON = 8.834
+LUMIO_NAME = "Lumio"
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 WEATHER_TTL = timedelta(minutes=20)
 
@@ -50,7 +50,7 @@ _WMO: dict[int, tuple[str, str]] = {
 def weather_look(code: int | None) -> tuple[str, str]:
     """Return (icon, French label) for a WMO code."""
     if code is None:
-        return ("cloud", "Calvi")
+        return ("cloud", "Lumio")
     if code in _WMO:
         return _WMO[code]
     if 50 <= code <= 59:
@@ -99,7 +99,7 @@ def parse_open_meteo(payload: dict[str, Any]) -> dict[str, Any] | None:
     if temperature is None:
         return None
     return {
-        "place": CALVI_NAME,
+        "place": LUMIO_NAME,
         "label": label,
         "icon": icon,
         "code": code,
@@ -111,10 +111,10 @@ def parse_open_meteo(payload: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def open_meteo_params() -> dict[str, str]:
-    """Query string for today's Calvi forecast."""
+    """Query string for today's Lumio forecast."""
     return {
-        "latitude": str(CALVI_LAT),
-        "longitude": str(CALVI_LON),
+        "latitude": str(LUMIO_LAT),
+        "longitude": str(LUMIO_LON),
         "current": "temperature_2m,weather_code,wind_speed_10m",
         "daily": "weather_code,temperature_2m_max,temperature_2m_min",
         "timezone": "Europe/Paris",
@@ -122,7 +122,7 @@ def open_meteo_params() -> dict[str, str]:
     }
 
 
-async def async_fetch_calvi_weather(session: Any) -> dict[str, Any] | None:
+async def async_fetch_lumio_weather(session: Any) -> dict[str, Any] | None:
     """GET Open-Meteo. Returns None on any network or parse error."""
     try:
         async with session.get(

@@ -1,4 +1,4 @@
-"""Calvi weather mapping for the guest home screen."""
+"""Lumio weather mapping for the guest home screen."""
 
 from datetime import datetime, timedelta, timezone
 
@@ -33,7 +33,7 @@ def test_parse_open_meteo_uses_current_and_daily():
         }
     )
     assert note == {
-        "place": "Calvi",
+        "place": "Lumio",
         "label": "Peu nuageux",
         "icon": "sun_cloud",
         "code": 1,

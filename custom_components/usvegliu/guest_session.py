@@ -10,7 +10,7 @@ import re
 import secrets
 from typing import Any
 
-from .const import DOMAIN
+from .const import DEFAULT_WIFI_SSID, DOMAIN
 
 PREVIEW_KEY = "__usvegliu_preview__"
 PREVIEW_HOURS = 24
@@ -168,7 +168,7 @@ def guest_welcome_message(
     span = format_stay_span(check_in, check_out)
     stay = f" pour votre séjour du {span}" if span else ""
     link = str(lien_maison or "").strip()
-    ssid = str(wifi_ssid or "").strip()
+    ssid = str(wifi_ssid or "").strip() or DEFAULT_WIFI_SSID
     code = "" if voucher_revoked else str(voucher_code or "").strip()
     if preview:
         lines = [
@@ -236,6 +236,7 @@ def issued_account_view(
     preview = bool(record.get("preview"))
     revoked = bool(record.get("voucher_revoked"))
     code = str(record.get("voucher_code") or "") or None
+    ssid = str(wifi_ssid or "").strip() or DEFAULT_WIFI_SSID
     return {
         "guest": str(record.get("guest") or ""),
         "check_in": str(record.get("check_in") or ""),
@@ -246,8 +247,8 @@ def issued_account_view(
         "mot_de_passe": secret,
         "code_compte": secret,
         "voucher_code": code,
-        "wifi_ssid": str(wifi_ssid or "").strip(),
-        "reseau_wifi": str(wifi_ssid or "").strip(),
+        "wifi_ssid": ssid,
+        "reseau_wifi": ssid,
         "prenom": guest_first_name(str(record.get("guest") or "")),
         "sejour_libelle": format_stay_span(
             str(record.get("check_in") or ""),
@@ -259,7 +260,7 @@ def issued_account_view(
             check_in=str(record.get("check_in") or ""),
             check_out=str(record.get("check_out") or ""),
             lien_maison=lien_maison,
-            wifi_ssid=str(wifi_ssid or ""),
+            wifi_ssid=ssid,
             voucher_code=code,
             voucher_revoked=revoked,
             preview=preview,

@@ -175,7 +175,7 @@ def test_guest_welcome_message_is_villa_copy_without_ha_login():
     )
     assert "OLD" not in revoked
     assert "révoqué" in revoked
-    assert "Réseau Wi-Fi :" in revoked
+    assert "Réseau Wi-Fi : Usvegliu-Guest" in revoked
     bare = guest_welcome_message(
         guest="Bob",
         check_in="2026-11-07T00:00:00+00:00",
@@ -186,7 +186,7 @@ def test_guest_welcome_message_is_villa_copy_without_ha_login():
         voucher_revoked=False,
         preview=False,
     )
-    assert "Réseau Wi-Fi :" in bare
+    assert "Réseau Wi-Fi : Usvegliu-Guest" in bare
     assert "Code d'accès : 8065941041" in bare
 
 

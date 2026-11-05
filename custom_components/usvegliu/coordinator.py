@@ -32,6 +32,7 @@ from .const import (
     CONF_EXTRA_DAYS,
     CONF_GUEST_BASE_URL,
     CONF_WIFI_SSID,
+    DEFAULT_WIFI_SSID,
     CONF_ALARM_CODE,
     CONF_HOUSE_MODE_ENTITY,
     CONF_OUTDOOR_TEMPERATURE,
@@ -205,28 +206,28 @@ class UsvegliuRuntime:
         return code or None
 
     def wifi_ssid(self) -> str:
-        """Hotspot name shown to the guest. Empty until the owner fills it."""
+        """Hotspot name shown to the guest. Defaults to Usvegliu-Guest."""
         return str(
             self.entry.options.get(CONF_WIFI_SSID)
             or self.entry.data.get(CONF_WIFI_SSID)
-            or ""
+            or DEFAULT_WIFI_SSID
         ).strip()
 
     def weather(self) -> dict[str, Any] | None:
-        """Last Calvi forecast, or None until the first successful fetch."""
+        """Last Lumio forecast, or None until the first successful fetch."""
         return self._weather
 
     async def async_ensure_weather(self) -> dict[str, Any] | None:
-        """Refresh Calvi weather when the cache is empty or stale."""
+        """Refresh Lumio weather when the cache is empty or stale."""
         from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-        from .weather import async_fetch_calvi_weather, weather_is_fresh
+        from .weather import async_fetch_lumio_weather, weather_is_fresh
 
         now = dt_util.utcnow()
         if weather_is_fresh(self._weather_at, now) and self._weather:
             return self._weather
         session = async_get_clientsession(self.hass)
-        fetched = await async_fetch_calvi_weather(session)
+        fetched = await async_fetch_lumio_weather(session)
         if fetched:
             self._weather = fetched
             self._weather_at = now
