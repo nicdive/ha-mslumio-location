@@ -351,6 +351,7 @@ class UsvegliuRuntime:
                 plan,
                 self._stays,
                 self._shared,
+                now=now,
                 vouchers=self.client if enable_vouchers else None,
                 accounts=self._accounts if enable_access else None,
                 enable_vouchers=enable_vouchers,
@@ -648,9 +649,21 @@ class UsvegliuRuntime:
             )
         return self.expand_entity_ids(entities, devices)
 
-    def guest_record(self, token: str) -> dict[str, Any] | None:
-        """Stay or preview bound to the URL token, if still valid."""
-        return find_record_by_token(self._stays, self._preview, token, dt_util.now())
+    def guest_record(
+        self, token: str, *, require_active: bool = True
+    ) -> dict[str, Any] | None:
+        """Stay or preview bound to the URL token.
+
+        ``require_active`` is False when the HTTP layer needs to tell a
+        guest the link exists but opens on the arrival day.
+        """
+        return find_record_by_token(
+            self._stays,
+            self._preview,
+            token,
+            dt_util.now(),
+            require_active=require_active,
+        )
 
     def guest_link(self, record: dict[str, Any]) -> dict[str, str]:
         """Admin-facing path and public URL for one token."""
@@ -886,6 +899,7 @@ def _issued_rows(
                 path=str(link.get("path") or ""),
                 tableau=f"/{DASHBOARD_URL}",
                 wifi_ssid=runtime.wifi_ssid(),
+                now=now,  # type: ignore[arg-type]
             )
         )
     return rows

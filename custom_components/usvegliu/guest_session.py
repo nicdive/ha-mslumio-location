@@ -80,16 +80,45 @@ def parse_iso(value: Any, tzinfo: timezone | None = None) -> datetime | None:
     return parsed
 
 
-def stay_is_open(record: dict[str, Any], now: datetime) -> bool:
-    """True while the link may be used.
+def stay_is_issued(record: dict[str, Any], now: datetime) -> bool:
+    """True while the stay is still on the owner Console.
 
-    A provisioned stay (already in storage) is usable until check-out,
-    including the days before arrival. A preview expires at check_out.
+    Credentials may already exist (lead window) and remain listed until
+    check-out. Guest use is gated separately by ``stay_is_active``.
     """
     end = parse_iso(record.get("check_out"), now.tzinfo)
     if end is None:
         return False
     return now < end
+
+
+def stay_is_open(record: dict[str, Any], now: datetime) -> bool:
+    """Issued stay, including the days before arrival. Owner Console."""
+    return stay_is_issued(record, now)
+
+
+def stay_activation_start(record: dict[str, Any], now: datetime) -> datetime | None:
+    """Local midnight of the arrival day. A preview starts at once."""
+    start = parse_iso(record.get("check_in"), now.tzinfo)
+    if start is None:
+        return None
+    if record.get("preview"):
+        return start
+    return start.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def stay_is_active(record: dict[str, Any], now: datetime) -> bool:
+    """True when voucher, HA login and Maison link may actually be used.
+
+    Arrival day, not the check-in hour: a 15:00 booking opens at local
+    midnight that day. A 24 h preview is usable as soon as it is minted.
+    """
+    if not stay_is_issued(record, now):
+        return False
+    begin = stay_activation_start(record, now)
+    if begin is None:
+        return False
+    return now >= begin
 
 
 def open_issued_records(
@@ -125,6 +154,14 @@ def _parse_stay_date(value: str) -> datetime | None:
         return datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError:
         return None
+
+
+def format_arrival_day(check_in: str) -> str:
+    """``7 novembre``, or empty when the date cannot be parsed."""
+    start = _parse_stay_date(check_in)
+    if start is None:
+        return ""
+    return f"{start.day} {_MONTHS_FR[start.month - 1]}"
 
 
 def format_stay_span(check_in: str, check_out: str) -> str:
@@ -226,6 +263,7 @@ def issued_account_view(
     path: str,
     tableau: str,
     wifi_ssid: str = "",
+    now: datetime | None = None,
 ) -> dict[str, Any]:
     """Admin row for one issued stay, including the HA password.
 
@@ -235,6 +273,7 @@ def issued_account_view(
     secret = str(password or record.get("password") or "") or None
     preview = bool(record.get("preview"))
     revoked = bool(record.get("voucher_revoked"))
+    active = True if now is None or preview else stay_is_active(record, now)
     code = str(record.get("voucher_code") or "") or None
     ssid = str(wifi_ssid or "").strip() or DEFAULT_WIFI_SSID
     return {
@@ -271,6 +310,7 @@ def issued_account_view(
         "tableau": tableau,
         "access_revoked": bool(record.get("access_revoked")),
         "voucher_revoked": revoked,
+        "acces_actif": active,
     }
 
 
@@ -279,17 +319,31 @@ def find_record_by_token(
     preview: dict[str, Any] | None,
     token: str,
     now: datetime,
+    *,
+    require_active: bool = True,
 ) -> dict[str, Any] | None:
-    """Return the stay or preview bound to ``token``, if it is still open."""
+    """Return the stay or preview bound to ``token``.
+
+    ``require_active`` is True for guest use (arrival day). False still
+    finds a token issued in the lead window so the API can answer
+    ``too_early`` instead of ``invalid_token``.
+    """
     if not token or len(token) < TOKEN_MIN_LENGTH:
         return None
+    found: dict[str, Any] | None = None
     if isinstance(preview, dict) and preview.get("guest_token") == token:
-        if stay_is_open(preview, now):
-            return preview
-    for record in stays.values():
-        if record.get("guest_token") == token and stay_is_open(record, now):
-            return record
-    return None
+        if stay_is_issued(preview, now):
+            found = preview
+    if found is None:
+        for record in stays.values():
+            if record.get("guest_token") == token and stay_is_issued(record, now):
+                found = record
+                break
+    if found is None:
+        return None
+    if require_active and not stay_is_active(found, now):
+        return None
+    return found
 
 
 def build_preview_record(now: datetime, hours: int = PREVIEW_HOURS) -> dict[str, Any]:

@@ -10,10 +10,11 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any, Protocol
 
 from .access import resolve_shared_access, resolve_stay_access
-from .guest_session import ensure_guest_token
+from .guest_session import ensure_guest_token, stay_is_active
 from .planning import StayPlan, SyncPlan, VoucherSpec
 from .redact import mask_code
 
@@ -52,6 +53,7 @@ class AccountDirectory(Protocol):
         local_only: bool,
         entity_ids: list[str],
         device_ids: list[str],
+        is_active: bool = True,
     ) -> dict[str, str | None]:
         """Return user_id, username and password (password is None if unchanged)."""
 
@@ -138,6 +140,7 @@ async def async_synchronize(
     *,
     vouchers: VoucherDirectory | None,
     accounts: AccountDirectory | None,
+    now: datetime,
     enable_vouchers: bool,
     enable_access: bool,
     force_rotate_keys: set[str] | None = None,
@@ -213,8 +216,20 @@ async def async_synchronize(
             record["access_revoked"] = True
         if item.key in rotate_keys:
             record.pop("access_revoked", None)
+        active = stay_is_active(
+            {"check_in": item.check_in, "check_out": item.check_out},
+            now,
+        )
         if enable_vouchers and vouchers is not None and listed is not None:
-            if record.get("voucher_revoked"):
+            if not active:
+                await _hold_voucher(
+                    record,
+                    item,
+                    result,
+                    vouchers=vouchers,
+                    listed=listed,
+                )
+            elif record.get("voucher_revoked"):
                 await _clear_voucher(record, result, vouchers=vouchers, listed=listed)
             else:
                 await _ensure_voucher(
@@ -246,6 +261,7 @@ async def async_synchronize(
                     local_only=not remote,
                     entity_ids=entities,
                     device_ids=devices,
+                    is_active=active,
                 )
         if item.key in resend or item.key in to_print:
             _queue_notification(
@@ -295,6 +311,13 @@ async def async_synchronize(
                 device_ids=device_ids or [],
                 allow_remote=allow_remote,
             )
+            shared_active = any(
+                stay_is_active(
+                    {"check_in": item.check_in, "check_out": item.check_out},
+                    now,
+                )
+                for item in plan.ensure
+            )
             await _ensure_shared(
                 result,
                 accounts=accounts,
@@ -304,6 +327,7 @@ async def async_synchronize(
                 local_only=not shared_remote,
                 entity_ids=shared_entities,
                 device_ids=shared_devices,
+                is_active=shared_active,
             )
         shared_pw = str((result.shared_user or {}).get("password") or "")
         if shared_pw:
@@ -477,6 +501,7 @@ async def _ensure_account(
     local_only: bool,
     entity_ids: list[str],
     device_ids: list[str],
+    is_active: bool,
 ) -> None:
     before = record.get("user_id")
     kept_password = str(record.get("password") or "")
@@ -488,6 +513,7 @@ async def _ensure_account(
         local_only=local_only,
         entity_ids=entity_ids,
         device_ids=device_ids,
+        is_active=is_active,
     )
     record["user_id"] = ensured.get("user_id")
     record["username"] = ensured.get("username") or record.get("username")
@@ -518,6 +544,7 @@ async def _ensure_shared(
     local_only: bool,
     entity_ids: list[str],
     device_ids: list[str],
+    is_active: bool,
 ) -> None:
     current = result.shared_user or {}
     kept_password = str(current.get("password") or "")
@@ -529,6 +556,7 @@ async def _ensure_shared(
         local_only=local_only,
         entity_ids=entity_ids,
         device_ids=device_ids,
+        is_active=is_active,
     )
     updated = {
         "user_id": ensured.get("user_id"),
@@ -562,6 +590,31 @@ async def _ensure_shared(
         result.events.append(_event_from("acces_cree", row_stay))
         for record in result.stays.values():
             _queue_notification(result, record, password=fresh_password)
+
+
+async def _hold_voucher(
+    record: dict[str, Any],
+    item: StayPlan,
+    result: CycleResult,
+    *,
+    vouchers: VoucherDirectory,
+    listed: list[Any] | None,
+) -> None:
+    """Drop UniFi vouchers until arrival day so the portal cannot be used early.
+
+    UniFi starts the duration clock at first authorization and has no delayed
+    start. The stay (token, HA user) stays issued on the Console.
+    """
+    await _clear_voucher(record, result, vouchers=vouchers, listed=listed)
+    if listed is None:
+        return
+    for voucher in list(_match_name(listed, item.voucher.name)):
+        voucher_id = str(getattr(voucher, "id", "") or "")
+        if not voucher_id:
+            continue
+        await vouchers.async_delete_voucher(voucher_id)
+        _drop_listed(listed, voucher_id)
+        result.deleted_vouchers += 1
 
 
 async def _clear_voucher(

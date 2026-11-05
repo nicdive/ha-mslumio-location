@@ -121,7 +121,7 @@ Le formulaire demande ensuite :
 | Réglage | Défaut | Rôle |
 | --- | --- | --- |
 | Calendrier | — | N'importe quelle entité `calendar`. Le **titre** est le nom du locataire, les dates sont le séjour. |
-| Jours avant l'arrivée | 3 | Création du voucher et du compte à partir de cette avance. |
+| Jours avant l'arrivée | 3 | Émission du compte HA et du lien Maison à partir de cette avance. Le voucher UniFi, le login HA et le lien ne **s'activent que le jour d'arrivée** (minuit local). |
 | Appareils | 10 | `authorizedGuestLimit` : un seul code, plusieurs appareils. |
 | Débits | 100 / 100 Mbit/s | Convertis en kbit/s SI : 100 Mbit/s = 100000 kbit/s. |
 | Jours supplémentaires | 1 | Durée envoyée = longueur du séjour + 1 jour. |
@@ -143,7 +143,7 @@ Nom du voucher : `Jean Dupont 2026-07-10/2026-07-17`. Les apostrophes sont retir
 
 Séjour « journée entière » : la date de fin ICS est exclusive. Un événement du 10 au 17 est un départ le 17 au matin, soit 7 nuits, plus 1 jour, soit 8 jours de voucher.
 
-Le capteur **Code voucher** affiche le code du séjour en cours (sinon le prochain déjà créé, sinon `aucun`). Le capteur **Séjours actifs** liste tous les séjours encore ouverts (y compris avant l'arrivée, et un lien d'essai 24 h) : locataire, dates, identifiant HA, **mot de passe**, code Wi-Fi, lien Maison, tableau `/usvegliu-sejour`. C'est la console propriétaire : fermer la notification persistante ne l'efface pas ; le départ ou l'annulation si. Un compte créé avant 0.5.3 n'a pas encore de mot de passe stocké : `usvegliu.regenerer_acces` en émet un et le pose sur le capteur. Ces deux capteurs ne sont pas dans la politique du locataire.
+Le capteur **Code voucher** affiche le code du séjour en cours (sinon le prochain déjà créé, sinon `aucun`). Le capteur **Séjours actifs** liste tous les séjours encore ouverts (y compris avant l'arrivée, et un lien d'essai 24 h) : locataire, dates, identifiant HA, **mot de passe**, code Wi-Fi, lien Maison, tableau `/usvegliu-sejour`. Avant le jour d'arrivée le code Wi-Fi n'est pas encore sur UniFi (l'horloge du voucher partirait trop tôt), le compte HA est désactivé, et le lien Maison répond « s'ouvre le jour d'arrivée ». C'est la console propriétaire : fermer la notification persistante ne l'efface pas ; le départ ou l'annulation si. Un compte créé avant 0.5.3 n'a pas encore de mot de passe stocké : `usvegliu.regenerer_acces` en émet un et le pose sur le capteur. Ces deux capteurs ne sont pas dans la politique du locataire.
 
 ## Pare-feu (zone Hotspot → HA:8123 seulement)
 
@@ -334,7 +334,7 @@ Le navigateur n'envoie que le jeton. Les commandes sont exécutées côté serve
 
 Si l'URL locale de Home Assistant (Paramètres → Système → Réseau) est déjà `http://ha:8123`, `lien_maison` compose ce lien tout seul. Tailscale ne change rien au jeton ni à l'API : pas de compte HA, pas de certificat client. HTTPS seulement si ce HA de test l'a déjà activé.
 
-Le lien d'essai expire au bout de 24 h. Un séjour calendrier reste valable jusqu'au check-out ; le jeton est créé dès que le séjour est provisionné (y compris les jours avant l'arrivée).
+Le lien d'essai expire au bout de 24 h. Un séjour calendrier a un jeton dès qu'il est provisionné, mais le lien (comme le voucher et le compte HA) ne s'ouvre que le jour d'arrivée, jusqu'au check-out.
 
 ### Reverse proxy (même machine)
 

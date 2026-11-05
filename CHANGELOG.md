@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.13] — 2026-11-05
+
+### Changé
+- Voucher Wi-Fi, compte HA et lien Maison : émis dès la fenêtre d'avance, **actifs seulement le jour d'arrivée** (minuit local). Un essai 24 h reste immédiat.
+
+[0.6.13]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.13
+
 ## [0.6.12] — 2026-11-05
 
 ### Ajouté
