@@ -4,6 +4,14 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.5] — 2026-11-05
+
+### Changé
+- Web app Maison : bouton **Copier** à côté du réseau et du code Wi-Fi (le navigateur ne peut pas rejoindre le hotspot ni saisir le voucher tout seul).
+- Clim : un dessin de vent à côté de la force de ventilation, sur la liste et sur le cadran.
+
+[0.6.5]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.5
+
 ## [0.6.4] — 2026-11-05
 
 ### Changé

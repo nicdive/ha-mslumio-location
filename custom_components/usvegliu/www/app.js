@@ -79,6 +79,14 @@
     </svg>`;
   }
 
+  function windGlyph(size) {
+    return `<svg class="wind" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3.6 8.1 H13.8 C15.7 8.1 17 6.9 17 5.7 C17 4.5 15.9 3.7 14.8 4.1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M3.6 12.2 H18.2 C20 12.2 21.3 13.4 21.3 14.8 C21.3 16.2 19.9 17.2 18.5 16.7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M3.6 16.3 H12.2 C13.6 16.3 14.6 17.2 14.6 18.3 C14.6 19.3 13.7 20.1 12.7 19.7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>`;
+  }
+
   function greeting() {
     const hour = new Date().getHours();
     if (hour >= 22 || hour < 6) return "Bonne nuit";
@@ -241,16 +249,32 @@
     document.body.removeChild(el);
   }
 
-  function infoRow(label, value, copyable) {
-    const tag = copyable ? "button" : "div";
-    const extra = copyable
-      ? ` type="button" data-act="copy" data-copy="${escapeAttr(value)}" aria-label="Copier ${escapeAttr(label)}"`
-      : "";
-    return `<${tag} class="info-row"${extra}>
-      <div class="info-label">${escapeHtml(label)}</div>
-      <div class="info-value">${escapeHtml(value)}</div>
-      ${copyable ? '<div class="info-hint">Toucher pour copier</div>' : ""}
-    </${tag}>`;
+  let copiedKey = "";
+  let copiedTimer = null;
+
+  function markCopied(key) {
+    copiedKey = key;
+    if (copiedTimer) clearTimeout(copiedTimer);
+    copiedTimer = setTimeout(() => {
+      copiedKey = "";
+      render();
+    }, 1600);
+    render();
+  }
+
+  function infoRow(label, value, copyable, key) {
+    const done = copyable && copiedKey === key;
+    return `<div class="info-row">
+      <div class="info-copy">
+        <div class="info-label">${escapeHtml(label)}</div>
+        <div class="info-value">${escapeHtml(value)}</div>
+      </div>
+      ${
+        copyable
+          ? `<button class="copy-btn${done ? " done" : ""}" type="button" data-act="copy" data-copy="${escapeAttr(value)}" data-id="${escapeAttr(key)}" aria-label="Copier ${escapeAttr(label)}">${done ? "Copié" : "Copier"}</button>`
+          : ""
+      }
+    </div>`;
   }
 
   function infoSection() {
@@ -260,9 +284,9 @@
     const code = revoked ? "" : String(info.voucher_code || "").trim();
     if (!ssid && !code && !revoked) return "";
     const rows = [];
-    if (ssid) rows.push(infoRow("Réseau Wi-Fi", ssid, true));
-    if (revoked) rows.push(infoRow("Code Wi-Fi", "Révoqué", false));
-    else if (code) rows.push(infoRow("Code Wi-Fi", code, true));
+    if (ssid) rows.push(infoRow("Réseau Wi-Fi", ssid, true, "ssid"));
+    if (revoked) rows.push(infoRow("Code Wi-Fi", "Révoqué", false, "code"));
+    else if (code) rows.push(infoRow("Code Wi-Fi", code, true, "code"));
     return `<section class="sheet info-sheet">${rows.join("")}</section>`;
   }
 
@@ -314,7 +338,7 @@
           </div>
           <div class="adjust-controls">
             <button class="power ${room.on ? "on" : ""}" type="button" data-act="on" data-id="${escapeAttr(room.entity_id)}" aria-label="${room.on ? "Éteindre" : "Allumer"}">${powerGlyph(14)}</button>
-            <button class="badge" type="button" data-act="fan" data-id="${escapeAttr(room.entity_id)}" ${room.on ? "" : "disabled"}>${room.fan || 2}</button>
+            <button class="fan-chip" type="button" data-act="fan" data-id="${escapeAttr(room.entity_id)}" ${room.on ? "" : "disabled"} aria-label="Ventilation">${windGlyph(18)}<span>${room.fan || 2}</span></button>
             <div class="setpoint">
               <button class="chevron" type="button" data-act="minus" data-id="${escapeAttr(room.entity_id)}" ${room.on ? "" : "disabled"} aria-label="Moins">
                 <svg width="10" height="16" viewBox="0 0 10 16"><path d="M8 1 L2 8 L8 15" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -369,7 +393,7 @@
       <button class="circle" type="button" data-act="plus" data-id="${escapeAttr(room.entity_id)}" ${room.on ? "" : "disabled"} aria-label="Plus">+</button>
     </div>
     <div class="fan-line">
-      <span class="label">Air</span>
+      <span class="label">${windGlyph(20)} Air</span>
       <div class="fan-row">
         ${[1, 2, 3]
           .map((n) => {
@@ -640,6 +664,7 @@
     }
     if (act === "copy") {
       copyText(button.getAttribute("data-copy") || "");
+      markCopied(button.getAttribute("data-id") || "");
       return;
     }
     if (act === "mode") {
