@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.12] — 2026-11-05
+
+### Ajouté
+- Web app Maison : onglet **Infos**, QR code pour ouvrir le lien personnel sur un autre téléphone (plus un bouton Copier).
+
+[0.6.12]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.12
+
 ## [0.6.11] — 2026-11-05
 
 ### Changé

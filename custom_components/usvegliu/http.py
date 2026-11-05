@@ -40,6 +40,7 @@ from .guest_session import (
     pick_hvac_on,
     resolve_house_mode,
 )
+from .qr import guest_share_url, make_share_qr_svg
 
 _LOGGER = logging.getLogger(__name__)
 _WWW = Path(__file__).resolve().parent / "www"
@@ -331,7 +332,27 @@ def _ids(grouped: dict[str, list[str]], kind: str) -> list[str]:
     return list(grouped.get(kind) or [])
 
 
-def _snapshot(hass: Any, runtime: Any, record: dict[str, Any]) -> dict[str, Any]:
+def _guest_share_url(request: Any | None, record: dict[str, Any]) -> str:
+    """Absolute Maison URL for the host that served this request."""
+    token = str(record.get("guest_token") or "")
+    if request is None:
+        return guest_share_url(token)
+    headers = getattr(request, "headers", None) or {}
+    proto = headers.get("X-Forwarded-Proto") if hasattr(headers, "get") else None
+    host = headers.get("X-Forwarded-Host") if hasattr(headers, "get") else None
+    return guest_share_url(
+        token,
+        proto or getattr(request, "scheme", None),
+        host or getattr(request, "host", None),
+    )
+
+
+def _snapshot(
+    hass: Any,
+    runtime: Any,
+    record: dict[str, Any],
+    request: Any | None = None,
+) -> dict[str, Any]:
     """Stay header plus every allowed guest-facing entity."""
     allowed = runtime.allowed_entity_ids(record)
     grouped = _group_entities(hass, allowed)
@@ -356,6 +377,7 @@ def _snapshot(hass: Any, runtime: Any, record: dict[str, Any]) -> dict[str, Any]
             metrics.append(item)
     revoked = bool(record.get("voucher_revoked"))
     voucher = "" if revoked else str(record.get("voucher_code") or "")
+    share = _guest_share_url(request, record)
     return {
         "guest": record.get("guest") or "",
         "check_in": record.get("check_in") or "",
@@ -365,6 +387,8 @@ def _snapshot(hass: Any, runtime: Any, record: dict[str, Any]) -> dict[str, Any]
             "wifi_ssid": runtime.wifi_ssid(),
             "voucher_code": voucher or None,
             "voucher_revoked": revoked,
+            "lien_maison": share or None,
+            "qr_svg": make_share_qr_svg(share) if share else None,
         },
         "mode": house_mode,
         "mode_label": house_mode_label(house_mode),
@@ -479,7 +503,7 @@ class GuestStateView(HomeAssistantView):
         if record is None:
             return _json_error(self, 401, "invalid_token")
         await runtime.async_ensure_weather()
-        return self.json(_snapshot(hass, runtime, record))
+        return self.json(_snapshot(hass, runtime, record, request))
 
 
 class GuestStreamView(HomeAssistantView):
@@ -535,7 +559,7 @@ class GuestStreamView(HomeAssistantView):
 
         try:
             await runtime.async_ensure_weather()
-            await emit("state", _snapshot(hass, runtime, record))
+            await emit("state", _snapshot(hass, runtime, record, request))
             while True:
                 try:
                     kind = await asyncio.wait_for(queue.get(), timeout=20)
@@ -552,7 +576,7 @@ class GuestStreamView(HomeAssistantView):
                 if current is None or kind == "expired":
                     await emit("expired", {"error": "invalid_token"})
                     break
-                await emit("state", _snapshot(hass, runtime, current))
+                await emit("state", _snapshot(hass, runtime, current, request))
         except (ConnectionResetError, asyncio.CancelledError, BrokenPipeError):
             pass
         finally:

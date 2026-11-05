@@ -312,7 +312,7 @@ La web app **Maison** est servie par le même Home Assistant. Le locataire n'ouv
 - **Pool** : température et pH de la piscine.
 - **Lumière** : lumières et scénarios.
 - **Accès** : porte, garage, portail, alarme, volets.
-- **Infos** : nom du réseau Wi-Fi et code voucher. Pas sur l'accueil.
+- **Infos** : nom du réseau Wi-Fi, code voucher, et QR code du lien personnel Maison. Pas sur l'accueil.
 
 Le navigateur n'envoie que le jeton. Les commandes sont exécutées côté serveur après contrôle de la liste d'entités du séjour.
 

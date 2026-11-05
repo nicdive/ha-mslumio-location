@@ -333,6 +333,47 @@ h1 {
   padding: 8px 20px 16px;
 }
 
+.share-sheet {
+  margin-top: 14px;
+  padding: 20px 20px 12px;
+  text-align: center;
+}
+
+.share-sheet .info-label {
+  margin-bottom: 14px;
+}
+
+.qr-frame {
+  display: flex;
+  justify-content: center;
+  margin: 0 auto 12px;
+}
+
+.qr-frame svg {
+  display: block;
+  width: min(220px, 72vw);
+  height: auto;
+  border-radius: 12px;
+}
+
+.share-hint {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.share-sheet .info-row {
+  text-align: left;
+}
+
+.share-sheet .info-value {
+  font-size: 13px;
+  letter-spacing: 0;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .info-row {
   display: flex;
   align-items: center;
