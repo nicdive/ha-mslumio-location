@@ -724,8 +724,12 @@ def test_guest_stream_is_server_sent_events():
     assert "wifi_ssid" in text
     assert "voucher_code" in text
     assert "informations" in text
-    assert "metrics" in js
-    assert "atmosphere" in js
+    assert "weatherCard" in js
+    assert "Calvi" in js
+    assert "poolPage" in js
+    assert "outdoorChip" in js
+    assert "metricsView" not in js
+    assert "weather" in text
     assert "Allumée" in js
     assert "brand-logo" in js
     assert "logo-banner.png" in js

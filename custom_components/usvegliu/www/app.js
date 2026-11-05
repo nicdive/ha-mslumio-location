@@ -3,7 +3,13 @@
   const token = readToken();
   function readScreen() {
     const tab = new URLSearchParams(window.location.search).get("tab");
-    if (tab === "climate" || tab === "lights" || tab === "access" || tab === "info") {
+    if (
+      tab === "climate" ||
+      tab === "lights" ||
+      tab === "access" ||
+      tab === "info" ||
+      tab === "pool"
+    ) {
       return tab;
     }
     return "home";
@@ -59,6 +65,7 @@
       access:
         '<circle cx="9.2" cy="12" r="3.4" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M12.4 12 H20 V14.6 H17.4 V17" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
       info: '<path d="M4.6 16.6 L7.2 9.2 H9.8 L7.2 16.6 Z M12.2 7.4 H19.4 M12.2 12 H19.4 M12.2 16.6 H17.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
+      pool: '<path d="M4 16.6 C6.2 14.8 8.4 14.8 10.6 16.6 C12.8 18.4 15 18.4 17.2 16.6 C18.2 15.8 19.2 15.6 20 15.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M4 12.4 C6.2 10.6 8.4 10.6 10.6 12.4 C12.8 14.2 15 14.2 17.2 12.4 C18.2 11.6 19.2 11.4 20 11.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M8.4 7.2 C9.2 5.6 10.6 5 12 5.8 C13.4 6.6 13.8 8.2 13 9.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
     };
     return `<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">${icons[kind] || ""}</svg>`;
   }
@@ -172,11 +179,20 @@
     return Boolean(ssid || code || revoked);
   }
 
+  function metricByKind(kind) {
+    return ((state && state.metrics) || []).find((item) => item.kind === kind) || null;
+  }
+
+  function hasPool() {
+    return Boolean(metricByKind("pool_temp") || metricByKind("pool_ph"));
+  }
+
   function tabItems() {
     const items = [{ id: "home", label: "Maison", icon: "home" }];
     if (((state && state.climates) || []).length) {
       items.push({ id: "climate", label: modeTabLabel(), icon: "climate" });
     }
+    if (hasPool()) items.push({ id: "pool", label: "Pool", icon: "pool" });
     if (((state && state.lights) || []).length || ((state && state.scenes) || []).length) {
       items.push({ id: "lights", label: "Lumière", icon: "lights" });
     }
@@ -297,19 +313,80 @@
     return `<section class="sheet info-sheet">${rows.join("")}</section>`;
   }
 
-  function metricsView() {
-    const metrics = (state && state.metrics) || [];
-    if (!metrics.length) return "";
-    return `<div class="atmosphere">${metrics
-      .map((item) => {
-        const suffix = item.unit === "°" || !item.unit ? (item.kind === "pool_ph" ? "" : item.unit || "°") : item.unit;
-        const shown = item.kind === "pool_ph" ? formatTemp(item.value) : `${formatTemp(item.value)}${suffix === "°" ? "°" : ""}`;
-        return `<div class="metric">
-          <div class="metric-value">${escapeHtml(shown)}${suffix && suffix !== "°" ? `<span class="metric-unit">${escapeHtml(suffix)}</span>` : ""}</div>
-          <div class="metric-label">${escapeHtml(item.label)}</div>
-        </div>`;
-      })
-      .join("")}</div>`;
+  function weatherGlyph(kind) {
+    const marks = {
+      sun: '<circle cx="48" cy="48" r="14" fill="none" stroke="currentColor" stroke-width="2.2"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M48 12 V22"/><path d="M48 74 V84"/><path d="M12 48 H22"/><path d="M74 48 H84"/><path d="M22.4 22.4 L29.5 29.5"/><path d="M66.5 66.5 L73.6 73.6"/><path d="M73.6 22.4 L66.5 29.5"/><path d="M29.5 66.5 L22.4 73.6"/></g>',
+      sun_cloud:
+        '<circle cx="36" cy="34" r="11" fill="none" stroke="currentColor" stroke-width="2"/><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M36 14 V20"/><path d="M18 34 H24"/><path d="M22.2 20.2 L26.4 24.4"/><path d="M49.8 20.2 L45.6 24.4"/></g><path d="M28 62 H70 C78 62 82 54 76 48 C80 36 64 30 58 40 C50 28 34 34 36 48 C28 48 24 56 28 62 Z" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"/>',
+      cloud:
+        '<path d="M24 64 H72 C82 64 86 54 80 48 C84 34 66 26 58 38 C50 24 30 30 32 46 C22 46 16 56 24 64 Z" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"/>',
+      fog: '<path d="M24 46 H72 C82 46 86 36 80 30 C84 16 66 8 58 20 C50 6 30 12 32 28 C22 28 16 38 24 46 Z" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 60 H74"/><path d="M28 72 H68"/></g>',
+      drizzle:
+        '<path d="M24 48 H72 C82 48 86 38 80 32 C84 18 66 10 58 22 C50 8 30 14 32 30 C22 30 16 40 24 48 Z" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M36 62 V68"/><path d="M48 64 V70"/><path d="M60 62 V68"/></g>',
+      rain: '<path d="M24 46 H72 C82 46 86 36 80 30 C84 16 66 8 58 20 C50 6 30 12 32 28 C22 28 16 38 24 46 Z" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M34 58 L28 76"/><path d="M48 60 L42 78"/><path d="M62 58 L56 76"/></g>',
+      snow: '<path d="M24 44 H72 C82 44 86 34 80 28 C84 14 66 6 58 18 C50 4 30 10 32 26 C22 26 16 36 24 44 Z" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"/><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M36 58 V74"/><path d="M30 64 H42"/><path d="M32 60 L40 72"/><path d="M40 60 L32 72"/><path d="M60 58 V74"/><path d="M54 64 H66"/></g>',
+      storm:
+        '<path d="M24 42 H70 C80 42 84 32 78 26 C82 12 64 6 56 16 C48 4 30 10 32 24 C22 24 16 34 24 42 Z" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"/><path d="M50 46 L38 64 H50 L42 82 L66 58 H52 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>',
+    };
+    return `<svg class="weather-mark" width="96" height="96" viewBox="0 0 96 96" aria-hidden="true">${marks[kind] || marks.cloud}</svg>`;
+  }
+
+  function weatherCard() {
+    const weather = state && state.weather;
+    if (!weather || weather.temperature === undefined || weather.temperature === null) {
+      return "";
+    }
+    const high = weather.high === null || weather.high === undefined ? "" : `${weather.high}°`;
+    const low = weather.low === null || weather.low === undefined ? "" : `${weather.low}°`;
+    const range = low && high ? `${low} — ${high}` : high || low;
+    const wind =
+      weather.wind === null || weather.wind === undefined ? "" : `vent ${weather.wind} km/h`;
+    const meta = [range, wind].filter(Boolean).join(" · ");
+    return `<section class="weather" aria-label="Météo à Calvi">
+      <div class="weather-icon">${weatherGlyph(weather.icon || "cloud")}</div>
+      <div class="weather-copy">
+        <p class="weather-place">${escapeHtml(weather.place || "Calvi")}</p>
+        <p class="weather-label">${escapeHtml(weather.label || "")}</p>
+        <p class="weather-temp">${escapeHtml(String(weather.temperature))}°</p>
+        ${meta ? `<p class="weather-range">${escapeHtml(meta)}</p>` : ""}
+      </div>
+    </section>`;
+  }
+
+  function outdoorChip() {
+    const outdoor = metricByKind("outdoor");
+    if (!outdoor) return "";
+    return `<aside class="outdoor-chip" aria-label="Température extérieure">
+      <span class="outdoor-value">${escapeHtml(formatTemp(outdoor.value))}°</span>
+      <span class="outdoor-label">Extérieur</span>
+    </aside>`;
+  }
+
+  function poolGlyph() {
+    return `<svg class="pool-mark" width="72" height="72" viewBox="0 0 72 72" aria-hidden="true">
+      <path d="M10 44 C18 38 26 38 34 44 C42 50 50 50 58 44 C61 42 64 41 66 42" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <path d="M10 32 C18 26 26 26 34 32 C42 38 50 38 58 32 C61 30 64 29 66 30" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <path d="M28 16 C31 11 36 10 40 13 C44 16 45 22 42 26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>`;
+  }
+
+  function poolSection() {
+    const water = metricByKind("pool_temp");
+    const ph = metricByKind("pool_ph");
+    if (!water && !ph) return "";
+    const temp = water
+      ? `<div class="pool-temp">
+          <div class="metric-value">${escapeHtml(formatTemp(water.value))}°</div>
+          <div class="metric-label">Eau</div>
+        </div>`
+      : "";
+    const phLine = ph
+      ? `<div class="pool-ph"><span class="metric-label">pH</span><span class="metric-value">${escapeHtml(formatTemp(ph.value))}</span></div>`
+      : "";
+    return `<section class="pool-sheet">
+      <div class="pool-hero">${poolGlyph()}${temp}</div>
+      ${phLine}
+    </section>`;
   }
 
   function modeSwitch() {
@@ -512,14 +589,20 @@
   }
 
   function homePage() {
-    const metrics = metricsView();
-    return `${welcomeHead()}${metrics}`;
+    return `${welcomeHead()}${weatherCard()}`;
+  }
+
+  function climateHead() {
+    return `<div class="hero hero-page hero-climate">
+      ${outdoorChip()}
+      <h1 class="welcome">${escapeHtml(modeLabel())}</h1>
+    </div>`;
   }
 
   function climatePage() {
     const body = climateSection();
-    if (!body) return `${pageHead(modeLabel())}<p class="empty">Aucun thermostat pour ce séjour.</p>`;
-    return `${pageHead(modeLabel())}${body}`;
+    if (!body) return `${climateHead()}<p class="empty">Aucun thermostat pour ce séjour.</p>`;
+    return `${climateHead()}${body}`;
   }
 
   function lightsPage() {
@@ -540,8 +623,15 @@
     return `${pageHead("Informations")}${body}`;
   }
 
+  function poolPage() {
+    const body = poolSection();
+    if (!body) return `${pageHead("Pool")}<p class="empty">Aucune donnée piscine pour ce séjour.</p>`;
+    return `${pageHead("Pool")}${body}`;
+  }
+
   function pageView() {
     if (screen === "climate") return climatePage();
+    if (screen === "pool") return poolPage();
     if (screen === "lights") return lightsPage();
     if (screen === "access") return accessPage();
     if (screen === "info") return infoPage();

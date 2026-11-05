@@ -154,6 +154,8 @@ class UsvegliuRuntime:
         self._accounts = _AccountBridge(self)
         self._dashboard_signature: str | None = None
         self._last_dashboard: dict[str, Any] = {}
+        self._weather: dict[str, Any] | None = None
+        self._weather_at = None
 
     def tenant_entity_ids(self) -> list[str]:
         """Entities selected for tenants, including the previous three lists."""
@@ -205,6 +207,26 @@ class UsvegliuRuntime:
     def wifi_ssid(self) -> str:
         """Hotspot name shown to the guest. Empty until the owner fills it."""
         return str(self.entry.options.get(CONF_WIFI_SSID) or "").strip()
+
+    def weather(self) -> dict[str, Any] | None:
+        """Last Calvi forecast, or None until the first successful fetch."""
+        return self._weather
+
+    async def async_ensure_weather(self) -> dict[str, Any] | None:
+        """Refresh Calvi weather when the cache is empty or stale."""
+        from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+        from .weather import async_fetch_calvi_weather, weather_is_fresh
+
+        now = dt_util.utcnow()
+        if weather_is_fresh(self._weather_at, now) and self._weather:
+            return self._weather
+        session = async_get_clientsession(self.hass)
+        fetched = await async_fetch_calvi_weather(session)
+        if fetched:
+            self._weather = fetched
+            self._weather_at = now
+        return self._weather
 
     async def async_load(self) -> None:
         """Load the private stay store."""
@@ -266,6 +288,7 @@ class UsvegliuRuntime:
         """Run one cycle. Notifications are sent after the lock is released."""
         async with self._lock:
             snapshot, result = await self._sync_locked()
+        await self.async_ensure_weather()
         await self._emit(result)
         if self.coordinator is not None:
             self.coordinator.async_set_updated_data(snapshot)

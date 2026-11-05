@@ -130,6 +130,121 @@ button:active:not(:disabled) {
   margin-bottom: 20px;
 }
 
+.hero-climate {
+  position: relative;
+}
+
+.outdoor-chip {
+  position: absolute;
+  top: 0;
+  right: 0;
+  text-align: right;
+}
+
+.outdoor-value {
+  display: block;
+  font-family: var(--serif);
+  font-size: 26px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.outdoor-label {
+  display: block;
+  margin-top: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.weather {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 22px 22px 20px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.weather-icon {
+  flex-shrink: 0;
+  color: var(--bronze);
+}
+
+.weather-mark {
+  display: block;
+}
+
+.weather-place {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.weather-label {
+  margin: 6px 0 0;
+  font-size: 15px;
+  color: var(--ink-soft);
+}
+
+.weather-temp {
+  margin: 8px 0 0;
+  font-family: var(--serif);
+  font-size: 46px;
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+}
+
+.weather-range {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.pool-sheet {
+  padding: 24px 22px 22px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.pool-hero {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.pool-mark {
+  color: var(--cool);
+  flex-shrink: 0;
+}
+
+.pool-temp .metric-value {
+  font-size: 46px;
+}
+
+.pool-ph {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.pool-ph .metric-value {
+  font-size: 32px;
+}
+
 .kicker {
   margin: 0 0 8px;
   font-size: 11px;
@@ -827,6 +942,18 @@ h1 {
 
   .hero-page .welcome {
     text-align: left;
+  }
+
+  .hero-climate {
+    display: block;
+  }
+
+  .weather {
+    max-width: 520px;
+  }
+
+  .pool-sheet {
+    max-width: 520px;
   }
 
   .atmosphere {

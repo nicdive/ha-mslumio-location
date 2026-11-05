@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.9] — 2026-11-05
+
+### Changé
+- Web app Maison : plus de températures sur l'accueil. À la place, la météo du jour à **Calvi** (icônes). La température extérieure de la villa est en coin sur **Clim**. Piscine et pH dans l'onglet **Pool**.
+
+[0.6.9]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.9
+
 ## [0.6.8] — 2026-11-05
 
 ### Ajouté
