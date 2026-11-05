@@ -4,6 +4,21 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.11] — 2026-11-05
+
+### Changé
+- Web app Maison : la météo de l'accueil indique **Lumio**.
+- SSID par défaut : **Usvegliu-Guest** (message Console, Infos, options).
+
+[0.6.11]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.11
+
+## [0.6.10] — 2026-11-05
+
+### Corrigé
+- Console : le message à envoyer contient toujours la ligne **Réseau Wi-Fi**, lue sur le séjour ou les réglages (plus seulement si le SSID était déjà collé sur la ligne du séjour).
+
+[0.6.10]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.10
+
 ## [0.6.9] — 2026-11-05
 
 ### Changé

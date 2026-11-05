@@ -355,6 +355,9 @@ def test_owner_console_dashboard_has_live_credentials_and_actions():
     assert "usvegliu.relire_calendrier" in dumped
     assert "Relire le calendrier" in dumped
     assert "Message à envoyer" in dumped
+    assert "Réseau Wi-Fi :" in dumped
+    assert "Usvegliu-Guest" in dumped
+    assert "reglages.wifi_ssid" in dumped
     assert "s.message_invite" in dumped
     assert "sans compte Home Assistant" in dumped
     assert "Réglages Usvegliu" in dumped
@@ -639,6 +642,7 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     flow = (root / "config_flow.py").read_text(encoding="utf-8")
     coord = (root / "coordinator.py").read_text(encoding="utf-8")
     assert 'CONF_WIFI_SSID: Final = "wifi_ssid"' in const
+    assert 'DEFAULT_WIFI_SSID: Final = "Usvegliu-Guest"' in const
     assert "CONF_WIFI_SSID" in flow
     assert "def wifi_ssid" in coord
     assert '"informations"' in http
@@ -725,7 +729,7 @@ def test_guest_stream_is_server_sent_events():
     assert "voucher_code" in text
     assert "informations" in text
     assert "weatherCard" in js
-    assert "Calvi" in js
+    assert "Lumio" in js
     assert "poolPage" in js
     assert "outdoorChip" in js
     assert "metricsView" not in js

@@ -74,6 +74,7 @@ from .const import (
     DEFAULT_PORT,
     DEFAULT_TITLE_BLOCKLIST,
     DEFAULT_UPLOAD_MBPS,
+    DEFAULT_WIFI_SSID,
     DOMAIN,
     ACCESS_PER_STAY,
 )
@@ -181,7 +182,7 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
             ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
             vol.Optional(
                 CONF_WIFI_SSID,
-                default=defaults.get(CONF_WIFI_SSID, ""),
+                default=defaults.get(CONF_WIFI_SSID, DEFAULT_WIFI_SSID),
             ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
             **_optional_entity_field(
                 CONF_HOUSE_MODE_ENTITY,

@@ -133,6 +133,8 @@ class IssuedAccountsSensor(CoordinatorEntity, SensorEntity):
             "count": len(stays),
             "stays": stays,
             "comptes": comptes,
+            "wifi_ssid": self._runtime.wifi_ssid(),
+            "reseau_wifi": self._runtime.wifi_ssid(),
         }
         for row in stays:
             reservation_id = str(row.get("reservation_id") or "")

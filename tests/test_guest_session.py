@@ -175,6 +175,19 @@ def test_guest_welcome_message_is_villa_copy_without_ha_login():
     )
     assert "OLD" not in revoked
     assert "révoqué" in revoked
+    assert "Réseau Wi-Fi : Usvegliu-Guest" in revoked
+    bare = guest_welcome_message(
+        guest="Bob",
+        check_in="2026-11-07T00:00:00+00:00",
+        check_out="2026-11-17T00:00:00+00:00",
+        lien_maison="http://192.168.23.115:8123/usvegliu/s/TOKEN",
+        wifi_ssid="",
+        voucher_code="8065941041",
+        voucher_revoked=False,
+        preview=False,
+    )
+    assert "Réseau Wi-Fi : Usvegliu-Guest" in bare
+    assert "Code d'accès : 8065941041" in bare
 
 
 def test_expired_preview_is_rejected():

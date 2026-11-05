@@ -342,10 +342,10 @@
     const wind =
       weather.wind === null || weather.wind === undefined ? "" : `vent ${weather.wind} km/h`;
     const meta = [range, wind].filter(Boolean).join(" · ");
-    return `<section class="weather" aria-label="Météo à Calvi">
+    return `<section class="weather" aria-label="Météo à Lumio">
       <div class="weather-icon">${weatherGlyph(weather.icon || "cloud")}</div>
       <div class="weather-copy">
-        <p class="weather-place">${escapeHtml(weather.place || "Calvi")}</p>
+        <p class="weather-place">${escapeHtml(weather.place || "Lumio")}</p>
         <p class="weather-label">${escapeHtml(weather.label || "")}</p>
         <p class="weather-temp">${escapeHtml(String(weather.temperature))}°</p>
         ${meta ? `<p class="weather-range">${escapeHtml(meta)}</p>` : ""}
