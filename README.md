@@ -305,15 +305,13 @@ Sans UID calendrier, la clé est un condensat du nom et des dates : renommer le 
 
 ## Web app locataire
 
-La web app **Maison** est servie par le même Home Assistant. Le locataire n'ouvre pas l'UI admin : un lien avec jeton suffit. L'interface suit un registre résidence d'exception : accueil nominatif, dates du séjour, cartes papier, commandes d'accès en français.
+La web app **Maison** est servie par le même Home Assistant. Le locataire n'ouvre pas l'UI admin : un lien avec jeton suffit. L'interface est une application à sections (accueil, clim, lumière, accès, infos), adaptée au téléphone et à l'iPad mini.
 
-Elle affiche, dans une page unique :
-
-- température extérieure, piscine et pH (lecture seule) ;
-- **Informations** : nom du réseau Wi-Fi (option Usvegliu) et code voucher du séjour ;
-- les `climate.*` autorisés (marche / arrêt, consigne, ventilation) — **Pièces**, **Régler** et cadran ; titre **Chauffage** ou **Climatisation** selon le switch du propriétaire ; rouge / bleu seulement si le thermostat travaille ;
-- lumières MyHome et scénarios (`light.*`, `scene.*`) ;
-- porte Nuki, garage, portail, alarme, et volets s'ils sont autorisés.
+- **Maison** : accueil nominatif, dates du séjour, températures extérieur / piscine / pH.
+- **Clim** : thermostats autorisés (marche / arrêt, consigne, ventilation) ; titre **Chauffage** ou **Climatisation** selon le switch du propriétaire.
+- **Lumière** : lumières et scénarios.
+- **Accès** : porte, garage, portail, alarme, volets.
+- **Infos** : nom du réseau Wi-Fi et code voucher. Pas sur l'accueil.
 
 Le navigateur n'envoie que le jeton. Les commandes sont exécutées côté serveur après contrôle de la liste d'entités du séjour.
 

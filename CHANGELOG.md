@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.4] — 2026-11-05
+
+### Changé
+- Web app Maison : navigation par sections (Maison, Clim, Lumière, Accès, Infos) au lieu d'un empilement de cartes. Le code Wi-Fi n'apparaît plus sur l'accueil, seulement dans **Infos**. Les thermostats n'affichent plus le nom de pièce en plus de leur libellé. Mise en page tablette (iPad mini) en deux colonnes, barre du bas sur téléphone.
+
+[0.6.4]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.4
+
 ## [0.6.3] — 2026-11-04
 
 ### Ajouté
