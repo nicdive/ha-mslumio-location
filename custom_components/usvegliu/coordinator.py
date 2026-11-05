@@ -663,6 +663,7 @@ class UsvegliuRuntime:
             token,
             dt_util.now(),
             require_active=require_active,
+            extra_days=self._option_int(CONF_EXTRA_DAYS, DEFAULT_EXTRA_DAYS),
         )
 
     def guest_link(self, record: dict[str, Any]) -> dict[str, str]:
@@ -767,10 +768,11 @@ class UsvegliuRuntime:
                 raise UpdateFailed("unknown_reservation")
             return key
         now = dt_util.now()
-        current = select_current(self._stays, now)
+        extra = self._option_int(CONF_EXTRA_DAYS, DEFAULT_EXTRA_DAYS)
+        current = select_current(self._stays, now, extra)
         if current is None:
             for record in self._stays.values():
-                if record.get("guest_token") and stay_is_open(record, now):
+                if record.get("guest_token") and stay_is_open(record, now, extra):
                     return str(record["key"])
             raise UpdateFailed("no_active_stay")
         return str(current["key"])
@@ -882,7 +884,8 @@ def _issued_rows(
 ) -> list[dict[str, Any]]:
     """Admin roster: every issued stay still open, plus a live preview."""
     rows: list[dict[str, Any]] = []
-    for record in open_issued_records(stays, runtime._preview, now):  # type: ignore[arg-type]
+    extra = runtime._option_int(CONF_EXTRA_DAYS, DEFAULT_EXTRA_DAYS)
+    for record in open_issued_records(stays, runtime._preview, now, extra):  # type: ignore[arg-type]
         link = runtime.guest_link(record)
         username = (shared or {}).get("username") or record.get("username")
         password = (shared or {}).get("password") or record.get("password")
@@ -912,7 +915,8 @@ def _snapshot(
     runtime: UsvegliuRuntime,
 ) -> dict[str, Any]:
     rows = _issued_rows(runtime, stays, shared, now)
-    current = select_current(stays, now)  # type: ignore[arg-type]
+    extra = runtime._option_int(CONF_EXTRA_DAYS, DEFAULT_EXTRA_DAYS)
+    current = select_current(stays, now, extra)  # type: ignore[arg-type]
     lien_maison = None
     password = None
     if current is not None:

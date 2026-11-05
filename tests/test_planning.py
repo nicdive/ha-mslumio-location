@@ -5,12 +5,14 @@ from datetime import date, datetime, timedelta, timezone
 from custom_components.usvegliu.planning import (
     build_plan,
     default_blocklist,
+    maison_closes_at,
     mbps_to_kbps,
     normalize_event,
     select_current,
     stored_keys_in_window,
     time_limit_minutes,
     voucher_name,
+    wifi_revokes_at,
 )
 
 UTC = timezone.utc
@@ -78,14 +80,37 @@ def test_checkout_and_cancellation_revoke_a_known_stay():
     active = build_plan([stay], now=now, lead_days=3, known_keys=["airbnb-1|2026-07-10"])
     assert [item.key for item in active.ensure] == ["airbnb-1|2026-07-10"]
 
+    departure_day = build_plan(
+        [stay],
+        now=datetime(2026, 7, 17, 18, tzinfo=UTC),
+        lead_days=3,
+        extra_days=1,
+        known_keys=[stay.key],
+    )
+    assert [item.key for item in departure_day.ensure] == [stay.key]
+
+    extra_wifi = build_plan(
+        [stay],
+        now=datetime(2026, 7, 18, 12, tzinfo=UTC),
+        lead_days=3,
+        extra_days=1,
+        known_keys=[stay.key],
+    )
+    assert [item.key for item in extra_wifi.ensure] == [stay.key]
+
     checked_out = build_plan(
         [stay],
-        now=datetime(2026, 7, 17, 0, 1, tzinfo=UTC),
+        now=datetime(2026, 7, 19, 0, 1, tzinfo=UTC),
         lead_days=3,
+        extra_days=1,
         known_keys=[stay.key],
     )
     assert checked_out.ensure == ()
     assert checked_out.revoke_keys == (stay.key,)
+    assert maison_closes_at(stay.check_out) == datetime(2026, 7, 18, tzinfo=UTC)
+    assert wifi_revokes_at(stay.check_out, extra_days=1) == datetime(
+        2026, 7, 19, tzinfo=UTC
+    )
 
     cancelled = build_plan([], now=now, lead_days=3, known_keys=[stay.key])
     assert cancelled.revoke_keys == (stay.key,)

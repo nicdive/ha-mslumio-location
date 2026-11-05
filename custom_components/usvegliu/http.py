@@ -18,6 +18,7 @@ from homeassistant.components.http import HomeAssistantView
 from .const import DOMAIN
 from .guest_session import (
     format_arrival_day,
+    stay_activation_start,
     stay_is_active,
     GUEST_KIND_ALARM,
     GUEST_KIND_CLIMATE,
@@ -119,15 +120,25 @@ def _json_error(view: Any, status: int, code: str, **extra: Any) -> Any:
 
 
 def _guest_not_ready(view: Any, record: dict[str, Any] | None) -> Any | None:
-    """401 if the token is unknown, 403 until the arrival day."""
+    """401 if the token is unknown or the stay is over, 403 until arrival."""
     if record is None:
         return _json_error(view, 401, "invalid_token")
     from homeassistant.util import dt as dt_util
 
-    if stay_is_active(record, dt_util.now()):
+    now = dt_util.now()
+    if stay_is_active(record, now):
         return None
-    opens = format_arrival_day(str(record.get("check_in") or ""))
-    return _json_error(view, 403, "too_early", check_in=record.get("check_in") or "", opens_on=opens)
+    begin = stay_activation_start(record, now)
+    if begin is not None and now < begin:
+        opens = format_arrival_day(str(record.get("check_in") or ""))
+        return _json_error(
+            view,
+            403,
+            "too_early",
+            check_in=record.get("check_in") or "",
+            opens_on=opens,
+        )
+    return _json_error(view, 401, "invalid_token")
 
 
 def _area_name(hass: Any, entity_id: str) -> str:

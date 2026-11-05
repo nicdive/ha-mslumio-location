@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.16] — 2026-11-05
+
+### Changé
+- Lien Maison (et compte HA) : fin à minuit de la **journée de départ**. Wi-Fi : encore **un jour** après, puis le voucher UniFi est retiré.
+
+[0.6.16]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.16
+
 ## [0.6.15] — 2026-11-05
 
 ### Changé

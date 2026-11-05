@@ -11,6 +11,8 @@ from custom_components.usvegliu.unifi import UnifiError
 UTC = timezone.utc
 LEAD = datetime(2026, 7, 8, tzinfo=UTC)
 ARRIVAL = datetime(2026, 7, 10, tzinfo=UTC)
+AFTER_CHECKOUT = datetime(2026, 7, 18, 12, tzinfo=UTC)
+WIFI_GONE = datetime(2026, 7, 19, 0, 1, tzinfo=UTC)
 
 
 class _Voucher:
@@ -523,3 +525,31 @@ async def test_voucher_is_ready_in_the_lead_window_login_waits():
     assert live.stays[key]["voucher_code"] == "CODE1"
     assert accounts.created == 1
     assert accounts.active[uid] is True
+
+    leftover = await async_synchronize(
+        _plan(AFTER_CHECKOUT, known=[key]),
+        live.stays,
+        None,
+        now=AFTER_CHECKOUT,
+        vouchers=unifi,
+        accounts=accounts,
+        enable_vouchers=True,
+        enable_access=True,
+    )
+    assert leftover.stays[key]["voucher_code"] == "CODE1"
+    assert accounts.active[uid] is False
+    assert unifi.created == 1
+
+    gone = await async_synchronize(
+        _plan(WIFI_GONE, known=[key]),
+        leftover.stays,
+        None,
+        now=WIFI_GONE,
+        vouchers=unifi,
+        accounts=accounts,
+        enable_vouchers=True,
+        enable_access=True,
+    )
+    assert gone.stays == {}
+    assert uid in accounts.revoked
+    assert unifi.deleted == ["id-1"]
