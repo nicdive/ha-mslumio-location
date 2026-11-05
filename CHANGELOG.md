@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.14] — 2026-11-05
+
+### Changé
+- Web app Maison : bandeau et icône **U Svegliu** remplacés par le logo villa (citadelle, soleil, olivier).
+
+[0.6.14]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.14
+
 ## [0.6.13] — 2026-11-05
 
 ### Changé

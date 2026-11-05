@@ -240,7 +240,7 @@
   function brandBar(withBack) {
     return `<header class="brand${withBack ? " brand-room" : ""}">
       ${withBack ? backArrow() : ""}
-      <img class="brand-logo" src="/usvegliu/static/logo-banner.png" width="1200" height="326" alt="U Svegliu, villa Lumio Corsica" />
+      <img class="brand-logo" src="/usvegliu/static/logo-banner.png" width="1490" height="400" alt="U Svegliu, villa Lumio Corsica" />
     </header>`;
   }
 

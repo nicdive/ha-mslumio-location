@@ -688,6 +688,19 @@ def test_guest_app_ships_villa_banner_logo():
     mark = www / "logo.png"
     assert banner.is_file() and banner.stat().st_size > 1000
     assert mark.is_file() and mark.stat().st_size > 1000
+    import struct
+
+    def png_size(path):
+        with path.open("rb") as handle:
+            assert handle.read(8) == b"\x89PNG\r\n\x1a\n"
+            length, chunk = struct.unpack(">I4s", handle.read(8))
+            assert chunk == b"IHDR" and length == 13
+            width, height = struct.unpack(">II", handle.read(8))
+        return width, height
+
+    assert png_size(banner)[0] >= 1400
+    assert png_size(mark) == (256, 256)
+    assert 'width="1490"' in (www / "app.js").read_text(encoding="utf-8")
     html = (www / "index.html").read_text(encoding="utf-8")
     css = (www / "app.css").read_text(encoding="utf-8")
     assert "logo-banner.png" in (www / "app.js").read_text(encoding="utf-8")
