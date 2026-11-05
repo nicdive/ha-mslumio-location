@@ -857,6 +857,7 @@ def _issued_rows(
                 lien_maison=str(link.get("url") or ""),
                 path=str(link.get("path") or ""),
                 tableau=f"/{DASHBOARD_URL}",
+                wifi_ssid=runtime.wifi_ssid(),
             )
         )
     return rows

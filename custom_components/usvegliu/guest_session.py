@@ -16,6 +16,21 @@ PREVIEW_KEY = "__usvegliu_preview__"
 PREVIEW_HOURS = 24
 TOKEN_MIN_LENGTH = 16
 
+_MONTHS_FR = (
+    "janvier",
+    "février",
+    "mars",
+    "avril",
+    "mai",
+    "juin",
+    "juillet",
+    "août",
+    "septembre",
+    "octobre",
+    "novembre",
+    "décembre",
+)
+
 _OFF_HVAC = frozenset({"off", "idle"})
 _HVAC_ON_ORDER = ("heat", "cool", "heat_cool", "fan_only", "dry", "auto")
 HOUSE_HEAT = "heat"
@@ -102,6 +117,107 @@ def credential_attribute_key(reservation_id: str) -> str:
     return f"compte_{safe[:48]}"
 
 
+def _parse_stay_date(value: str) -> datetime | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def format_stay_span(check_in: str, check_out: str) -> str:
+    """Human stay window in French, or empty if the dates are missing."""
+    start = _parse_stay_date(check_in)
+    end = _parse_stay_date(check_out)
+    if start is None or end is None:
+        return ""
+    if start.month == end.month and start.year == end.year:
+        return f"{start.day} au {end.day} {_MONTHS_FR[start.month - 1]}"
+    if start.year == end.year:
+        return (
+            f"{start.day} {_MONTHS_FR[start.month - 1]} au "
+            f"{end.day} {_MONTHS_FR[end.month - 1]}"
+        )
+    return (
+        f"{start.day} {_MONTHS_FR[start.month - 1]} {start.year} au "
+        f"{end.day} {_MONTHS_FR[end.month - 1]} {end.year}"
+    )
+
+
+def guest_first_name(guest: str) -> str:
+    """First word of the calendar title, for a short greeting."""
+    return str(guest or "").strip().split()[0] if str(guest or "").strip() else ""
+
+
+def guest_welcome_message(
+    *,
+    guest: str,
+    check_in: str,
+    check_out: str,
+    lien_maison: str,
+    wifi_ssid: str,
+    voucher_code: str | None,
+    voucher_revoked: bool,
+    preview: bool,
+) -> str:
+    """Copy-ready note for the guest. No Home Assistant login."""
+    name = guest_first_name(guest)
+    hello = f"Bonjour {name}," if name else "Bonjour,"
+    span = format_stay_span(check_in, check_out)
+    stay = f" pour votre séjour du {span}" if span else ""
+    link = str(lien_maison or "").strip()
+    ssid = str(wifi_ssid or "").strip()
+    code = "" if voucher_revoked else str(voucher_code or "").strip()
+    if preview:
+        lines = [
+            hello,
+            "",
+            "Voici un lien d'essai, valable 24 heures, pour découvrir la maison :",
+            "",
+            link or "—",
+            "",
+            "Nous vous souhaitons une belle visite.",
+            "",
+            "L'équipe Usvegliu",
+        ]
+        return "\n".join(lines)
+    lines = [
+        hello,
+        "",
+        f"Nous avons le plaisir de vous accueillir à Usvegliu{stay}.",
+        "",
+        "Votre maison s'ouvre ici, sur votre lien personnel :",
+        "",
+        link or "—",
+        "",
+    ]
+    if ssid:
+        lines.append(f"Réseau Wi-Fi : {ssid}")
+    if code:
+        lines.append(f"Code d'accès : {code}")
+    elif voucher_revoked:
+        lines.append("Le code Wi-Fi a été révoqué. Nous vous en ferons parvenir un autre.")
+    if ssid or code:
+        lines.extend(
+            [
+                "",
+                "Ouvrez le lien depuis votre téléphone, rejoignez le réseau, "
+                "puis saisissez le code sur la page d'accueil Wi-Fi.",
+            ]
+        )
+    lines.extend(
+        [
+            "",
+            "Nous vous souhaitons un séjour d'exception.",
+            "",
+            "L'équipe Usvegliu",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def issued_account_view(
     record: dict[str, Any],
     *,
@@ -110,6 +226,7 @@ def issued_account_view(
     lien_maison: str,
     path: str,
     tableau: str,
+    wifi_ssid: str = "",
 ) -> dict[str, Any]:
     """Admin row for one issued stay, including the HA password.
 
@@ -117,6 +234,9 @@ def issued_account_view(
     journal still redact or drop the password.
     """
     secret = str(password or record.get("password") or "") or None
+    preview = bool(record.get("preview"))
+    revoked = bool(record.get("voucher_revoked"))
+    code = str(record.get("voucher_code") or "") or None
     return {
         "guest": str(record.get("guest") or ""),
         "check_in": str(record.get("check_in") or ""),
@@ -126,14 +246,25 @@ def issued_account_view(
         # Lovelace / the frontend hide the attribute name ``password``.
         "mot_de_passe": secret,
         "code_compte": secret,
-        "voucher_code": str(record.get("voucher_code") or "") or None,
+        "voucher_code": code,
+        "wifi_ssid": str(wifi_ssid or "").strip(),
         "lien_maison": lien_maison,
+        "message_invite": guest_welcome_message(
+            guest=str(record.get("guest") or ""),
+            check_in=str(record.get("check_in") or ""),
+            check_out=str(record.get("check_out") or ""),
+            lien_maison=lien_maison,
+            wifi_ssid=str(wifi_ssid or ""),
+            voucher_code=code,
+            voucher_revoked=revoked,
+            preview=preview,
+        ),
         "path": path,
         "reservation_id": str(record.get("key") or ""),
-        "essai": bool(record.get("preview")),
+        "essai": preview,
         "tableau": tableau,
         "access_revoked": bool(record.get("access_revoked")),
-        "voucher_revoked": bool(record.get("voucher_revoked")),
+        "voucher_revoked": revoked,
     }
 
 

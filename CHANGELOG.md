@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.7] — 2026-11-05
+
+### Ajouté
+- Console : message à envoyer au locataire (forme de politesse villa, lien personnel Maison, réseau et code Wi-Fi). À copier-coller. Sans identifiants Home Assistant.
+
+[0.6.7]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.7
+
 ## [0.6.6] — 2026-11-05
 
 ### Changé

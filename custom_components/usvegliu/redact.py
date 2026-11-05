@@ -26,6 +26,7 @@ SECRET_KEYS: frozenset[str] = frozenset(
         "token",
         "guest_token",
         "lien_maison",
+        "message_invite",
         "access_token",
         "refresh_token",
         "x-api-key",
