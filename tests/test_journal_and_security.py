@@ -359,6 +359,7 @@ def test_owner_console_dashboard_has_live_credentials_and_actions():
     assert "Message à envoyer" in dumped
     assert "s.acces_actif" in dumped
     assert "jour d'arrivée" in dumped
+    assert "Le code Wi-Fi est déjà dans le message" in dumped
     assert "Réseau Wi-Fi :" in dumped
     assert "Usvegliu-Guest" in dumped
     assert "reglages.wifi_ssid" in dumped

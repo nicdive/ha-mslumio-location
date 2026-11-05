@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.15] — 2026-11-05
+
+### Changé
+- Le **code Wi-Fi** est créé dès les 3 jours avant l'arrivée, pour le message à envoyer. Compte HA et lien Maison restent inactifs jusqu'au jour J.
+
+[0.6.15]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.15
+
 ## [0.6.14] — 2026-11-05
 
 ### Changé
