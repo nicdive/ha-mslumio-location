@@ -355,6 +355,8 @@ def test_owner_console_dashboard_has_live_credentials_and_actions():
     assert "usvegliu.relire_calendrier" in dumped
     assert "Relire le calendrier" in dumped
     assert "Message à envoyer" in dumped
+    assert "Réseau Wi-Fi :" in dumped
+    assert "reglages.wifi_ssid" in dumped
     assert "s.message_invite" in dumped
     assert "sans compte Home Assistant" in dumped
     assert "Réglages Usvegliu" in dumped

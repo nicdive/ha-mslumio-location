@@ -193,8 +193,7 @@ def guest_welcome_message(
         link or "—",
         "",
     ]
-    if ssid:
-        lines.append(f"Réseau Wi-Fi : {ssid}")
+    lines.append(f"Réseau Wi-Fi : {ssid}")
     if code:
         lines.append(f"Code d'accès : {code}")
     elif voucher_revoked:
@@ -248,6 +247,12 @@ def issued_account_view(
         "code_compte": secret,
         "voucher_code": code,
         "wifi_ssid": str(wifi_ssid or "").strip(),
+        "reseau_wifi": str(wifi_ssid or "").strip(),
+        "prenom": guest_first_name(str(record.get("guest") or "")),
+        "sejour_libelle": format_stay_span(
+            str(record.get("check_in") or ""),
+            str(record.get("check_out") or ""),
+        ),
         "lien_maison": lien_maison,
         "message_invite": guest_welcome_message(
             guest=str(record.get("guest") or ""),

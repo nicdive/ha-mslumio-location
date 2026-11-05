@@ -206,7 +206,11 @@ class UsvegliuRuntime:
 
     def wifi_ssid(self) -> str:
         """Hotspot name shown to the guest. Empty until the owner fills it."""
-        return str(self.entry.options.get(CONF_WIFI_SSID) or "").strip()
+        return str(
+            self.entry.options.get(CONF_WIFI_SSID)
+            or self.entry.data.get(CONF_WIFI_SSID)
+            or ""
+        ).strip()
 
     def weather(self) -> dict[str, Any] | None:
         """Last Calvi forecast, or None until the first successful fetch."""

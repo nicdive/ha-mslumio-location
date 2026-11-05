@@ -254,19 +254,31 @@ def _entities_actions(title: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _stay_markdown(entity_id: str, reservation_id: str) -> str:
+def _stay_markdown(
+    entity_id: str,
+    reservation_id: str,
+    reglages_entity_id: str = "",
+) -> str:
     """Live Jinja: secrets stay on the sensor, not in the Lovelace file.
 
     The frontend hides attributes named ``password``. Read ``code_compte`` /
     ``mot_de_passe`` (and the parallel ``comptes`` map) so the owner sees
-    the HA login.
+    the HA login. The guest paste is built here so the SSID comes from the
+    stay row or the live settings sensor.
     """
     entity = _jinja_quote(entity_id)
     key = _jinja_quote(reservation_id)
     attr = _jinja_quote(credential_attribute_key(reservation_id))
+    reglages = _jinja_quote(reglages_entity_id) if reglages_entity_id else ""
+    settings_line = (
+        f"{{% set reglages = state_attr('{reglages}', 'settings') or {{}} %}}\n"
+        if reglages
+        else "{% set reglages = {} %}\n"
+    )
     return (
         f"{{% set rows = state_attr('{entity}', 'stays') or [] %}}\n"
         f"{{% set comptes = state_attr('{entity}', 'comptes') or {{}} %}}\n"
+        f"{settings_line}"
         f"{{% set found = rows | selectattr('reservation_id', 'equalto', '{key}') | list %}}\n"
         f"{{% set s = found[0] if found else none %}}\n"
         f"{{% set c = comptes.get('{key}') %}}\n"
@@ -276,6 +288,9 @@ def _stay_markdown(entity_id: str, reservation_id: str) -> str:
         "or (c.mot_de_passe if c else none) "
         "or (s.code_compte if s else none) "
         "or (s.mot_de_passe if s else none) %}\n"
+        f"{{% set ssid = ((s.wifi_ssid if s else '') or (s.reseau_wifi if s else '') "
+        f"or reglages.wifi_ssid or state_attr('{entity}', 'reseau_wifi') "
+        f"or state_attr('{entity}', 'wifi_ssid') or '') | trim %}}\n"
         "{% if s %}\n"
         "{% set debut = (s.check_in or '')[:10] %}\n"
         "{% set fin = (s.check_out or '')[:10] %}\n"
@@ -303,7 +318,7 @@ def _stay_markdown(entity_id: str, reservation_id: str) -> str:
         "{% endif %}\n"
         "\n"
         "**Wi-Fi** : "
-        "{% if s.wifi_ssid %}{{ s.wifi_ssid }} · {% endif %}"
+        "{% if ssid %}{{ ssid }} · {% endif %}"
         "{% if s.voucher_revoked %}*révoqué*\n"
         "{% else %}`{{ s.voucher_code or '—' }}`\n"
         "{% endif %}\n"
@@ -316,9 +331,39 @@ def _stay_markdown(entity_id: str, reservation_id: str) -> str:
         "### Message à envoyer\n"
         "Sélectionnez le texte, puis copiez. Lien Maison et Wi-Fi seulement, "
         "sans compte Home Assistant.\n"
+        "{% if not s.essai and not ssid %}\n"
+        "\n"
+        "*Nom du réseau manquant. Renseigner **Nom du réseau Wi-Fi** "
+        "dans les options Usvegliu.*\n"
+        "{% endif %}\n"
         "\n"
         "```\n"
+        "{% if s.essai %}\n"
         "{{ s.message_invite }}\n"
+        "{% else %}\n"
+        "Bonjour{% if s.prenom %} {{ s.prenom }}{% elif s.guest %} {{ s.guest.split(' ')[0] }}{% endif %},\n"
+        "\n"
+        "Nous avons le plaisir de vous accueillir à Usvegliu"
+        "{% if s.sejour_libelle %} pour votre séjour du {{ s.sejour_libelle }}{% endif %}.\n"
+        "\n"
+        "Votre maison s'ouvre ici, sur votre lien personnel :\n"
+        "\n"
+        "{{ s.lien_maison }}\n"
+        "\n"
+        "Réseau Wi-Fi : {{ ssid }}\n"
+        "{% if s.voucher_revoked %}"
+        "Le code Wi-Fi a été révoqué. Nous vous en ferons parvenir un autre.\n"
+        "{% else %}"
+        "Code d'accès : {{ s.voucher_code }}\n"
+        "{% endif %}"
+        "\n"
+        "Ouvrez le lien depuis votre téléphone, rejoignez le réseau, "
+        "puis saisissez le code sur la page d'accueil Wi-Fi.\n"
+        "\n"
+        "Nous vous souhaitons un séjour d'exception.\n"
+        "\n"
+        "L'équipe Usvegliu\n"
+        "{% endif %}\n"
         "```\n"
         "{% else %}\n"
         "*Séjour clos ou pas encore provisionné.*\n"
@@ -495,6 +540,7 @@ def _stays_view_sections(
     sejours_entity_id: str,
     voucher_entity_id: str,
     house_mode_entity: str | None,
+    reglages_entity_id: str = "",
 ) -> list[dict[str, Any]]:
     status: list[dict[str, Any]] = [
         _heading("Séjours actifs", "mdi:account-group"),
@@ -545,7 +591,11 @@ def _stays_view_sections(
             _heading(guest, "mdi:home-account"),
             {
                 "type": "markdown",
-                "content": _stay_markdown(sejours_entity_id, reservation_id),
+                "content": _stay_markdown(
+                    sejours_entity_id,
+                    reservation_id,
+                    reglages_entity_id,
+                ),
             },
         ]
         if (
@@ -666,6 +716,7 @@ def build_owner_dashboard_config(
                 "sections": _stays_view_sections(
                     stays,
                     sejours_entity_id=sejours_entity_id,
+                    reglages_entity_id=reglages_entity_id,
                     voucher_entity_id=voucher_entity_id,
                     house_mode_entity=house_mode_entity,
                 ),
