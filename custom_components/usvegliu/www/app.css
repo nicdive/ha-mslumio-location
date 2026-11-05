@@ -107,17 +107,18 @@ button:active:not(:disabled) {
 
 .brand-room {
   min-height: 44px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
-.wordmark {
-  font-family: var(--sans);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  color: var(--bronze);
-  margin: 0;
+.brand-logo {
+  display: block;
+  width: min(100%, 348px);
+  height: auto;
+  margin: 0 auto;
+}
+
+.brand-room .brand-logo {
+  width: min(70%, 228px);
 }
 
 .hero {
@@ -711,6 +712,15 @@ h1 {
   padding: 24px;
 }
 
+.status .brand {
+  width: min(100%, 320px);
+  margin-bottom: 28px;
+}
+
+.status .brand-logo {
+  width: 100%;
+}
+
 .error,
 .empty {
   text-align: center;
@@ -740,11 +750,17 @@ h1 {
   }
 
   .brand {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    text-align: left;
-    margin-bottom: 8px;
+    display: block;
+    text-align: center;
+    margin-bottom: 10px;
+  }
+
+  .brand-logo {
+    width: min(100%, 420px);
+  }
+
+  .brand-room .brand-logo {
+    width: min(46%, 280px);
   }
 
   .dock {
