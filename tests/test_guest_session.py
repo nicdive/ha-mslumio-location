@@ -16,6 +16,8 @@ from custom_components.usvegliu.guest_session import (
     house_mode_from_state,
     house_mode_label,
     infer_fan_speed,
+    format_stay_span,
+    guest_welcome_message,
     issued_account_view,
     map_fan_modes,
     open_issued_records,
@@ -104,6 +106,7 @@ def test_open_issued_records_keeps_active_stays_and_live_preview():
         lien_maison="https://www.usvegliu.fr/s/TTTT",
         path="/usvegliu/s/TTTT",
         tableau="/usvegliu-sejour",
+        wifi_ssid="Usvegliu-Guest",
     )
     assert row["lien_maison"].endswith("/s/TTTT")
     assert row["username"] == "loc-ada"
@@ -111,9 +114,67 @@ def test_open_issued_records_keeps_active_stays_and_live_preview():
     assert row["mot_de_passe"] == "secret-ada"
     assert row["code_compte"] == "secret-ada"
     assert row["voucher_code"] == "ABCD12"
+    assert row["wifi_ssid"] == "Usvegliu-Guest"
+    invite = row["message_invite"]
+    assert "Bonjour Ada," in invite
+    assert "https://www.usvegliu.fr/s/TTTT" in invite
+    assert "Usvegliu-Guest" in invite
+    assert "ABCD12" in invite
+    assert "secret-ada" not in invite
+    assert "loc-ada" not in invite
+    assert "Home Assistant" not in invite
     assert credential_attribute_key("stay-ada") == "compte_stay_ada"
     assert credential_attribute_key("ada@host/x") == "compte_ada_host_x"
     assert open_issued_records(stays, preview, datetime(2026, 8, 1, tzinfo=UTC)) == []
+
+
+def test_guest_welcome_message_is_villa_copy_without_ha_login():
+    assert format_stay_span(
+        "2026-07-10T00:00:00+00:00", "2026-07-17T00:00:00+00:00"
+    ) == "10 au 17 juillet"
+    note = guest_welcome_message(
+        guest="Jean Dupont",
+        check_in="2026-07-10T00:00:00+00:00",
+        check_out="2026-07-17T00:00:00+00:00",
+        lien_maison="https://www.usvegliu.fr/s/LINK",
+        wifi_ssid="Usvegliu-Guest",
+        voucher_code="WIFIXY",
+        voucher_revoked=False,
+        preview=False,
+    )
+    assert note.startswith("Bonjour Jean,")
+    assert "séjour du 10 au 17 juillet" in note
+    assert "https://www.usvegliu.fr/s/LINK" in note
+    assert "Réseau Wi-Fi : Usvegliu-Guest" in note
+    assert "Code d'accès : WIFIXY" in note
+    assert "séjour d'exception" in note
+    assert "L'équipe Usvegliu" in note
+    assert "mot de passe" not in note.lower()
+    preview = guest_welcome_message(
+        guest="Essai",
+        check_in="",
+        check_out="",
+        lien_maison="https://www.usvegliu.fr/s/PREVIEW",
+        wifi_ssid="Usvegliu-Guest",
+        voucher_code="TEMP",
+        voucher_revoked=False,
+        preview=True,
+    )
+    assert "lien d'essai" in preview
+    assert "24 heures" in preview
+    assert "TEMP" not in preview
+    revoked = guest_welcome_message(
+        guest="Ada",
+        check_in="2026-07-10",
+        check_out="2026-07-17",
+        lien_maison="https://www.usvegliu.fr/s/ADA",
+        wifi_ssid="",
+        voucher_code="OLD",
+        voucher_revoked=True,
+        preview=False,
+    )
+    assert "OLD" not in revoked
+    assert "révoqué" in revoked
 
 
 def test_expired_preview_is_rejected():

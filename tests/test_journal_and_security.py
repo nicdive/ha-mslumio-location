@@ -139,6 +139,8 @@ def test_diagnostics_and_logs_redact_secrets():
     assert payload["stays"][0]["guest"] == "**REDACTED**"
     linked = redact({"lien_maison": "https://www.usvegliu.fr/s/stay-token-secret"})
     assert linked["lien_maison"] == "**REDACTED**"
+    invite = redact({"message_invite": "Bonjour Ada,\nCode d'accès : ABCD12"})
+    assert invite["message_invite"] == "**REDACTED**"
     assert payload["stays"][0]["voucher_id"] == "voucher-1"
     assert payload["empty"]["api_key"] == ""
 
@@ -352,6 +354,9 @@ def test_owner_console_dashboard_has_live_credentials_and_actions():
     assert dumped.count("usvegliu.regenerer_acces") == 1
     assert "usvegliu.relire_calendrier" in dumped
     assert "Relire le calendrier" in dumped
+    assert "Message à envoyer" in dumped
+    assert "s.message_invite" in dumped
+    assert "sans compte Home Assistant" in dumped
     assert "Réglages Usvegliu" in dumped
     assert "state_attr('sensor.usvegliu_reglages', 'settings')" in dumped
 
