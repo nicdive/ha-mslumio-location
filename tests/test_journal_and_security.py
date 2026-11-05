@@ -665,6 +665,21 @@ def test_guest_app_javascript_parses():
     subprocess.run(["node", "--check", str(js)], check=True)
 
 
+def test_guest_app_ships_villa_banner_logo():
+    www = Path(__file__).resolve().parents[1] / "custom_components" / "usvegliu" / "www"
+    banner = www / "logo-banner.png"
+    mark = www / "logo.png"
+    assert banner.is_file() and banner.stat().st_size > 1000
+    assert mark.is_file() and mark.stat().st_size > 1000
+    html = (www / "index.html").read_text(encoding="utf-8")
+    css = (www / "app.css").read_text(encoding="utf-8")
+    assert "logo-banner.png" in (www / "app.js").read_text(encoding="utf-8")
+    assert 'rel="apple-touch-icon"' in html
+    assert "/usvegliu/static/logo.png" in html
+    assert ".brand-logo" in css
+    assert ".wordmark" not in css
+
+
 def test_guest_stream_is_server_sent_events():
     text = (
         Path(__file__).resolve().parents[1]
@@ -712,7 +727,9 @@ def test_guest_stream_is_server_sent_events():
     assert "metrics" in js
     assert "atmosphere" in js
     assert "Allumée" in js
-    assert "wordmark" in js
+    assert "brand-logo" in js
+    assert "logo-banner.png" in js
+    assert "wordmark" not in js
     assert "Bonsoir" in js
     assert "alarm_code" in text
 

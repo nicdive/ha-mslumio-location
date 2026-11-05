@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.8] — 2026-11-05
+
+### Ajouté
+- Web app Maison : bandeau **U Svegliu — Villa Lumio Corsica** en tête de l'application (logo villa, pas le mot Usvegliu en capitales).
+
+[0.6.8]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.8
+
 ## [0.6.7] — 2026-11-05
 
 ### Ajouté
