@@ -9,6 +9,8 @@ from custom_components.usvegliu.planning import build_plan, normalize_event
 from custom_components.usvegliu.unifi import UnifiError
 
 UTC = timezone.utc
+LEAD = datetime(2026, 7, 8, tzinfo=UTC)
+ARRIVAL = datetime(2026, 7, 10, tzinfo=UTC)
 
 
 class _Voucher:
@@ -46,11 +48,14 @@ class FakeAccounts:
         self.created = 0
         self.revoked: list[str] = []
         self.users: dict[str, str] = {}
+        self.active: dict[str, bool] = {}
 
     async def async_ensure_user(self, **kwargs: object) -> dict[str, str | None]:
         user_id = kwargs.get("user_id")
         rotate = bool(kwargs.get("rotate"))
+        is_active = bool(kwargs.get("is_active", True))
         if user_id and user_id in self.users and not rotate:
+            self.active[str(user_id)] = is_active
             return {
                 "user_id": str(user_id),
                 "username": str(kwargs["username"]),
@@ -60,6 +65,7 @@ class FakeAccounts:
         uid = str(user_id or f"user-{self.created}")
         password = f"pw-{self.created}"
         self.users[uid] = password
+        self.active[uid] = is_active
         return {"user_id": uid, "username": str(kwargs["username"]), "password": password}
 
     async def async_revoke_user(self, user_id: str) -> None:
@@ -85,12 +91,13 @@ def _plan(now: datetime, stays: list | None = None, known: list[str] | None = No
 async def test_second_cycle_does_not_duplicate_voucher_or_account():
     unifi = FakeUnifi()
     accounts = FakeAccounts()
-    now = datetime(2026, 7, 8, tzinfo=UTC)
+    now = ARRIVAL
     plan = _plan(now)
     first = await async_synchronize(
         plan,
         {},
         None,
+        now=now,
         vouchers=unifi,
         accounts=accounts,
         enable_vouchers=True,
@@ -109,6 +116,7 @@ async def test_second_cycle_does_not_duplicate_voucher_or_account():
         plan,
         first.stays,
         first.shared_user,
+        now=now,
         vouchers=unifi,
         accounts=accounts,
         enable_vouchers=True,
@@ -136,11 +144,13 @@ async def test_existing_voucher_with_the_same_name_is_adopted():
     name = "Jean Dupont 2026-07-10/2026-07-17"
     unifi.vouchers.append(_Voucher("already", "KEEPME", name))
     unifi.vouchers.append(_Voucher("dup", "DROPME", name))
-    plan = _plan(datetime(2026, 7, 8, tzinfo=UTC))
+    now = ARRIVAL
+    plan = _plan(now)
     result = await async_synchronize(
         plan,
         {},
         None,
+        now=now,
         vouchers=unifi,
         accounts=None,
         enable_vouchers=True,
@@ -156,12 +166,13 @@ async def test_existing_voucher_with_the_same_name_is_adopted():
 async def test_cancellation_deletes_voucher_and_user_once():
     unifi = FakeUnifi()
     accounts = FakeAccounts()
-    now = datetime(2026, 7, 8, tzinfo=UTC)
+    now = ARRIVAL
     plan = _plan(now)
     created = await async_synchronize(
         plan,
         {},
         None,
+        now=now,
         vouchers=unifi,
         accounts=accounts,
         enable_vouchers=True,
@@ -173,6 +184,7 @@ async def test_cancellation_deletes_voucher_and_user_once():
         cancelled,
         created.stays,
         None,
+        now=now,
         vouchers=unifi,
         accounts=accounts,
         enable_vouchers=True,
@@ -186,6 +198,7 @@ async def test_cancellation_deletes_voucher_and_user_once():
         cancelled,
         removed.stays,
         None,
+        now=now,
         vouchers=unifi,
         accounts=accounts,
         enable_vouchers=True,
@@ -199,12 +212,13 @@ async def test_cancellation_deletes_voucher_and_user_once():
 @pytest.mark.asyncio
 async def test_shortened_stay_replaces_the_voucher():
     unifi = FakeUnifi()
-    now = datetime(2026, 7, 8, tzinfo=UTC)
+    now = ARRIVAL
     original = _plan(now)
     created = await async_synchronize(
         original,
         {},
         None,
+        now=now,
         vouchers=unifi,
         accounts=None,
         enable_vouchers=True,
@@ -228,6 +242,7 @@ async def test_shortened_stay_replaces_the_voucher():
         updated,
         created.stays,
         None,
+        now=now,
         vouchers=unifi,
         accounts=None,
         enable_vouchers=True,
@@ -244,12 +259,13 @@ async def test_shortened_stay_replaces_the_voucher():
 @pytest.mark.asyncio
 async def test_controller_outage_does_not_revoke():
     unifi = FakeUnifi()
-    now = datetime(2026, 7, 8, tzinfo=UTC)
+    now = ARRIVAL
     plan = _plan(now)
     created = await async_synchronize(
         plan,
         {},
         None,
+        now=now,
         vouchers=unifi,
         accounts=None,
         enable_vouchers=True,
@@ -261,7 +277,8 @@ async def test_controller_outage_does_not_revoke():
             _plan(now, known=[plan.ensure[0].key]),
             created.stays,
             None,
-            vouchers=unifi,
+            now=now,
+        vouchers=unifi,
             accounts=None,
             enable_vouchers=True,
             enable_access=False,
@@ -273,11 +290,13 @@ async def test_controller_outage_does_not_revoke():
 @pytest.mark.asyncio
 async def test_regenerate_issues_a_new_code():
     unifi = FakeUnifi()
-    plan = _plan(datetime(2026, 7, 8, tzinfo=UTC))
+    now = ARRIVAL
+    plan = _plan(now)
     created = await async_synchronize(
         plan,
         {},
         None,
+        now=now,
         vouchers=unifi,
         accounts=None,
         enable_vouchers=True,
@@ -288,6 +307,7 @@ async def test_regenerate_issues_a_new_code():
         plan,
         created.stays,
         None,
+        now=now,
         vouchers=unifi,
         accounts=None,
         enable_vouchers=True,
@@ -311,12 +331,14 @@ async def test_remote_access_and_entity_override_reach_the_account():
             return await super().async_ensure_user(**kwargs)
 
     accounts = Recording()
-    plan = _plan(datetime(2026, 7, 8, tzinfo=UTC))
+    now = ARRIVAL
+    plan = _plan(now)
     key = plan.ensure[0].key
     first = await async_synchronize(
         plan,
         {},
         None,
+        now=now,
         vouchers=None,
         accounts=accounts,
         enable_vouchers=False,
@@ -332,6 +354,7 @@ async def test_remote_access_and_entity_override_reach_the_account():
         plan,
         first.stays,
         None,
+        now=now,
         vouchers=None,
         accounts=accounts,
         enable_vouchers=False,
@@ -350,12 +373,14 @@ async def test_remote_access_and_entity_override_reach_the_account():
 @pytest.mark.asyncio
 async def test_revoke_access_holds_until_regenerate():
     accounts = FakeAccounts()
-    plan = _plan(datetime(2026, 7, 8, tzinfo=UTC))
+    now = ARRIVAL
+    plan = _plan(now)
     key = plan.ensure[0].key
     created = await async_synchronize(
         plan,
         {},
         None,
+        now=now,
         vouchers=None,
         accounts=accounts,
         enable_vouchers=False,
@@ -366,6 +391,7 @@ async def test_revoke_access_holds_until_regenerate():
         plan,
         created.stays,
         None,
+        now=now,
         vouchers=None,
         accounts=accounts,
         enable_vouchers=False,
@@ -380,6 +406,7 @@ async def test_revoke_access_holds_until_regenerate():
         plan,
         revoked.stays,
         None,
+        now=now,
         vouchers=None,
         accounts=accounts,
         enable_vouchers=False,
@@ -391,6 +418,7 @@ async def test_revoke_access_holds_until_regenerate():
         plan,
         held.stays,
         None,
+        now=now,
         vouchers=None,
         accounts=accounts,
         enable_vouchers=False,
@@ -404,12 +432,14 @@ async def test_revoke_access_holds_until_regenerate():
 @pytest.mark.asyncio
 async def test_revoke_voucher_holds_until_regenerate():
     unifi = FakeUnifi()
-    plan = _plan(datetime(2026, 7, 8, tzinfo=UTC))
+    now = ARRIVAL
+    plan = _plan(now)
     key = plan.ensure[0].key
     created = await async_synchronize(
         plan,
         {},
         None,
+        now=now,
         vouchers=unifi,
         accounts=None,
         enable_vouchers=True,
@@ -419,6 +449,7 @@ async def test_revoke_voucher_holds_until_regenerate():
         plan,
         created.stays,
         None,
+        now=now,
         vouchers=unifi,
         accounts=None,
         enable_vouchers=True,
@@ -432,6 +463,7 @@ async def test_revoke_voucher_holds_until_regenerate():
         plan,
         revoked.stays,
         None,
+        now=now,
         vouchers=unifi,
         accounts=None,
         enable_vouchers=True,
@@ -443,6 +475,7 @@ async def test_revoke_voucher_holds_until_regenerate():
         plan,
         held.stays,
         None,
+        now=now,
         vouchers=unifi,
         accounts=None,
         enable_vouchers=True,
@@ -451,3 +484,45 @@ async def test_revoke_voucher_holds_until_regenerate():
     )
     assert restored.stays[key].get("voucher_revoked") is None
     assert restored.stays[key]["voucher_code"] == "CODE2"
+
+
+@pytest.mark.asyncio
+async def test_voucher_and_login_wait_for_arrival_day():
+    unifi = FakeUnifi()
+    accounts = FakeAccounts()
+    name = "Jean Dupont 2026-07-10/2026-07-17"
+    unifi.vouchers.append(_Voucher("early", "TOOEARLY", name))
+    lead_plan = _plan(LEAD)
+    held = await async_synchronize(
+        lead_plan,
+        {},
+        None,
+        now=LEAD,
+        vouchers=unifi,
+        accounts=accounts,
+        enable_vouchers=True,
+        enable_access=True,
+    )
+    key = lead_plan.ensure[0].key
+    assert unifi.created == 0
+    assert "early" in unifi.deleted
+    assert not held.stays[key].get("voucher_code")
+    assert len(held.stays[key]["guest_token"]) >= 16
+    assert accounts.created == 1
+    uid = str(held.stays[key]["user_id"])
+    assert accounts.active[uid] is False
+
+    live = await async_synchronize(
+        _plan(ARRIVAL, known=[key]),
+        held.stays,
+        None,
+        now=ARRIVAL,
+        vouchers=unifi,
+        accounts=accounts,
+        enable_vouchers=True,
+        enable_access=True,
+    )
+    assert unifi.created == 1
+    assert live.stays[key]["voucher_code"] == "CODE1"
+    assert accounts.created == 1
+    assert accounts.active[uid] is True

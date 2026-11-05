@@ -20,6 +20,7 @@
   let listMode = "reglage";
   let roomId = null;
   let error = "";
+  let arrivalNote = "";
 
   function readToken() {
     const path = window.location.pathname.replace(/\/+$/, "");
@@ -43,6 +44,7 @@
       if (!res.ok) {
         const err = new Error(body.error || "error");
         err.status = res.status;
+        err.opensOn = body.opens_on || "";
         throw err;
       }
       return body;
@@ -691,6 +693,11 @@
       root.innerHTML = statusPage("Ce séjour est clos. Demandez un nouveau lien à l’accueil.");
       return;
     }
+    if (error === "too_early") {
+      const when = arrivalNote ? ` le ${escapeHtml(arrivalNote)}` : " le jour de votre arrivée";
+      root.innerHTML = statusPage(`La maison s’ouvre${when}.`);
+      return;
+    }
     if (!state) {
       root.innerHTML = statusPage("La maison s’ouvre…", "empty");
       return;
@@ -924,16 +931,26 @@
     if (next.climates) next.climates = mergeClimateHolds(next.climates);
     state = next;
     error = "";
+    arrivalNote = "";
     render();
   }
 
   function failState(err) {
-    error = err && err.message === "invalid_token" ? "invalid_token" : "error";
-    if (error !== "invalid_token") {
-      root.innerHTML = statusPage("La maison est momentanément indisponible.");
+    const code = err && err.message;
+    if (code === "invalid_token") {
+      error = "invalid_token";
+      arrivalNote = "";
+      render();
       return;
     }
-    render();
+    if (code === "too_early") {
+      error = "too_early";
+      arrivalNote = (err && err.opensOn) || "";
+      render();
+      return;
+    }
+    error = "error";
+    root.innerHTML = statusPage("La maison est momentanément indisponible.");
   }
 
   function refresh() {

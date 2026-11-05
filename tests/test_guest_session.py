@@ -24,7 +24,10 @@ from custom_components.usvegliu.guest_session import (
     pick_hvac_on,
     public_guest_url,
     resolve_house_mode,
+    stay_is_active,
+    stay_is_issued,
     stay_is_open,
+    format_arrival_day,
 )
 
 UTC = timezone.utc
@@ -45,8 +48,20 @@ def test_stay_open_until_checkout_including_before_arrival():
         "check_out": "2026-07-17T00:00:00+00:00",
         "guest_token": "a" * 24,
     }
+    assert stay_is_issued(record, now) is True
     assert stay_is_open(record, now) is True
+    assert stay_is_active(record, now) is False
+    assert stay_is_active(record, datetime(2026, 7, 10, 0, tzinfo=UTC)) is True
+    assert stay_is_active(record, datetime(2026, 7, 10, 6, tzinfo=UTC)) is True
     assert stay_is_open(record, datetime(2026, 7, 17, 0, tzinfo=UTC)) is False
+    assert stay_is_active(record, datetime(2026, 7, 17, 0, tzinfo=UTC)) is False
+    afternoon = {
+        "check_in": "2026-07-10T15:00:00+02:00",
+        "check_out": "2026-07-17T10:00:00+02:00",
+    }
+    paris_morning = datetime(2026, 7, 10, 6, tzinfo=timezone(timedelta(hours=2)))
+    assert stay_is_active(afternoon, paris_morning) is True
+    assert format_arrival_day("2026-07-10T15:00:00+02:00") == "10 juillet"
 
 
 def test_find_token_prefers_live_stay_over_expired_preview():
@@ -66,6 +81,9 @@ def test_find_token_prefers_live_stay_over_expired_preview():
     }
     found = find_record_by_token(stays, preview, token, now)
     assert found is stays["a"]
+    early = datetime(2026, 7, 8, tzinfo=UTC)
+    assert find_record_by_token(stays, None, token, early) is None
+    assert find_record_by_token(stays, None, token, early, require_active=False) is stays["a"]
 
 
 def test_open_issued_records_keeps_active_stays_and_live_preview():
@@ -107,7 +125,20 @@ def test_open_issued_records_keeps_active_stays_and_live_preview():
         path="/usvegliu/s/TTTT",
         tableau="/usvegliu-sejour",
         wifi_ssid="Usvegliu-Guest",
+        now=now,
     )
+    assert row["acces_actif"] is True
+    waiting = issued_account_view(
+        stays["soon"],
+        username="loc-jean",
+        password="secret-jean",
+        lien_maison="https://www.usvegliu.fr/s/UUUU",
+        path="/usvegliu/s/UUUU",
+        tableau="/usvegliu-sejour",
+        wifi_ssid="Usvegliu-Guest",
+        now=now,
+    )
+    assert waiting["acces_actif"] is False
     assert row["lien_maison"].endswith("/s/TTTT")
     assert row["username"] == "loc-ada"
     assert row["password"] == "secret-ada"

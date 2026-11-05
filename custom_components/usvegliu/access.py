@@ -232,12 +232,14 @@ async def async_ensure_user(
     local_only: bool,
     entity_ids: list[str],
     device_ids: list[str] | None = None,
+    is_active: bool = True,
 ) -> dict[str, str | None]:
     """Create or update a non-admin tenant.
 
     ``local_only`` is false only while a stay explicitly allows remote login.
-    The returned password is set only when it was just generated. It is not
-    stored by this function.
+    ``is_active`` is false until the arrival day so a login minted in the
+    lead window cannot be used early. The returned password is set only
+    when it was just generated. It is not stored by this function.
     """
     from homeassistant.auth.providers.homeassistant import (
         InvalidUsername,
@@ -274,8 +276,6 @@ async def async_ensure_user(
             if not user.is_owner:
                 await auth.async_remove_user(user)
             raise
-        if not user.is_active:
-            raise TenantAccessError("user_flags")
         credentials = await provider.async_get_or_create_credentials(
             {"username": username}
         )
@@ -307,7 +307,7 @@ async def async_ensure_user(
     await auth.async_update_user(
         user,
         name=display_name,
-        is_active=True,
+        is_active=bool(is_active),
         group_ids=[group_id],
         local_only=local_only,
     )

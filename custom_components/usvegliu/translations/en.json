@@ -57,7 +57,7 @@
         },
         "data_description": {
           "calendar_entity": "Any calendar entity (Airbnb, Booking, Google or local ICS).",
-          "lead_days": "The voucher is created this many days before arrival. Default: 3.",
+          "lead_days": "The HA account and Maison link are issued this many days before arrival. They become active on arrival day. Default: 3.",
           "device_limit": "Devices allowed to use the same code. Default: 10.",
           "download_mbps": "Converted to kbit/s for the API (100 Mbit/s = 100000 kbit/s). Default: 100.",
           "upload_mbps": "Default: 100.",

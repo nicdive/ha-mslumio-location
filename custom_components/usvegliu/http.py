@@ -17,6 +17,8 @@ from homeassistant.components.http import HomeAssistantView
 
 from .const import DOMAIN
 from .guest_session import (
+    format_arrival_day,
+    stay_is_active,
     GUEST_KIND_ALARM,
     GUEST_KIND_CLIMATE,
     GUEST_KIND_GARAGE,
@@ -111,8 +113,21 @@ def _token_from(request: Any) -> str:
     return str(request.query.get("token") or "").strip()
 
 
-def _json_error(view: Any, status: int, code: str) -> Any:
-    return view.json({"error": code}, status_code=status)
+def _json_error(view: Any, status: int, code: str, **extra: Any) -> Any:
+    payload = {"error": code, **extra}
+    return view.json(payload, status_code=status)
+
+
+def _guest_not_ready(view: Any, record: dict[str, Any] | None) -> Any | None:
+    """401 if the token is unknown, 403 until the arrival day."""
+    if record is None:
+        return _json_error(view, 401, "invalid_token")
+    from homeassistant.util import dt as dt_util
+
+    if stay_is_active(record, dt_util.now()):
+        return None
+    opens = format_arrival_day(str(record.get("check_in") or ""))
+    return _json_error(view, 403, "too_early", check_in=record.get("check_in") or "", opens_on=opens)
 
 
 def _area_name(hass: Any, entity_id: str) -> str:
@@ -464,7 +479,7 @@ async def _bound(
     runtime = _runtime(hass)
     if runtime is None:
         return None, None, None
-    record = runtime.guest_record(_token_from(request))
+    record = runtime.guest_record(_token_from(request), require_active=False)
     if record is None:
         return hass, runtime, None
     return hass, runtime, record
@@ -500,8 +515,9 @@ class GuestStateView(HomeAssistantView):
         hass, runtime, record = await _bound(request)
         if runtime is None:
             return _json_error(self, 503, "not_loaded")
-        if record is None:
-            return _json_error(self, 401, "invalid_token")
+        denied = _guest_not_ready(self, record)
+        if denied is not None:
+            return denied
         await runtime.async_ensure_weather()
         return self.json(_snapshot(hass, runtime, record, request))
 
@@ -520,8 +536,9 @@ class GuestStreamView(HomeAssistantView):
         hass, runtime, record = await _bound(request)
         if runtime is None:
             return _json_error(self, 503, "not_loaded")
-        if record is None:
-            return _json_error(self, 401, "invalid_token")
+        denied = _guest_not_ready(self, record)
+        if denied is not None:
+            return denied
 
         token = _token_from(request)
         response = web.StreamResponse(
@@ -596,8 +613,9 @@ class GuestClimateView(HomeAssistantView):
         hass, runtime, record = await _bound(request)
         if runtime is None:
             return _json_error(self, 503, "not_loaded")
-        if record is None:
-            return _json_error(self, 401, "invalid_token")
+        denied = _guest_not_ready(self, record)
+        if denied is not None:
+            return denied
         try:
             body = await request.json()
         except Exception:  # noqa: BLE001
@@ -670,8 +688,9 @@ class GuestLockView(HomeAssistantView):
         hass, runtime, record = await _bound(request)
         if runtime is None:
             return _json_error(self, 503, "not_loaded")
-        if record is None:
-            return _json_error(self, 401, "invalid_token")
+        denied = _guest_not_ready(self, record)
+        if denied is not None:
+            return denied
         try:
             body = await request.json()
         except Exception:  # noqa: BLE001
@@ -709,8 +728,9 @@ class GuestCommandView(HomeAssistantView):
         hass, runtime, record = await _bound(request)
         if runtime is None:
             return _json_error(self, 503, "not_loaded")
-        if record is None:
-            return _json_error(self, 401, "invalid_token")
+        denied = _guest_not_ready(self, record)
+        if denied is not None:
+            return denied
         try:
             body = await request.json()
         except Exception:  # noqa: BLE001

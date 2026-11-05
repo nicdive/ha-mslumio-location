@@ -357,6 +357,8 @@ def test_owner_console_dashboard_has_live_credentials_and_actions():
     assert "usvegliu.relire_calendrier" in dumped
     assert "Relire le calendrier" in dumped
     assert "Message à envoyer" in dumped
+    assert "s.acces_actif" in dumped
+    assert "jour d'arrivée" in dumped
     assert "Réseau Wi-Fi :" in dumped
     assert "Usvegliu-Guest" in dumped
     assert "reglages.wifi_ssid" in dumped
@@ -656,6 +658,9 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert "Réseau Wi-Fi" in js
     assert "Code Wi-Fi" in js
     assert "data-act=\"copy\"" in js
+    assert "too_early" in http
+    assert "too_early" in js
+    assert "stay_is_active" in http
     assert "qr_svg" in http
     assert "_guest_share_url" in http
     assert "X-Forwarded-Host" in http
