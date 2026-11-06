@@ -21,22 +21,27 @@ from .guest_session import (
     stay_activation_start,
     stay_is_active,
     GUEST_KIND_ALARM,
+    GUEST_KIND_CHARGER,
     GUEST_KIND_CLIMATE,
+    GUEST_KIND_DOORBELL,
     GUEST_KIND_GARAGE,
     GUEST_KIND_GATE,
     GUEST_KIND_LIGHT,
     GUEST_KIND_LOCK,
     GUEST_KIND_OUTDOOR,
+    GUEST_KIND_POOL_LIGHT,
     GUEST_KIND_POOL_PH,
     GUEST_KIND_POOL_TEMP,
     GUEST_KIND_SCENE,
     GUEST_KIND_SHUTTER,
     alarm_view_state,
+    charger_view_state,
     classify_guest_entity,
     climate_activity,
     climate_is_on,
     cover_is_moving,
     cover_is_open,
+    doorbell_is_ringing,
     house_mode_label,
     infer_fan_speed,
     map_fan_modes,
@@ -59,6 +64,8 @@ _GUEST_DOMAINS = frozenset(
         "cover",
         "switch",
         "sensor",
+        "binary_sensor",
+        "event",
         "weather",
     }
 )
@@ -67,6 +74,7 @@ _COMMAND_KINDS = frozenset(
         GUEST_KIND_LOCK,
         GUEST_KIND_ALARM,
         GUEST_KIND_LIGHT,
+        GUEST_KIND_POOL_LIGHT,
         GUEST_KIND_SCENE,
         GUEST_KIND_GARAGE,
         GUEST_KIND_GATE,
@@ -312,6 +320,35 @@ def _serialize_alarm(hass: Any, entity_id: str) -> dict[str, Any] | None:
     }
 
 
+def _serialize_charger(hass: Any, entity_id: str) -> dict[str, Any] | None:
+    state = hass.states.get(entity_id)
+    if state is None:
+        return None
+    raw = str(state.state)
+    unit = str(state.attributes.get("unit_of_measurement") or "")
+    return {
+        "entity_id": entity_id,
+        "name": str(state.attributes.get("friendly_name") or entity_id),
+        "state": charger_view_state(raw, unit=unit),
+        "raw": raw,
+    }
+
+
+def _serialize_doorbell(hass: Any, entity_id: str) -> dict[str, Any] | None:
+    state = hass.states.get(entity_id)
+    if state is None:
+        return None
+    raw = str(state.state)
+    ringing = doorbell_is_ringing(raw)
+    return {
+        "entity_id": entity_id,
+        "name": str(state.attributes.get("friendly_name") or entity_id),
+        "ringing": ringing,
+        "state": "ringing" if ringing else "idle",
+        "raw": raw,
+    }
+
+
 def _serialize_metric(
     hass: Any, entity_id: str, kind: str, label: str
 ) -> dict[str, Any] | None:
@@ -459,6 +496,21 @@ def _snapshot(
             item
             for entity_id in _ids(grouped, GUEST_KIND_ALARM)
             if (item := _serialize_alarm(hass, entity_id))
+        ],
+        "pool_lights": [
+            item
+            for entity_id in _ids(grouped, GUEST_KIND_POOL_LIGHT)
+            if (item := _serialize_light(hass, entity_id))
+        ],
+        "chargers": [
+            item
+            for entity_id in _ids(grouped, GUEST_KIND_CHARGER)
+            if (item := _serialize_charger(hass, entity_id))
+        ],
+        "doorbells": [
+            item
+            for entity_id in _ids(grouped, GUEST_KIND_DOORBELL)
+            if (item := _serialize_doorbell(hass, entity_id))
         ],
     }
 
@@ -769,7 +821,7 @@ async def _async_guest_command(
 ) -> None:
     domain = entity_id.split(".", 1)[0]
     data: dict[str, Any] = {"entity_id": entity_id}
-    if kind == GUEST_KIND_LIGHT:
+    if kind in {GUEST_KIND_LIGHT, GUEST_KIND_POOL_LIGHT}:
         if action not in {"on", "off", "toggle"}:
             raise ValueError("bad_action")
         service = {"on": "turn_on", "off": "turn_off", "toggle": "toggle"}[action]
@@ -814,7 +866,7 @@ async def _async_guest_command(
 
 
 def _serialize_command_result(hass: Any, entity_id: str, kind: str) -> dict[str, Any] | None:
-    if kind == GUEST_KIND_LIGHT:
+    if kind in {GUEST_KIND_LIGHT, GUEST_KIND_POOL_LIGHT}:
         return _serialize_light(hass, entity_id)
     if kind == GUEST_KIND_SCENE:
         return _serialize_scene(hass, entity_id)

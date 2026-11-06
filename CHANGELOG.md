@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.17] — 2026-11-06
+
+### Ajouté
+- Web app Maison : **lumière bassin** (onglet Pool), **borne** (en charge / branché / libre), **sonnette** (quelqu'un sonne). Lumières, scènes et alarme (armer / désarmer) restent dans Lumière et Accès.
+
+[0.6.17]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.17
+
 ## [0.6.16] — 2026-11-05
 
 ### Changé

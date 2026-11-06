@@ -307,12 +307,18 @@ Sans UID calendrier, la clé est un condensat du nom et des dates : renommer le 
 
 La web app **Maison** est servie par le même Home Assistant. Le locataire n'ouvre pas l'UI admin : un lien avec jeton suffit. L'interface est une application à sections (accueil, clim, pool, lumière, accès, infos), adaptée au téléphone et à l'iPad mini. Le bandeau reprend le logo **U Svegliu**.
 
-- **Maison** : accueil nominatif, dates du séjour, météo du jour à Lumio.
+- **Maison** : accueil nominatif, dates du séjour, météo du jour à Lumio, état de la borne et sonnette si quelqu'un sonne.
 - **Clim** : thermostats autorisés (marche / arrêt, consigne, ventilation) ; titre **Chauffage** ou **Climatisation** selon le switch du propriétaire. Température extérieure en coin.
-- **Pool** : température et pH de la piscine.
-- **Lumière** : lumières et scénarios.
-- **Accès** : porte, garage, portail, alarme, volets.
+- **Pool** : température, pH, et lumière du bassin.
+- **Lumière** : lumières et scénarios (à cocher dans les entités locataire).
+- **Accès** : porte, garage, portail, alarme (armer / désarmer), volets, sonnette, borne de recharge (lecture).
 - **Infos** : nom du réseau Wi-Fi, code voucher, et QR code du lien personnel Maison. Pas sur l'accueil.
+
+Pour apparaître, chaque appareil doit d'abord exister dans Home Assistant, puis être dans **Entités autorisées** (alarme / serrure : cocher la case sensible, et renseigner le **code alarme** Delta Dore / TYDOM).
+
+- **Borne Schneider** : OCPP (HACS) ou Modbus sur un EVlink. Cocher le capteur d'état ou `binary_sensor` « en charge ». La web app affiche Libre / Branché / En charge, sans démarrer ni arrêter la charge.
+- **Alarme Delta Dore** : passerelle **TYDOM** dans HA (`alarm_control_panel`). Sans TYDOM, le Tyxal ne se commande pas.
+- **Sonnette / visiophone** : un `binary_sensor` sonnette suffit pour « quelqu'un sonne ». La visio (image, parler) dépend du modèle ; à brancher ensuite.
 
 Le navigateur n'envoie que le jeton. Les commandes sont exécutées côté serveur après contrôle de la liste d'entités du séjour.
 
@@ -348,7 +354,7 @@ La web app écoute sur Home Assistant :
 | `/api/usvegliu/guest/stream` | état en temps réel (SSE) |
 | `/api/usvegliu/guest/climate` | commandes thermostat |
 | `/api/usvegliu/guest/lock` | Nuki |
-| `/api/usvegliu/guest/command` | lumières, scènes, garage, portail, alarme |
+| `/api/usvegliu/guest/command` | lumières, scènes, bassin, garage, portail, alarme |
 
 Exemple pour `https://www.usvegliu.fr/s/…` vers HA en local :
 

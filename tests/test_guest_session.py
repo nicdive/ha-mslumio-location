@@ -6,7 +6,9 @@ from custom_components.usvegliu.guest_session import (
     PREVIEW_KEY,
     alarm_view_state,
     build_preview_record,
+    charger_view_state,
     classify_guest_entity,
+    doorbell_is_ringing,
     climate_activity,
     climate_is_on,
     cover_is_open,
@@ -322,8 +324,39 @@ def test_guest_entity_classification():
         "pool_ph"
     )
     assert classify_guest_entity("switch.prise_salon") is None
+    assert classify_guest_entity("light.piscine") == "pool_light"
+    assert classify_guest_entity("switch.lumiere_bassin", name="Lumière bassin") == (
+        "pool_light"
+    )
+    assert (
+        classify_guest_entity(
+            "binary_sensor.entree", device_class="doorbell", name="Sonnette"
+        )
+        == "doorbell"
+    )
+    assert (
+        classify_guest_entity("sensor.evlink_status", name="Borne Schneider")
+        == "charger"
+    )
+    assert (
+        classify_guest_entity(
+            "binary_sensor.wallbox", device_class="battery_charging", name="Recharge"
+        )
+        == "charger"
+    )
     assert alarm_view_state("armed_away") == "armed"
     assert alarm_view_state("disarmed") == "disarmed"
+    assert charger_view_state("Charging") == "charging"
+    assert charger_view_state("Available") == "idle"
+    assert charger_view_state("Preparing") == "plugged"
+    assert charger_view_state("8") == "charging"
+    assert charger_view_state("1200", unit="W") == "charging"
+    assert charger_view_state("10", unit="W") == "idle"
+    assert doorbell_is_ringing("on") is True
+    assert doorbell_is_ringing("off") is False
+    fresh = datetime(2026, 7, 10, 12, 0, 10, tzinfo=UTC)
+    assert doorbell_is_ringing("2026-07-10T12:00:00+00:00", now=fresh) is True
+    assert doorbell_is_ringing("2026-07-10T11:50:00+00:00", now=fresh) is False
     assert cover_is_open("opening") is True
 
 
