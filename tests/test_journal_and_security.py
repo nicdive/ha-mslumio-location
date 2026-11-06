@@ -668,6 +668,16 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert "function shareSection" in js
     assert "Partager l'app" in js
     assert "safeQrSvg" in js
+    assert '"pool_lights"' in http
+    assert '"chargers"' in http
+    assert '"doorbells"' in http
+    assert "GUEST_KIND_POOL_LIGHT" in http
+    assert "function poolLights" in js
+    assert "data-act=\"pool-light\"" in js
+    assert "Quelqu'un sonne" in js
+    assert "En charge" in js
+    assert "Armer" in js
+    assert "Désarmer" in js
 
 
 def test_guest_app_javascript_parses():

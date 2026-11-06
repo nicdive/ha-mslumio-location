@@ -532,8 +532,46 @@ GUEST_KIND_SHUTTER = "shutter"
 GUEST_KIND_OUTDOOR = "outdoor"
 GUEST_KIND_POOL_TEMP = "pool_temp"
 GUEST_KIND_POOL_PH = "pool_ph"
+GUEST_KIND_POOL_LIGHT = "pool_light"
+GUEST_KIND_CHARGER = "charger"
+GUEST_KIND_DOORBELL = "doorbell"
 
 _POOL_NEEDLES = ("piscine", "pool", "bassin")
+_CHARGER_NEEDLES = (
+    "borne",
+    "evlink",
+    "evse",
+    "wallbox",
+    "recharge",
+    "charger",
+    "ocpp",
+    "véhicule",
+    "vehicule",
+    "voiture",
+)
+_DOORBELL_NEEDLES = (
+    "sonnette",
+    "visiophone",
+    "doorbell",
+    "interphone",
+    "portier",
+)
+_CHARGING_STATES = ("charging", "charge", "en_charge", "en charge")
+_PLUGGED_STATES = (
+    "preparing",
+    "suspendedev",
+    "suspendedevse",
+    "finishing",
+    "connected",
+    "plugged",
+    "ready",
+    "occupied",
+    "b1",
+    "b2",
+)
+_FAULT_STATES = ("faulted", "fault", "error")
+_IDLE_STATES = ("off", "false", "available", "idle", "a1", "a2", "unavailable")
+_RINGING_STATES = ("on", "true", "ringing", "pressed", "detected", "1")
 _OUTDOOR_NEEDLES = (
     "extérieur",
     "exterieur",
@@ -579,6 +617,8 @@ def classify_guest_entity(
     if domain == "alarm_control_panel":
         return GUEST_KIND_ALARM
     if domain == "light":
+        if _has_needle(label, _POOL_NEEDLES):
+            return GUEST_KIND_POOL_LIGHT
         return GUEST_KIND_LIGHT
     if domain in {"scene", "script"}:
         return GUEST_KIND_SCENE
@@ -589,6 +629,8 @@ def classify_guest_entity(
             return GUEST_KIND_GATE
         return GUEST_KIND_SHUTTER
     if domain == "switch":
+        if _has_needle(label, _POOL_NEEDLES):
+            return GUEST_KIND_POOL_LIGHT
         if _has_needle(label, _GARAGE_NEEDLES):
             return GUEST_KIND_GARAGE
         if _has_needle(label, _GATE_NEEDLES):
@@ -598,6 +640,16 @@ def classify_guest_entity(
         return None
     if domain == "weather":
         return GUEST_KIND_OUTDOOR
+    if domain == "binary_sensor":
+        if klass == "doorbell" or _has_needle(label, _DOORBELL_NEEDLES):
+            return GUEST_KIND_DOORBELL
+        if klass == "battery_charging" or _has_needle(label, _CHARGER_NEEDLES):
+            return GUEST_KIND_CHARGER
+        return None
+    if domain == "event":
+        if klass == "doorbell" or _has_needle(label, _DOORBELL_NEEDLES):
+            return GUEST_KIND_DOORBELL
+        return None
     if domain == "sensor":
         if (
             klass in {"ph", "volatile_acid"}
@@ -606,14 +658,67 @@ def classify_guest_entity(
         ):
             return GUEST_KIND_POOL_PH
         is_temp = klass == "temperature" or measure in _TEMP_UNITS
-        if not is_temp:
+        if is_temp:
+            if _has_needle(label, _POOL_NEEDLES):
+                return GUEST_KIND_POOL_TEMP
+            if _has_needle(label, _OUTDOOR_NEEDLES):
+                return GUEST_KIND_OUTDOOR
             return None
-        if _has_needle(label, _POOL_NEEDLES):
-            return GUEST_KIND_POOL_TEMP
-        if _has_needle(label, _OUTDOOR_NEEDLES):
-            return GUEST_KIND_OUTDOOR
+        if _has_needle(label, _CHARGER_NEEDLES):
+            return GUEST_KIND_CHARGER
         return None
     return None
+
+
+def charger_view_state(
+    raw: str | None, *, unit: str | None = None
+) -> str:
+    """idle / plugged / charging / fault for a wallbox entity."""
+    fold = str(raw or "").casefold().strip()
+    measure = str(unit or "").casefold().replace(" ", "")
+    if fold in _FAULT_STATES:
+        return "fault"
+    if fold in _CHARGING_STATES or fold in {"on", "true", "c2", "d2"}:
+        return "charging"
+    if fold in _PLUGGED_STATES:
+        return "plugged"
+    if fold in _IDLE_STATES:
+        return "idle"
+    number: float | None
+    try:
+        number = float(fold.replace(",", "."))
+    except ValueError:
+        number = None
+    if number is not None:
+        if measure in {"w", "kw"}:
+            watts = number * 1000 if measure == "kw" else number
+            return "charging" if watts >= 50 else "idle"
+        if measure == "a":
+            return "charging" if number >= 1 else "idle"
+        if number in {8, 9}:
+            return "charging"
+        if number in {3, 4, 5, 7}:
+            return "plugged"
+        if number in {0, 1, 2, 6}:
+            return "idle"
+    return "idle"
+
+
+def doorbell_is_ringing(raw: str | None, now: datetime | None = None) -> bool:
+    """True while a doorbell binary sensor is on, or a last-ring event is fresh."""
+    fold = str(raw or "").casefold().strip()
+    if fold in _RINGING_STATES:
+        return True
+    if fold in {"off", "false", "idle", "unknown", "unavailable", "0", "none"}:
+        return False
+    stamped = parse_iso(raw, None if now is None else now.tzinfo)
+    if stamped is None:
+        return False
+    if now is None:
+        now = datetime.now(stamped.tzinfo or timezone.utc)
+    if now.tzinfo is None and stamped.tzinfo is not None:
+        now = now.replace(tzinfo=stamped.tzinfo)
+    return abs((now - stamped).total_seconds()) < 45
 
 
 def alarm_view_state(raw: str | None) -> str:

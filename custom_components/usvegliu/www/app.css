@@ -208,6 +208,51 @@ button:active:not(:disabled) {
   color: var(--muted);
 }
 
+.status-sheet {
+  padding: 18px 20px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.status-sheet + .status-sheet,
+.status-sheet + .weather {
+  margin-top: 10px;
+}
+
+.status-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.status-name {
+  margin-top: 4px;
+  font-family: var(--serif);
+  font-size: 22px;
+}
+
+.status-value {
+  margin-top: 6px;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.status-sheet.live .status-value,
+.access.live .access-status {
+  color: var(--cool);
+}
+
+.status-sheet.ringing .status-value,
+.access.ringing .access-status {
+  color: var(--danger);
+}
+
 .pool-sheet {
   padding: 24px 22px 22px;
   background: var(--paper);
@@ -243,6 +288,10 @@ button:active:not(:disabled) {
 
 .pool-ph .metric-value {
   font-size: 32px;
+}
+
+.pool-lights {
+  margin-top: 10px;
 }
 
 .kicker {
@@ -989,7 +1038,8 @@ h1 {
     display: block;
   }
 
-  .weather {
+  .weather,
+  .status-sheet {
     max-width: 520px;
   }
 

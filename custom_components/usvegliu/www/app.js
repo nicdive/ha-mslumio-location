@@ -169,7 +169,9 @@
         ((state && state.garages) || []).length ||
         ((state && state.gates) || []).length ||
         ((state && state.shutters) || []).length ||
-        ((state && state.alarms) || []).length
+        ((state && state.alarms) || []).length ||
+        ((state && state.doorbells) || []).length ||
+        ((state && state.chargers) || []).length
     );
   }
 
@@ -200,7 +202,11 @@
   }
 
   function hasPool() {
-    return Boolean(metricByKind("pool_temp") || metricByKind("pool_ph"));
+    return Boolean(
+      metricByKind("pool_temp") ||
+        metricByKind("pool_ph") ||
+        ((state && state.pool_lights) || []).length
+    );
   }
 
   function tabItems() {
@@ -408,23 +414,79 @@
     </svg>`;
   }
 
+  function chargerStatus(item) {
+    if (item.state === "charging") return "En charge";
+    if (item.state === "plugged") return "Branché";
+    if (item.state === "fault") return "Hors service";
+    return "Libre";
+  }
+
+  function doorbellStatus(item) {
+    return item.ringing || item.state === "ringing" ? "Quelqu'un sonne" : "En attente";
+  }
+
+  function statusCards() {
+    const chargers = (state && state.chargers) || [];
+    const doorbells = ((state && state.doorbells) || []).filter(
+      (item) => item.ringing || item.state === "ringing"
+    );
+    if (!chargers.length && !doorbells.length) return "";
+    const chargerRows = chargers
+      .map(
+        (item) => `<section class="status-sheet${item.state === "charging" ? " live" : ""}">
+        <div class="status-label">Borne</div>
+        <div class="status-name">${escapeHtml(item.name)}</div>
+        <div class="status-value">${escapeHtml(chargerStatus(item))}</div>
+      </section>`
+      )
+      .join("");
+    const bellRows = doorbells
+      .map(
+        (item) => `<section class="status-sheet ringing">
+        <div class="status-label">Entrée</div>
+        <div class="status-name">${escapeHtml(item.name)}</div>
+        <div class="status-value">${escapeHtml(doorbellStatus(item))}</div>
+      </section>`
+      )
+      .join("");
+    return `${bellRows}${chargerRows}`;
+  }
+
+  function poolLights() {
+    const lights = (state && state.pool_lights) || [];
+    if (!lights.length) return "";
+    return `<div class="light-list pool-lights">${lights
+      .map(
+        (light) => `<button class="row" type="button" data-act="pool-light" data-id="${escapeAttr(light.entity_id)}">
+          <span>${escapeHtml(light.name)}</span>
+          <span class="${light.on ? "" : "off"}">${light.on ? "Allumée" : "Éteinte"}</span>
+        </button>`
+      )
+      .join("")}</div>`;
+  }
+
   function poolSection() {
     const water = metricByKind("pool_temp");
     const ph = metricByKind("pool_ph");
-    if (!water && !ph) return "";
+    const lights = poolLights();
+    if (!water && !ph && !lights) return "";
     const temp = water
       ? `<div class="pool-temp">
           <div class="metric-value">${escapeHtml(formatTemp(water.value))}°</div>
           <div class="metric-label">Eau</div>
         </div>`
       : "";
-    const phLine = ph
-      ? `<div class="pool-ph"><span class="metric-label">pH</span><span class="metric-value">${escapeHtml(formatTemp(ph.value))}</span></div>`
-      : "";
-    return `<section class="pool-sheet">
+    const hero = water || ph
+      ? `<section class="pool-sheet">
       <div class="pool-hero">${poolGlyph()}${temp}</div>
-      ${phLine}
-    </section>`;
+      ${
+        ph
+          ? `<div class="pool-ph"><span class="metric-label">pH</span><span class="metric-value">${escapeHtml(formatTemp(ph.value))}</span></div>`
+          : ""
+      }
+    </section>`
+      : "";
+    return `${hero}${lights}`;
   }
 
   function modeSwitch() {
@@ -589,7 +651,17 @@
     const gates = (state && state.gates) || [];
     const shutters = (state && state.shutters) || [];
     const alarms = (state && state.alarms) || [];
-    if (!locks.length && !garages.length && !gates.length && !alarms.length && !shutters.length) {
+    const doorbells = (state && state.doorbells) || [];
+    const chargers = (state && state.chargers) || [];
+    if (
+      !locks.length &&
+      !garages.length &&
+      !gates.length &&
+      !alarms.length &&
+      !shutters.length &&
+      !doorbells.length &&
+      !chargers.length
+    ) {
       return "";
     }
     const lockRows = locks.map((lock) =>
@@ -623,11 +695,29 @@
         alarm.state === "triggered" ? " triggered" : ""
       )
     );
-    return `<div class="access-list">${lockRows.join("")}${coverRows.join("")}${shutterBlock}${alarmRows.join("")}</div>`;
+    const doorbellRows = doorbells.map(
+      (item) =>
+        `<div class="access${item.ringing || item.state === "ringing" ? " ringing" : ""}">
+        <div class="access-copy">
+          <div class="access-name">${escapeHtml(item.name)}</div>
+          <div class="access-status">${escapeHtml(doorbellStatus(item))}</div>
+        </div>
+      </div>`
+    );
+    const chargerRows = chargers.map(
+      (item) =>
+        `<div class="access${item.state === "charging" ? " live" : ""}">
+        <div class="access-copy">
+          <div class="access-name">${escapeHtml(item.name)}</div>
+          <div class="access-status">${escapeHtml(chargerStatus(item))}</div>
+        </div>
+      </div>`
+    );
+    return `<div class="access-list">${doorbellRows.join("")}${lockRows.join("")}${coverRows.join("")}${shutterBlock}${alarmRows.join("")}${chargerRows.join("")}</div>`;
   }
 
   function homePage() {
-    return `${welcomeHead()}${weatherCard()}`;
+    return `${welcomeHead()}${statusCards()}${weatherCard()}`;
   }
 
   function climateHead() {
@@ -831,10 +921,11 @@
       commandClimate(id, { fan: Number(button.getAttribute("data-fan")) });
       return;
     }
-    if (act === "light") {
-      const light = (state.lights || []).find((item) => item.entity_id === id);
+    if (act === "light" || act === "pool-light") {
+      const listKey = act === "pool-light" ? "pool_lights" : "lights";
+      const light = ((state && state[listKey]) || []).find((item) => item.entity_id === id);
       if (!light) return;
-      commandEntity("lights", id, light.on ? "off" : "on", { on: !light.on });
+      commandEntity(listKey, id, light.on ? "off" : "on", { on: !light.on });
       return;
     }
     if (act === "scene") {
