@@ -47,7 +47,7 @@
           "max_stay_days": "Maximum stay length (days)",
           "lookahead_days": "Calendar lookahead (days)",
           "enable_vouchers": "Create UniFi vouchers",
-          "enable_nuki": "Create a Nuki Keypad code",
+          "enable_nuki": "Nuki Keypad PIN",
           "nuki_token": "Nuki Web API token",
           "nuki_smartlock_id": "Smartlock id (optional)",
           "enable_access": "Create guest accounts",
@@ -85,7 +85,7 @@
           "pool_temperature": "Shown on the Pool tab. Read-only.",
           "pool_ph": "Optional. Read-only.",
           "alarm_code": "Used server-side to arm/disarm. Never sent to the browser. Empty = keep the stored code.",
-          "enable_nuki": "One door PIN per stay, issued in advance like Wi-Fi, revoked at the end of departure day. Requires a paired Nuki Keypad and a Web API token.",
+          "enable_nuki": "Per-stay Keypad PIN (mail, Infos, Console). Independent of unlocking the Nuki lock in Maison. Unchecked: the welcome mail still goes out without a door code.",
           "nuki_token": "Created at https://web.nuki.io (API). Empty = keep the stored token.",
           "nuki_smartlock_id": "Leave empty if there is only one lock. Otherwise the numeric Nuki id of the front door."
         }
@@ -143,7 +143,7 @@
           "max_stay_days": "Maximum stay length (days)",
           "lookahead_days": "Calendar lookahead (days)",
           "enable_vouchers": "Create UniFi vouchers",
-          "enable_nuki": "Create a Nuki Keypad code",
+          "enable_nuki": "Nuki Keypad PIN",
           "nuki_token": "Nuki Web API token",
           "nuki_smartlock_id": "Smartlock id (optional)",
           "enable_access": "Create guest accounts",
@@ -169,7 +169,7 @@
           "pool_temperature": "Read-only, on the Pool tab.",
           "pool_ph": "Optional, read-only.",
           "alarm_code": "Never sent to the browser. Empty = keep the stored code.",
-          "enable_nuki": "One door PIN per stay, revoked at the end of departure day.",
+          "enable_nuki": "Per-stay Keypad PIN. Unchecked: the mail goes without a door code. Maison lock/unlock does not depend on this.",
           "nuki_token": "Nuki Web API token. Empty = keep the stored token.",
           "nuki_smartlock_id": "Empty = first lock with a Keypad."
         }

@@ -50,13 +50,13 @@ Le dépôt doit être **public**. HACS n'installe pas un dépôt privé.
 
 1. HACS → ⋮ → *Dépôts personnalisés*.
 2. URL `https://github.com/nicdive/ha-mslumio-location`, catégorie **Intégration**.
-3. Télécharger **Usvegliu** en choisissant une **release GitHub** (dernière : [0.6.23](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.23)), pas le commit d'une branche.
+3. Télécharger **Usvegliu** en choisissant une **release GitHub** (dernière : [0.6.24](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.24)), pas le commit d'une branche.
 4. Redémarrer Home Assistant.
 5. Paramètres → Appareils et services → Ajouter une intégration → **Usvegliu**.
 
-Pour **mettre à jour** (ex. 0.6.22 → 0.6.23) : HACS → Usvegliu → ⋮ → **Redownload** → **0.6.23**, puis redémarrer. Le numéro dans Paramètres → Intégrations ne change qu'après ce redémarrage.
+Pour **mettre à jour** (ex. 0.6.23 → 0.6.24) : HACS → Usvegliu → ⋮ → **Redownload** → **0.6.24**, puis redémarrer. Le numéro dans Paramètres → Intégrations ne change qu'après ce redémarrage.
 
-HACS ne liste une version **que** si la [release GitHub](https://github.com/nicdive/ha-mslumio-location/releases) existe. Un numéro dans le `manifest.json` ou une pull request ne suffit pas : sans tag `v0.6.23` poussé, 0.6.23 n'apparaît pas.
+HACS ne liste une version **que** si la [release GitHub](https://github.com/nicdive/ha-mslumio-location/releases) existe. Un numéro dans le `manifest.json` ou une pull request ne suffit pas : sans tag `v0.6.24` poussé, 0.6.24 n'apparaît pas.
 
 ## Versions
 
@@ -143,21 +143,25 @@ Le formulaire demande ensuite :
 | Switch chauffage / climatisation | vide | Interrupteur du propriétaire. **Allumé = climatisation**, **éteint = chauffage**. Le locataire le lit, il ne le commande pas. |
 | Température extérieure / piscine / pH | vide | Capteurs affichés en tête de la web app, lecture seule. |
 | Code alarme | vide | Si le panneau HA exige un code. Reste sur le serveur. |
-| Créer un code Keypad Nuki | désactivé | Un PIN porte par séjour. Exige un Keypad jumelé et le jeton ci-dessous. |
+| Code PIN Nuki (Keypad) | désactivé | PIN porte par séjour. **Indépendant** du déverrouillage Nuki dans Maison (`lock`). Décochez : le mail d'accueil part sans code porte. |
 | Jeton Nuki Web API | vide | Créé sur [web.nuki.io](https://web.nuki.io) (API). Comme le code alarme : un champ mot de passe, vide = ne pas changer. |
 | Identifiant smartlock | vide | Laissez vide s'il n'y a qu'une serrure. Sinon l'id numérique Nuki de la porte d'entrée. |
 
 ## Keypad Nuki
 
-Le déverrouillage distant Maison (`lock.unlock`) n'est pas un code porte. Pour un PIN par locataire il faut un **Nuki Keypad** (1 ou 2) jumelé à la serrure, et l'API Web Nuki — Home Assistant / Matter ne gèrent pas ces codes.
+Ouvrir ou fermer la porte depuis Maison (`lock.unlock` / `lock.lock`) utilise l'entité Nuki déjà dans Home Assistant. Ça n'a pas besoin de Keypad ni de PIN.
+
+Le **code PIN** est une option à part : un code par locataire, à taper sur le Keypad. Décochez **Code PIN Nuki (Keypad)** si vous n'avez pas (encore) de clavier : le mail d'accueil part quand même, sans code porte.
+
+Pour les PIN :
 
 1. Jumeler le Keypad dans l'app Nuki.
-2. Sur [web.nuki.io](https://web.nuki.io) : créer un jeton API, le coller dans les options Usvegliu, cocher **Créer un code Keypad Nuki**.
+2. Sur [web.nuki.io](https://web.nuki.io) : créer un jeton API, le coller dans les options Usvegliu, cocher **Code PIN Nuki (Keypad)**.
 3. Usvegliu crée un PIN 6 chiffres (1–9, jamais 0, ne commence pas par 12) dans la fenêtre d'avance, le met dans le mail J−2, Infos et la Console, et le retire à la **fin du jour de départ** (le Wi-Fi peut rester un jour de plus).
 
-Le PIN n'est pas dans le CSV ni les logs. Airbnb peut déjà envoyer des codes Nuki de son côté : Usvegliu sert les réservations calendrier / directes. Laisser `lock.…` coché si le déverrouillage distant Maison doit rester un secours.
+Le PIN n'est pas dans le CSV ni les logs. Airbnb peut déjà envoyer des codes Nuki de son côté : Usvegliu sert les réservations calendrier / directes.
 
-Si Nuki ne répond pas, UniFi et le compte HA continuent. Le PIN est réessayé au cycle suivant ; le mail d'accueil attend le code tant que le Keypad est activé.
+Si Nuki ne répond pas, UniFi et le compte HA continuent. Le PIN est réessayé au cycle suivant ; le mail d'accueil n'attend le code que si l'option PIN est cochée et le jeton présent.
 
 Un second passage avec les mêmes dates ne crée pas un deuxième voucher ni un deuxième compte. Au redémarrage, un voucher qui porte déjà le nom `<locataire> <arrivée>/<départ>` est réutilisé ; un doublon de ce nom est supprimé.
 
@@ -245,7 +249,7 @@ L'intégration crée les deux tableaux si la collection Lovelace est joignable. 
 
 Ce n'est **pas** le tableau **Séjour** (locataire) ni un tableau créé à la main sous un autre nom. Dans Home Assistant 2026, le bouton **+** des tableaux de bord ne reprend pas le titre comme URL : « Location » devient `dashboard-location`, donc l'intégration n'y écrit rien.
 
-1. Mettre à jour Usvegliu ([0.6.23](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.23)+), redémarrer Home Assistant.
+1. Mettre à jour Usvegliu ([0.6.24](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.24)+), redémarrer Home Assistant.
 2. Outils de développement → Actions → `usvegliu.appliquer_tableau` → Exécuter.
 3. Dans la barre latérale, ouvrir **Console**, ou l'URL `/usvegliu-proprietaire`.
 

@@ -379,6 +379,7 @@ def issued_account_view(
     tableau: str,
     wifi_ssid: str = "",
     now: datetime | None = None,
+    nuki_pins: bool = False,
 ) -> dict[str, Any]:
     """Admin row for one issued stay, including the HA password.
 
@@ -428,8 +429,8 @@ def issued_account_view(
             wifi_ssid=ssid,
             voucher_code=code,
             voucher_revoked=revoked,
-            nuki_code=door,
-            nuki_revoked=nuki_revoked,
+            nuki_code=door if nuki_pins else None,
+            nuki_revoked=nuki_revoked if nuki_pins else False,
             preview=preview,
         ),
         "path": path,

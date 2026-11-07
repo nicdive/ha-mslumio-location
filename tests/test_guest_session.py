@@ -309,6 +309,39 @@ def test_guest_welcome_message_is_villa_copy_without_ha_login():
     assert "Code d'accès : 8065941041" in bare
 
 
+def test_nuki_pin_option_controls_welcome_copy_not_the_lock():
+    record = {
+        "key": "live",
+        "guest": "Ada",
+        "check_in": "2026-07-10T00:00:00+00:00",
+        "check_out": "2026-07-17T00:00:00+00:00",
+        "voucher_code": "WIFIXY",
+        "nuki_code": "345678",
+    }
+    without_pin = issued_account_view(
+        record,
+        username="loc-ada",
+        password="secret",
+        lien_maison="https://www.usvegliu.fr/s/TTTT",
+        path="/usvegliu/s/TTTT",
+        tableau="/usvegliu-sejour",
+        nuki_pins=False,
+    )
+    assert without_pin["nuki_code"] == "345678"
+    assert "345678" not in without_pin["message_invite"]
+    assert "Code porte" not in without_pin["message_invite"]
+    with_pin = issued_account_view(
+        record,
+        username="loc-ada",
+        password="secret",
+        lien_maison="https://www.usvegliu.fr/s/TTTT",
+        path="/usvegliu/s/TTTT",
+        tableau="/usvegliu-sejour",
+        nuki_pins=True,
+    )
+    assert "Code porte (Keypad) : 345678" in with_pin["message_invite"]
+
+
 def test_expired_preview_is_rejected():
     now = datetime(2026, 7, 12, tzinfo=UTC)
     preview = build_preview_record(now - timedelta(hours=30), hours=24)

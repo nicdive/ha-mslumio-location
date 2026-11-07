@@ -240,11 +240,17 @@ class UsvegliuRuntime:
                 smartlock_id = None
         return NukiClient(self.session, token, smartlock_id=smartlock_id)
 
+    def nuki_pin_option(self) -> bool:
+        """True when the owner asked for per-stay Keypad PINs.
+
+        Independent of using the Nuki ``lock`` entity in Maison to open
+        or close the door.
+        """
+        return bool(self.entry.options.get(CONF_ENABLE_NUKI, False))
+
     def nuki_enabled(self) -> bool:
         """True when keypad PINs should be created for new stays."""
-        return bool(self.entry.options.get(CONF_ENABLE_NUKI, False)) and (
-            self.nuki_client() is not None
-        )
+        return self.nuki_pin_option() and self.nuki_client() is not None
 
     def weather(self) -> dict[str, Any] | None:
         """Last Lumio forecast, or None until the first successful fetch."""
@@ -577,7 +583,7 @@ class UsvegliuRuntime:
             ),
             "enable_access": bool(options.get(CONF_ENABLE_ACCESS, True)),
             "enable_vouchers": bool(options.get(CONF_ENABLE_VOUCHERS, True)),
-            "enable_nuki": self.nuki_enabled(),
+            "enable_nuki": self.nuki_pin_option(),
             "nuki_configured": self.nuki_client() is not None,
             "access_mode": mode,
             "access_mode_label": labels.get(mode, mode),
@@ -830,6 +836,7 @@ class UsvegliuRuntime:
             if not token:
                 continue
             link = self.guest_link(record)["url"]
+            include_pin = self.nuki_pin_option()
             body = guest_welcome_message(
                 guest=str(record.get("guest") or ""),
                 check_in=str(record.get("check_in") or ""),
@@ -838,8 +845,10 @@ class UsvegliuRuntime:
                 wifi_ssid=self.wifi_ssid(),
                 voucher_code=str(record.get("voucher_code") or "") or None,
                 voucher_revoked=bool(record.get("voucher_revoked")),
-                nuki_code=str(record.get("nuki_code") or "") or None,
-                nuki_revoked=bool(record.get("nuki_revoked")),
+                nuki_code=(
+                    str(record.get("nuki_code") or "") or None if include_pin else None
+                ),
+                nuki_revoked=bool(record.get("nuki_revoked")) if include_pin else False,
                 preview=False,
             )
             try:
@@ -1092,6 +1101,7 @@ def _issued_rows(
                 path=str(link.get("path") or ""),
                 tableau=f"/{DASHBOARD_URL}",
                 wifi_ssid=runtime.wifi_ssid(),
+                nuki_pins=runtime.nuki_pin_option(),
                 now=now,  # type: ignore[arg-type]
             )
         )

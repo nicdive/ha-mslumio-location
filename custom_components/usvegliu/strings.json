@@ -47,7 +47,7 @@
           "max_stay_days": "Durée max d'un séjour (jours)",
           "lookahead_days": "Horizon du calendrier (jours)",
           "enable_vouchers": "Créer les vouchers UniFi",
-          "enable_nuki": "Créer un code Keypad Nuki",
+          "enable_nuki": "Code PIN Nuki (Keypad)",
           "nuki_token": "Jeton Nuki Web API",
           "nuki_smartlock_id": "Identifiant du smartlock (optionnel)",
           "enable_access": "Créer les comptes locataires",
@@ -85,7 +85,7 @@
           "pool_temperature": "Affichée dans l'onglet Pool. Lecture seule.",
           "pool_ph": "Optionnel. Lecture seule.",
           "alarm_code": "Utilisé côté serveur pour armer/désarmer. Jamais envoyé au navigateur. Vide = conserver le code déjà enregistré.",
-          "enable_nuki": "Un code porte par séjour, créé à l'avance comme le Wi-Fi, retiré à la fin du jour de départ. Exige un Keypad Nuki jumelé et un jeton Web API.",
+          "enable_nuki": "PIN Keypad par séjour (mail, Infos, Console). Indépendant du déverrouillage Nuki dans Maison (entité lock). Décochez : le mail d'accueil part sans code porte.",
           "nuki_token": "Créé sur https://web.nuki.io (API). Vide = conserver le jeton déjà enregistré.",
           "nuki_smartlock_id": "Laissez vide s'il n'y a qu'une serrure. Sinon l'identifiant numérique Nuki de la porte d'entrée."
         }
@@ -143,7 +143,7 @@
           "max_stay_days": "Durée max d'un séjour (jours)",
           "lookahead_days": "Horizon du calendrier (jours)",
           "enable_vouchers": "Créer les vouchers UniFi",
-          "enable_nuki": "Créer un code Keypad Nuki",
+          "enable_nuki": "Code PIN Nuki (Keypad)",
           "nuki_token": "Jeton Nuki Web API",
           "nuki_smartlock_id": "Identifiant du smartlock (optionnel)",
           "enable_access": "Créer les comptes locataires",
@@ -169,7 +169,7 @@
           "pool_temperature": "Lecture seule, dans l'onglet Pool.",
           "pool_ph": "Optionnel, lecture seule.",
           "alarm_code": "Jamais envoyé au navigateur. Vide = ne pas changer.",
-          "enable_nuki": "Un code porte par séjour, retiré à la fin du jour de départ.",
+          "enable_nuki": "PIN Keypad par séjour. Décochez : le mail part sans code porte. Le bouton ouvrir/fermer de Maison n'en dépend pas.",
           "nuki_token": "Jeton Nuki Web API. Vide = ne pas changer.",
           "nuki_smartlock_id": "Vide = première serrure avec Keypad."
         }

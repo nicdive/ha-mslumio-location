@@ -212,17 +212,6 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
                 CONF_ALARM_CODE, default=""
             ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
             vol.Required(
-                CONF_ENABLE_NUKI,
-                default=defaults.get(CONF_ENABLE_NUKI, False),
-            ): BooleanSelector(),
-            vol.Optional(
-                CONF_NUKI_TOKEN, default=""
-            ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
-            vol.Optional(
-                CONF_NUKI_SMARTLOCK_ID,
-                default=defaults.get(CONF_NUKI_SMARTLOCK_ID, ""),
-            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
-            vol.Required(
                 CONF_JOURNAL_PATH,
                 default=defaults.get(CONF_JOURNAL_PATH, DEFAULT_JOURNAL_PATH),
             ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
@@ -244,6 +233,17 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
             vol.Required(
                 CONF_ENABLE_ACCESS, default=defaults.get(CONF_ENABLE_ACCESS, True)
             ): BooleanSelector(),
+            vol.Required(
+                CONF_ENABLE_NUKI,
+                default=defaults.get(CONF_ENABLE_NUKI, False),
+            ): BooleanSelector(),
+            vol.Optional(
+                CONF_NUKI_TOKEN, default=""
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
+            vol.Optional(
+                CONF_NUKI_SMARTLOCK_ID,
+                default=defaults.get(CONF_NUKI_SMARTLOCK_ID, ""),
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
             vol.Required(
                 CONF_PRINT_EVENT, default=defaults.get(CONF_PRINT_EVENT, False)
             ): BooleanSelector(),

@@ -422,8 +422,10 @@ def test_owner_console_dashboard_has_live_credentials_and_actions():
     assert "Les codes d'accès sont déjà dans le message" in dumped
     assert "s.nuki_code" in dumped
     assert "Code porte (Keypad)" in dumped
-    assert "Keypad Nuki" in dumped
+    assert "Code PIN Nuki" in dumped
     assert "a.enable_nuki" in dumped
+    assert "mail sans code porte" in dumped
+    assert "reglages.enable_nuki" in dumped
     assert "Réseau Wi-Fi :" in dumped
     assert "Usvegliu-Guest" in dumped
     assert "reglages.wifi_ssid" in dumped
@@ -731,6 +733,8 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert "nuki_revoked" in http
     assert 'CONF_ENABLE_NUKI: Final = "enable_nuki"' in const
     assert 'CONF_NUKI_TOKEN: Final = "nuki_token"' in const
+    assert "def nuki_pin_option" in coord
+    assert "Code PIN Nuki" in flow or "CONF_ENABLE_NUKI" in flow
     assert "data-act=\"copy\"" in js
     assert "too_early" in http
     assert "too_early" in js
