@@ -35,6 +35,7 @@ from .guest_session import (
     GUEST_KIND_POOL_TEMP,
     GUEST_KIND_SCENE,
     GUEST_KIND_SHUTTER,
+    GUEST_KIND_SPEAKER,
     alarm_view_state,
     charger_view_state,
     classify_guest_entity,
@@ -44,6 +45,7 @@ from .guest_session import (
     cover_is_open,
     doorbell_is_ringing,
     guest_alarm_service,
+    speaker_view_state,
     house_mode_label,
     TYDOM_DOMAIN,
     TYDOM_SET_MODE,
@@ -72,6 +74,7 @@ _GUEST_DOMAINS = frozenset(
         "event",
         "camera",
         "weather",
+        "media_player",
     }
 )
 _COMMAND_KINDS = frozenset(
@@ -84,6 +87,7 @@ _COMMAND_KINDS = frozenset(
         GUEST_KIND_GARAGE,
         GUEST_KIND_GATE,
         GUEST_KIND_SHUTTER,
+        GUEST_KIND_SPEAKER,
     }
 )
 
@@ -350,6 +354,21 @@ def _serialize_camera(hass: Any, entity_id: str) -> dict[str, Any] | None:
     }
 
 
+def _serialize_speaker(hass: Any, entity_id: str) -> dict[str, Any] | None:
+    state = hass.states.get(entity_id)
+    if state is None:
+        return None
+    volume = _as_float(state.attributes.get("volume_level"))
+    muted = bool(state.attributes.get("is_volume_muted"))
+    return {
+        "entity_id": entity_id,
+        "name": str(state.attributes.get("friendly_name") or entity_id),
+        "state": speaker_view_state(str(state.state)),
+        "volume": 0 if volume is None else int(round(max(0.0, min(1.0, volume)) * 100)),
+        "muted": muted,
+    }
+
+
 def _serialize_doorbell(hass: Any, entity_id: str) -> dict[str, Any] | None:
     state = hass.states.get(entity_id)
     if state is None:
@@ -532,6 +551,11 @@ def _snapshot(
             item
             for entity_id in _ids(grouped, GUEST_KIND_CAMERA)
             if (item := _serialize_camera(hass, entity_id))
+        ],
+        "speakers": [
+            item
+            for entity_id in _ids(grouped, GUEST_KIND_SPEAKER)
+            if (item := _serialize_speaker(hass, entity_id))
         ],
     }
 
@@ -801,7 +825,7 @@ class GuestLockView(HomeAssistantView):
 
 
 class GuestCommandView(HomeAssistantView):
-    """Lights, scenes, covers, garage, gate, alarm — stay allow-list only."""
+    """Lights, scenes, covers, garage, gate, alarm, speakers — stay allow-list only."""
 
     requires_auth = False
     cors_allowed = True
@@ -821,6 +845,7 @@ class GuestCommandView(HomeAssistantView):
             return _json_error(self, 400, "bad_json")
         entity_id = str(body.get("entity_id") or "")
         action = str(body.get("action") or "")
+        value = body.get("value")
         allowed = runtime.allowed_entity_ids(record)
         if entity_id not in allowed:
             return _json_error(self, 403, "forbidden")
@@ -828,7 +853,7 @@ class GuestCommandView(HomeAssistantView):
         if kind not in _COMMAND_KINDS:
             return _json_error(self, 403, "forbidden")
         try:
-            await _async_guest_command(hass, runtime, entity_id, kind, action)
+            await _async_guest_command(hass, runtime, entity_id, kind, action, value)
         except ValueError:
             return _json_error(self, 400, "bad_action")
         except Exception:  # noqa: BLE001
@@ -838,7 +863,12 @@ class GuestCommandView(HomeAssistantView):
 
 
 async def _async_guest_command(
-    hass: Any, runtime: Any, entity_id: str, kind: str, action: str
+    hass: Any,
+    runtime: Any,
+    entity_id: str,
+    kind: str,
+    action: str,
+    value: Any = None,
 ) -> None:
     domain = entity_id.split(".", 1)[0]
     data: dict[str, Any] = {"entity_id": entity_id}
@@ -884,7 +914,52 @@ async def _async_guest_command(
         )
         await hass.services.async_call(domain, service, payload, blocking=True)
         return
+    if kind == GUEST_KIND_SPEAKER:
+        await _async_speaker_command(hass, entity_id, action, value)
+        return
     raise ValueError("bad_action")
+
+
+async def _async_speaker_command(
+    hass: Any, entity_id: str, action: str, value: Any
+) -> None:
+    data: dict[str, Any] = {"entity_id": entity_id}
+    if action == "volume":
+        level = _as_float(value)
+        if level is None:
+            raise ValueError("bad_action")
+        volume = max(0.0, min(100.0, level)) / 100.0
+        await hass.services.async_call(
+            "media_player",
+            "volume_set",
+            {**data, "volume_level": volume},
+            blocking=True,
+        )
+        return
+    if action == "mute":
+        await hass.services.async_call(
+            "media_player",
+            "volume_mute",
+            {**data, "is_volume_muted": True},
+            blocking=True,
+        )
+        return
+    if action == "unmute":
+        await hass.services.async_call(
+            "media_player",
+            "volume_mute",
+            {**data, "is_volume_muted": False},
+            blocking=True,
+        )
+        return
+    service = {
+        "play": "media_play",
+        "pause": "media_pause",
+        "stop": "media_stop",
+    }.get(action)
+    if not service:
+        raise ValueError("bad_action")
+    await hass.services.async_call("media_player", service, data, blocking=True)
 
 
 def _serialize_command_result(hass: Any, entity_id: str, kind: str) -> dict[str, Any] | None:
@@ -898,6 +973,8 @@ def _serialize_command_result(hass: Any, entity_id: str, kind: str) -> dict[str,
         return _serialize_lock(hass, entity_id)
     if kind == GUEST_KIND_ALARM:
         return _serialize_alarm(hass, entity_id)
+    if kind == GUEST_KIND_SPEAKER:
+        return _serialize_speaker(hass, entity_id)
     return {"entity_id": entity_id}
 
 

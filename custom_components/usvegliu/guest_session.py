@@ -536,6 +536,7 @@ GUEST_KIND_POOL_LIGHT = "pool_light"
 GUEST_KIND_CHARGER = "charger"
 GUEST_KIND_DOORBELL = "doorbell"
 GUEST_KIND_CAMERA = "camera"
+GUEST_KIND_SPEAKER = "speaker"
 TYDOM_DOMAIN = "deltadore_tydom"
 TYDOM_SET_MODE = "set_mode_using_stored_pin"
 
@@ -558,7 +559,11 @@ _DOORBELL_NEEDLES = (
     "doorbell",
     "interphone",
     "portier",
+    "linea 3000",
+    "300eos",
+    "classe 300",
 )
+_TV_CLASSES = ("tv", "receiver")
 _CHARGING_STATES = ("charging", "charge", "en_charge", "en charge")
 _PLUGGED_STATES = (
     "preparing",
@@ -621,6 +626,10 @@ def classify_guest_entity(
         return GUEST_KIND_ALARM
     if domain == "camera":
         return GUEST_KIND_CAMERA
+    if domain == "media_player":
+        if klass in _TV_CLASSES:
+            return None
+        return GUEST_KIND_SPEAKER
     if domain == "light":
         if _has_needle(label, _POOL_NEEDLES):
             return GUEST_KIND_POOL_LIGHT
@@ -673,6 +682,16 @@ def classify_guest_entity(
             return GUEST_KIND_CHARGER
         return None
     return None
+
+
+def speaker_view_state(raw: str | None) -> str:
+    """playing / paused / idle for a Sonos Amp or other media_player."""
+    fold = str(raw or "").casefold().strip()
+    if fold in {"playing", "buffering"}:
+        return "playing"
+    if fold == "paused":
+        return "paused"
+    return "idle"
 
 
 def charger_view_state(

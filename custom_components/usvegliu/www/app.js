@@ -8,7 +8,8 @@
       tab === "lights" ||
       tab === "access" ||
       tab === "info" ||
-      tab === "pool"
+      tab === "pool" ||
+      tab === "sound"
     ) {
       return tab;
     }
@@ -68,6 +69,7 @@
         '<circle cx="9.2" cy="12" r="3.4" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M12.4 12 H20 V14.6 H17.4 V17" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
       info: '<path d="M4.6 16.6 L7.2 9.2 H9.8 L7.2 16.6 Z M12.2 7.4 H19.4 M12.2 12 H19.4 M12.2 16.6 H17.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
       pool: '<path d="M4 16.6 C6.2 14.8 8.4 14.8 10.6 16.6 C12.8 18.4 15 18.4 17.2 16.6 C18.2 15.8 19.2 15.6 20 15.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M4 12.4 C6.2 10.6 8.4 10.6 10.6 12.4 C12.8 14.2 15 14.2 17.2 12.4 C18.2 11.6 19.2 11.4 20 11.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M8.4 7.2 C9.2 5.6 10.6 5 12 5.8 C13.4 6.6 13.8 8.2 13 9.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+      sound: '<path d="M4.6 9 H8.4 L13 4.8 V19.2 L8.4 15 H4.6 Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M15.4 9.2 C16.8 10.4 16.8 13.6 15.4 14.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M17.4 7.2 C19.8 9.2 19.8 14.8 17.4 16.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
     };
     return `<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">${icons[kind] || ""}</svg>`;
   }
@@ -219,6 +221,9 @@
       items.push({ id: "lights", label: "Lumière", icon: "lights" });
     }
     if (hasAccess()) items.push({ id: "access", label: "Accès", icon: "access" });
+    if (((state && state.speakers) || []).length) {
+      items.push({ id: "sound", label: "Son", icon: "sound" });
+    }
     if (hasInfo()) items.push({ id: "info", label: "Infos", icon: "info" });
     return items;
   }
@@ -760,6 +765,41 @@
     return `<div class="access-list">${doorbellRows.join("")}${lockRows.join("")}${coverRows.join("")}${shutterBlock}${alarmRows.join("")}${chargerRows.join("")}</div>`;
   }
 
+  function speakerStatus(item) {
+    if (item.muted) return "Muet";
+    if (item.state === "playing") return "En lecture";
+    if (item.state === "paused") return "En pause";
+    return "Libre";
+  }
+
+  function soundSection() {
+    const speakers = (state && state.speakers) || [];
+    if (!speakers.length) return "";
+    const zones = speakers
+      .map((item) => {
+        const live = item.state === "playing" && !item.muted;
+        return `<section class="sound-zone${live ? " live" : ""}">
+          <div class="sound-top">
+            <div class="sound-name">${escapeHtml(item.name)}</div>
+            <button class="sound-status" type="button" data-act="sound" data-id="${escapeAttr(item.entity_id)}" data-cmd="${item.state === "playing" ? "pause" : "play"}">${escapeHtml(speakerStatus(item))}</button>
+          </div>
+          <div class="sound-vol">
+            <button class="chevron" type="button" data-act="sound-vol" data-id="${escapeAttr(item.entity_id)}" data-cmd="down" aria-label="Moins fort">
+              <svg width="10" height="16" viewBox="0 0 10 16"><path d="M8 1 L2 8 L8 15" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <span>${escapeHtml(String(item.volume || 0))} %</span>
+            <button class="chevron" type="button" data-act="sound-vol" data-id="${escapeAttr(item.entity_id)}" data-cmd="up" aria-label="Plus fort">
+              <svg width="10" height="16" viewBox="0 0 10 16"><path d="M2 1 L8 8 L2 15" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button class="sound-mute" type="button" data-act="sound" data-id="${escapeAttr(item.entity_id)}" data-cmd="${item.muted ? "unmute" : "mute"}">${item.muted ? "Son" : "Muet"}</button>
+          </div>
+        </section>`;
+      })
+      .join("");
+    return `<button class="access-action filled sound-cut" type="button" data-act="sound-cut">Tout couper</button>
+      <div class="sound-list">${zones}</div>`;
+  }
+
   function homePage() {
     return `${welcomeHead()}${statusCards()}${weatherCard()}`;
   }
@@ -801,11 +841,18 @@
     return `${pageHead("Pool")}${body}`;
   }
 
+  function soundPage() {
+    const body = soundSection();
+    if (!body) return `${pageHead("Son")}<p class="empty">Aucune zone son pour ce séjour.</p>`;
+    return `${pageHead("Son")}${body}`;
+  }
+
   function pageView() {
     if (screen === "climate") return climatePage();
     if (screen === "pool") return poolPage();
     if (screen === "lights") return lightsPage();
     if (screen === "access") return accessPage();
+    if (screen === "sound") return soundPage();
     if (screen === "info") return infoPage();
     return homePage();
   }
@@ -1002,6 +1049,50 @@
         open: true,
         state: "open",
       });
+      return;
+    }
+    if (act === "sound-cut") {
+      ((state && state.speakers) || []).forEach((item) => {
+        commandEntity("speakers", item.entity_id, "stop", {
+          state: "idle",
+          muted: false,
+        });
+      });
+      return;
+    }
+    if (act === "sound") {
+      const speaker = ((state && state.speakers) || []).find((item) => item.entity_id === id);
+      if (!speaker) return;
+      const cmd = button.getAttribute("data-cmd");
+      if (cmd === "pause") {
+        commandEntity("speakers", id, "pause", { state: "paused" });
+        return;
+      }
+      if (cmd === "play") {
+        commandEntity("speakers", id, "play", { state: "playing", muted: false });
+        return;
+      }
+      if (cmd === "mute") {
+        commandEntity("speakers", id, "mute", { muted: true });
+        return;
+      }
+      if (cmd === "unmute") {
+        commandEntity("speakers", id, "unmute", { muted: false });
+      }
+      return;
+    }
+    if (act === "sound-vol") {
+      const speaker = ((state && state.speakers) || []).find((item) => item.entity_id === id);
+      if (!speaker) return;
+      const delta = button.getAttribute("data-cmd") === "up" ? 5 : -5;
+      const next = Math.max(0, Math.min(100, Number(speaker.volume || 0) + delta));
+      commandEntity(
+        "speakers",
+        id,
+        "volume",
+        { volume: next, muted: next === 0 ? speaker.muted : false },
+        { value: next }
+      );
     }
   }
 
@@ -1050,14 +1141,14 @@
       });
   }
 
-  function commandEntity(listKey, entityId, action, optimistic) {
+  function commandEntity(listKey, entityId, action, optimistic, extra) {
     if (optimistic) {
       patchList(listKey, entityId, optimistic);
       render();
     }
     api("/api/usvegliu/guest/command", {
       method: "POST",
-      body: JSON.stringify({ entity_id: entityId, action }),
+      body: JSON.stringify({ entity_id: entityId, action, ...(extra || {}) }),
     })
       .then((updated) => {
         if (listKey !== "scenes") patchList(listKey, entityId, updated);
