@@ -111,6 +111,38 @@ async def test_csv_keeps_the_code_and_drops_passwords(tmp_path: Path, caplog):
     assert "s3cret-password" not in caplog.text
 
 
+def test_journal_recent_public_omits_the_wifi_code(tmp_path: Path):
+    journal = Journal(tmp_path / "journal.csv")
+    journal._append(
+        {
+            "action": "voucher_cree",
+            "reservation_id": "stay-1",
+            "locataire": "Jean",
+            "debut": "2026-07-10",
+            "fin": "2026-07-17",
+            "code": "ABCD12",
+            "detail": "",
+        }
+    )
+    journal._append(
+        {
+            "action": "message_envoye",
+            "reservation_id": "stay-1",
+            "locataire": "Jean",
+            "debut": "2026-07-10",
+            "fin": "2026-07-17",
+            "code": "ABCD12",
+            "detail": "mail_accueil",
+        }
+    )
+    rows = journal.recent_public(10)
+    assert rows[0]["action"] == "message_envoye"
+    assert rows[0]["libelle"] == "Mail d'accueil envoyé"
+    assert rows[0]["locataire"] == "Jean"
+    assert all("code" not in row for row in rows)
+    assert all("ABCD12" not in str(row) for row in rows)
+
+
 def test_diagnostics_and_logs_redact_secrets():
     payload = redact(
         {
@@ -334,9 +366,21 @@ def test_owner_console_dashboard_has_live_credentials_and_actions():
         reglages_entity_id="sensor.usvegliu_reglages",
     )
     dumped = str(config)
+    paths = [view.get("path") for view in config["views"]]
     assert config["views"][0]["type"] == "sections"
     assert config["views"][0]["path"] == "console"
-    assert config["views"][1]["path"] == "reglages"
+    assert config["views"][0]["title"] == "Accueil"
+    assert "liste" in paths
+    assert "historique" in paths
+    assert "reglages" in paths
+    home = str(config["views"][0])
+    assert "usvegliu.regenerer_acces" not in home
+    assert "En cours" in home
+    assert "Prochain" in home
+    assert "selectattr('role', 'equalto', 'current')" in home
+    assert "Ouvrir le séjour" in dumped
+    assert "usvegliu-proprietaire/" in dumped
+    assert any(view.get("subview") for view in config["views"])
     assert "Nouveau mot de passe" in dumped
     assert "Révoquer le compte" in dumped
     assert "Nouveau code Wi-Fi" in dumped
@@ -356,6 +400,11 @@ def test_owner_console_dashboard_has_live_credentials_and_actions():
     assert "s.password" not in dumped
     assert "comptes" in dumped
     assert dumped.count("usvegliu.regenerer_acces") == 1
+    assert "Tous les séjours" in dumped
+    assert "Historique" in dumped
+    assert "Séjours passés" in dumped
+    assert "state_attr('sensor.usvegliu_sejours', 'historique')" in dumped
+    assert "state_attr('sensor.usvegliu_sejours', 'journal')" in dumped
     assert "usvegliu.relire_calendrier" in dumped
     assert "Relire le calendrier" in dumped
     assert "Message à envoyer" in dumped

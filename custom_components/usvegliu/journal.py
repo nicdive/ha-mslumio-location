@@ -27,6 +27,18 @@ COLUMNS: tuple[str, ...] = (
 
 _SECRET_HEADERS = {"mot_de_passe", "password", "code_compte", "utilisateur_ha"}
 
+ACTION_LABELS: dict[str, str] = {
+    "voucher_cree": "Wi-Fi créé",
+    "voucher_adopte": "Wi-Fi repris",
+    "voucher_regenere": "Wi-Fi renouvelé",
+    "voucher_supprime": "Wi-Fi retiré",
+    "acces_cree": "Compte créé",
+    "acces_regenere": "Mot de passe renouvelé",
+    "acces_supprime": "Compte retiré",
+    "acces_desactive": "Compte désactivé",
+    "message_envoye": "Mail d'accueil envoyé",
+}
+
 
 class JournalPathError(ValueError):
     """Raised when the journal path escapes the allowed directories."""
@@ -70,6 +82,31 @@ class Journal:
         """Append one row, creating the header when the file is new."""
         async with self._lock:
             await asyncio.to_thread(self._append, row)
+
+    def recent_public(self, limit: int = 30) -> list[dict[str, str]]:
+        """Newest journal rows for the Console. No voucher code."""
+        if limit <= 0 or not self.path.exists() or self.path.stat().st_size == 0:
+            return []
+        with self.path.open(encoding="utf-8", newline="") as handle:
+            rows = list(csv.DictReader(handle))
+        out: list[dict[str, str]] = []
+        for raw in rows[-limit:]:
+            action = str(raw.get("action") or "")
+            stamp = str(raw.get("horodatage") or "")
+            out.append(
+                {
+                    "horodatage": stamp[:16].replace("T", " "),
+                    "action": action,
+                    "libelle": ACTION_LABELS.get(action, action.replace("_", " ")),
+                    "locataire": str(raw.get("locataire") or ""),
+                    "debut": str(raw.get("debut") or "")[:10],
+                    "fin": str(raw.get("fin") or "")[:10],
+                    "detail": str(raw.get("detail") or ""),
+                    "reservation_id": str(raw.get("reservation_id") or ""),
+                }
+            )
+        out.reverse()
+        return out
 
     def _append(self, row: dict[str, str]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)

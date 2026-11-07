@@ -31,7 +31,7 @@ from .const import (
     SERVICE_REVOKE_ACCESS,
     SERVICE_REVOKE_VOUCHER,
 )
-from .guest_session import credential_attribute_key
+from .guest_session import credential_attribute_key, stay_view_path
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -250,6 +250,16 @@ def _action_row(
     }
 
 
+def _navigate_row(name: str, icon: str, path: str) -> dict[str, Any]:
+    return {
+        "type": "button",
+        "name": name,
+        "icon": icon,
+        "action_name": "Ouvrir",
+        "tap_action": {"action": "navigate", "navigation_path": path},
+    }
+
+
 def _entities_actions(title: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "type": "entities",
@@ -297,6 +307,9 @@ def _stay_markdown(
         f"{{% set ssid = ((s.wifi_ssid if s else '') or (s.reseau_wifi if s else '') "
         f"or reglages.wifi_ssid or state_attr('{entity}', 'reseau_wifi') "
         f"or state_attr('{entity}', 'wifi_ssid') or 'Usvegliu-Guest') | trim %}}\n"
+        f"[← Accueil](/{OWNER_DASHBOARD_URL}/console) · "
+        f"[Tous les séjours](/{OWNER_DASHBOARD_URL}/liste)\n"
+        "\n"
         "{% if s %}\n"
         "{% set debut = (s.check_in or '')[:10] %}\n"
         "{% set fin = (s.check_out or '')[:10] %}\n"
@@ -442,6 +455,99 @@ def _settings_markdown(entity_id: str) -> str:
     )
 
 
+def _featured_markdown(entity_id: str, role: str, empty: str) -> str:
+    """Live card for the current or next stay. No secrets."""
+    entity = _jinja_quote(entity_id)
+    role_q = _jinja_quote(role)
+    return (
+        f"{{% set rows = state_attr('{entity}', 'stays') or [] %}}\n"
+        f"{{% set found = rows | selectattr('role', 'equalto', '{role_q}') | list %}}\n"
+        "{% set s = found[0] if found else none %}\n"
+        "{% if s %}\n"
+        "## {{ s.guest }}\n"
+        "\n"
+        "{% if s.sejour_libelle %}{{ s.sejour_libelle }}"
+        "{% else %}{{ (s.check_in or '')[:10] }} → {{ (s.check_out or '')[:10] }}"
+        "{% endif %}\n"
+        "\n"
+        "**{{ s.role_label }}**"
+        "{% if s.essai %} · lien d'essai{% endif %}\n"
+        "\n"
+        f"[Ouvrir le séjour](/{OWNER_DASHBOARD_URL}/{{{{ s.vue }}}})\n"
+        "{% else %}\n"
+        f"*{empty}*\n"
+        "{% endif %}\n"
+    )
+
+
+def _roster_markdown(entity_id: str) -> str:
+    """Ordered clickable stay list. Secrets stay on the detail subview."""
+    entity = _jinja_quote(entity_id)
+    link = f"/{OWNER_DASHBOARD_URL}/{{{{ s.vue }}}}"
+    group = (
+        "{% if group %}\n"
+        "\n### {{ titre }}\n"
+        "{% for s in group %}\n"
+        f"- [**{{{{ s.guest }}}}**]({link}) · "
+        "{{ (s.check_in or '')[:10] }} → {{ (s.check_out or '')[:10] }}"
+        "{% if s.role_label %} · {{ s.role_label }}{% endif %}\n"
+        "{% endfor %}\n"
+        "{% endif %}\n"
+    )
+    return (
+        f"{{% set rows = state_attr('{entity}', 'stays') or [] %}}\n"
+        "Du séjour **en cours** au plus lointain. Touchez un nom pour le compte, "
+        "le Wi-Fi et le message.\n"
+        "{% if not rows %}\n"
+        "\n*Aucun séjour ouvert.*\n"
+        "{% endif %}\n"
+        "{% set group = rows | selectattr('role', 'equalto', 'current') | list %}\n"
+        "{% set titre = 'En cours' %}\n"
+        f"{group}"
+        "{% set group = rows | selectattr('role', 'equalto', 'upcoming') | list %}\n"
+        "{% set titre = 'À venir' %}\n"
+        f"{group}"
+        "{% set group = rows | selectattr('role', 'equalto', 'departing') | list %}\n"
+        "{% set titre = 'Wi-Fi encore actif' %}\n"
+        f"{group}"
+        "{% set group = rows | selectattr('role', 'equalto', 'preview') | list %}\n"
+        "{% set titre = 'Essai' %}\n"
+        f"{group}"
+    )
+
+
+def _history_markdown(entity_id: str) -> str:
+    """Closed stays and journal actions. No voucher codes."""
+    entity = _jinja_quote(entity_id)
+    return (
+        f"{{% set hist = state_attr('{entity}', 'historique') or [] %}}\n"
+        f"{{% set journal = state_attr('{entity}', 'journal') or [] %}}\n"
+        "Séjours **clos** et dernières créations / retraits d'accès. "
+        "Les codes Wi-Fi restent dans le fichier CSV.\n"
+        "\n"
+        "### Séjours passés\n"
+        "{% if hist %}\n"
+        "{% for h in hist | reverse %}\n"
+        "- **{{ h.guest }}** · {{ (h.check_in or '')[:10] }} → "
+        "{{ (h.check_out or '')[:10] }}\n"
+        "{% endfor %}\n"
+        "{% else %}\n"
+        "*Aucun séjour clos enregistré pour l'instant.*\n"
+        "{% endif %}\n"
+        "\n"
+        "### Accès\n"
+        "{% if journal %}\n"
+        "{% for j in journal %}\n"
+        "- `{{ j.horodatage }}` · **{{ j.libelle or j.action }}**"
+        "{% if j.locataire %} · {{ j.locataire }}{% endif %}"
+        "{% if j.debut %} · {{ j.debut }} → {{ j.fin }}{% endif %}\n"
+        "{% endfor %}\n"
+        "{% else %}\n"
+        "*Pas encore d'événement.*\n"
+        "{% endif %}\n"
+    )
+
+
 def _heading(text: str, icon: str, *, subtitle: bool = False) -> dict[str, Any]:
     return {
         "type": "heading",
@@ -561,27 +667,64 @@ def _tools_card() -> dict[str, Any]:
     )
 
 
-def _stays_view_sections(
-    stays: list[dict[str, Any]],
+def _home_tools_card() -> dict[str, Any]:
+    return _entities_actions(
+        "Raccourcis",
+        [
+            _action_row(
+                "Relire le calendrier",
+                "mdi:calendar-refresh",
+                SERVICE_REFRESH_CALENDAR,
+                "Relire le calendrier maintenant ? Les accès Wi-Fi et HA suivront les réservations.",
+                action_name="Lire",
+            ),
+            _action_row(
+                "Lien d'essai 24 h",
+                "mdi:link-plus",
+                SERVICE_GUEST_LINK,
+                "Créer un lien maison d'essai (24 h, sans calendrier) ?",
+                extra={"essai": True},
+                action_name="Créer",
+            ),
+            _navigate_row(
+                "Tous les séjours",
+                "mdi:format-list-bulleted",
+                f"/{OWNER_DASHBOARD_URL}/liste",
+            ),
+            _navigate_row(
+                "Historique",
+                "mdi:history",
+                f"/{OWNER_DASHBOARD_URL}/historique",
+            ),
+            _navigate_row(
+                "Réglages",
+                "mdi:tune",
+                f"/{OWNER_DASHBOARD_URL}/reglages",
+            ),
+        ],
+    )
+
+
+def _home_view_sections(
     *,
     sejours_entity_id: str,
     voucher_entity_id: str,
     house_mode_entity: str | None,
-    reglages_entity_id: str = "",
 ) -> list[dict[str, Any]]:
     status: list[dict[str, Any]] = [
-        _heading("Séjours actifs", "mdi:account-group"),
+        _heading("Console", "mdi:desk"),
         {
             "type": "markdown",
             "content": (
-                "Identifiants en direct. Les actions demandent confirmation. "
+                "Séjour **en cours** et **prochain** à venir. "
+                "Ouvrez une fiche pour le compte HA, le Wi-Fi et le message. "
                 "Les locataires ne voient pas cette page."
             ),
         },
     ]
     tiles: list[dict[str, Any]] = []
     if sejours_entity_id:
-        tiles.append(_tile(sejours_entity_id, "Séjours", "mdi:account-group"))
+        tiles.append(_tile(sejours_entity_id, "Séjours ouverts", "mdi:account-group"))
     if voucher_entity_id:
         tiles.append(_tile(voucher_entity_id, "Code Wi-Fi courant", "mdi:wifi"))
     if house_mode_entity:
@@ -590,63 +733,138 @@ def _stays_view_sections(
         )
     if tiles:
         status.extend(tiles)
-    status.append(_tools_card())
+    status.append(_home_tools_card())
     sections: list[dict[str, Any]] = [
         {"type": "grid", "column_span": 2, "cards": status}
     ]
-    if not stays:
+    if sejours_entity_id:
         sections.append(
             {
                 "type": "grid",
-                "column_span": 2,
                 "cards": [
+                    _heading("En cours", "mdi:home-account", subtitle=True),
                     {
                         "type": "markdown",
-                        "content": (
-                            "Aucun séjour ouvert. Les accès apparaissent ici dès "
-                            "qu'une réservation entre dans la fenêtre du calendrier."
+                        "content": _featured_markdown(
+                            sejours_entity_id,
+                            "current",
+                            "Aucun séjour en cours.",
                         ),
-                    }
+                    },
                 ],
             }
         )
-        return sections
-    for stay in stays:
-        reservation_id = str(stay.get("reservation_id") or stay.get("key") or "")
-        guest = str(stay.get("guest") or "Séjour")
-        cards: list[dict[str, Any]] = [
-            _heading(guest, "mdi:home-account"),
+        sections.append(
             {
-                "type": "markdown",
-                "content": _stay_markdown(
-                    sejours_entity_id,
-                    reservation_id,
-                    reglages_entity_id,
-                ),
-            },
-        ]
-        if (
-            sejours_entity_id
-            and reservation_id
-            and not stay.get("essai")
-            and not stay.get("access_revoked")
-        ):
-            cards.append(
-                {
-                    "type": "entity",
-                    "entity": sejours_entity_id,
-                    "attribute": credential_attribute_key(reservation_id),
-                    "name": "Mot de passe Home Assistant",
-                    "icon": "mdi:form-textbox-password",
-                    "state_color": False,
-                }
-            )
-        if not stay.get("essai") and reservation_id:
-            cards.append(
-                _entities_actions("Actions", _stay_action_rows(guest, reservation_id))
-            )
-        sections.append({"type": "grid", "cards": cards})
+                "type": "grid",
+                "cards": [
+                    _heading("Prochain", "mdi:calendar-arrow-right", subtitle=True),
+                    {
+                        "type": "markdown",
+                        "content": _featured_markdown(
+                            sejours_entity_id,
+                            "upcoming",
+                            "Pas de réservation suivante dans la fenêtre.",
+                        ),
+                    },
+                ],
+            }
+        )
     return sections
+
+
+def _liste_view_sections(*, sejours_entity_id: str) -> list[dict[str, Any]]:
+    return [
+        {
+            "type": "grid",
+            "column_span": 2,
+            "cards": [
+                _heading("Séjours", "mdi:format-list-bulleted"),
+                {
+                    "type": "markdown",
+                    "content": _roster_markdown(sejours_entity_id)
+                    if sejours_entity_id
+                    else "*Capteur séjours indisponible.*",
+                },
+            ],
+        }
+    ]
+
+
+def _history_view_sections(*, sejours_entity_id: str) -> list[dict[str, Any]]:
+    cards: list[dict[str, Any]] = [
+        _heading("Historique", "mdi:history"),
+        {
+            "type": "markdown",
+            "content": _history_markdown(sejours_entity_id)
+            if sejours_entity_id
+            else "*Capteur séjours indisponible.*",
+        },
+        _entities_actions(
+            "Journal",
+            [
+                _action_row(
+                    "Exporter le journal",
+                    "mdi:file-download-outline",
+                    SERVICE_EXPORT_JOURNAL,
+                    "",
+                    action_name="Chemin",
+                )
+            ],
+        ),
+    ]
+    return [{"type": "grid", "column_span": 2, "cards": cards}]
+
+
+def _stay_subview(
+    stay: dict[str, Any],
+    *,
+    sejours_entity_id: str,
+    reglages_entity_id: str,
+) -> dict[str, Any]:
+    reservation_id = str(stay.get("reservation_id") or stay.get("key") or "")
+    guest = str(stay.get("guest") or "Séjour")
+    path = str(stay.get("vue") or stay_view_path(reservation_id))
+    cards: list[dict[str, Any]] = [
+        _heading(guest, "mdi:home-account"),
+        {
+            "type": "markdown",
+            "content": _stay_markdown(
+                sejours_entity_id,
+                reservation_id,
+                reglages_entity_id,
+            ),
+        },
+    ]
+    if (
+        sejours_entity_id
+        and reservation_id
+        and not stay.get("essai")
+        and not stay.get("access_revoked")
+    ):
+        cards.append(
+            {
+                "type": "entity",
+                "entity": sejours_entity_id,
+                "attribute": credential_attribute_key(reservation_id),
+                "name": "Mot de passe Home Assistant",
+                "icon": "mdi:form-textbox-password",
+                "state_color": False,
+            }
+        )
+    if not stay.get("essai") and reservation_id:
+        cards.append(
+            _entities_actions("Actions", _stay_action_rows(guest, reservation_id))
+        )
+    return {
+        "type": "sections",
+        "title": guest,
+        "path": path,
+        "icon": "mdi:home-account",
+        "subview": True,
+        "max_columns": 1,
+        "sections": [{"type": "grid", "column_span": 2, "cards": cards}],
+    }
 
 
 def _settings_view_sections(
@@ -731,40 +949,62 @@ def build_owner_dashboard_config(
     pool_ph_entity: str | None = None,
     tenant_entities: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Owner console: stays + actions, and a settings view."""
-    return {
-        "views": [
-            {
-                "type": "sections",
-                "title": "Séjours",
-                "path": "console",
-                "icon": "mdi:account-group",
-                "max_columns": 2,
-                "sections": _stays_view_sections(
-                    stays,
+    """Owner console: current + next, clickable stays, history, settings."""
+    views: list[dict[str, Any]] = [
+        {
+            "type": "sections",
+            "title": "Accueil",
+            "path": "console",
+            "icon": "mdi:desk",
+            "max_columns": 2,
+            "sections": _home_view_sections(
+                sejours_entity_id=sejours_entity_id,
+                voucher_entity_id=voucher_entity_id,
+                house_mode_entity=house_mode_entity,
+            ),
+        },
+        {
+            "type": "sections",
+            "title": "Séjours",
+            "path": "liste",
+            "icon": "mdi:format-list-bulleted",
+            "max_columns": 1,
+            "sections": _liste_view_sections(sejours_entity_id=sejours_entity_id),
+        },
+        {
+            "type": "sections",
+            "title": "Historique",
+            "path": "historique",
+            "icon": "mdi:history",
+            "max_columns": 1,
+            "sections": _history_view_sections(sejours_entity_id=sejours_entity_id),
+        },
+        {
+            "type": "sections",
+            "title": "Réglages",
+            "path": "reglages",
+            "icon": "mdi:tune",
+            "max_columns": 2,
+            "sections": _settings_view_sections(
+                reglages_entity_id=reglages_entity_id,
+                house_mode_entity=house_mode_entity,
+                outdoor_entity=outdoor_entity,
+                pool_temp_entity=pool_temp_entity,
+                pool_ph_entity=pool_ph_entity,
+                tenant_entities=list(tenant_entities or []),
+            ),
+        },
+    ]
+    for stay in stays:
+        if stay.get("reservation_id") or stay.get("key"):
+            views.append(
+                _stay_subview(
+                    stay,
                     sejours_entity_id=sejours_entity_id,
                     reglages_entity_id=reglages_entity_id,
-                    voucher_entity_id=voucher_entity_id,
-                    house_mode_entity=house_mode_entity,
-                ),
-            },
-            {
-                "type": "sections",
-                "title": "Réglages",
-                "path": "reglages",
-                "icon": "mdi:tune",
-                "max_columns": 2,
-                "sections": _settings_view_sections(
-                    reglages_entity_id=reglages_entity_id,
-                    house_mode_entity=house_mode_entity,
-                    outdoor_entity=outdoor_entity,
-                    pool_temp_entity=pool_temp_entity,
-                    pool_ph_entity=pool_ph_entity,
-                    tenant_entities=list(tenant_entities or []),
-                ),
-            },
-        ]
-    }
+                )
+            )
+    return {"views": views}
 
 
 def dashboard_card_count(config: dict[str, Any]) -> int:

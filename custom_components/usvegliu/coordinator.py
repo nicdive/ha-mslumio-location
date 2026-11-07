@@ -146,6 +146,7 @@ class UsvegliuRuntime:
         self.store = store
         self.log_filter = log_filter
         self._stays: dict[str, dict[str, Any]] = {}
+        self._history: list[dict[str, Any]] = []
         self._shared: dict[str, Any] | None = None
         self._force_voucher: set[str] = set()
         self._force_access: set[str] = set()
@@ -256,6 +257,11 @@ class UsvegliuRuntime:
         preview = raw.get("guest_preview")
         if isinstance(preview, dict):
             self._preview = _scrub_secrets(preview)
+        history = raw.get("stay_history")
+        if isinstance(history, list):
+            self._history = [
+                item for item in history if isinstance(item, dict)
+            ][-40:]
         self._stays = {key: _scrub_secrets(value) for key, value in self._stays.items()}
         self._refresh_log_filter()
 
@@ -272,6 +278,7 @@ class UsvegliuRuntime:
                 "shared_user": self._shared,
                 "overrides": self._overrides,
                 "guest_preview": self._preview,
+                "stay_history": self._history,
             }
         )
         self._refresh_log_filter()
@@ -356,6 +363,7 @@ class UsvegliuRuntime:
         enable_vouchers = bool(options.get(CONF_ENABLE_VOUCHERS, True))
         enable_access = bool(options.get(CONF_ENABLE_ACCESS, True))
         resend_keys = set(self._resend)
+        previous_stays = {key: dict(value) for key, value in self._stays.items()}
         try:
             result = await async_synchronize(
                 plan,
@@ -393,6 +401,7 @@ class UsvegliuRuntime:
 
         self._stays = result.stays
         self._shared = result.shared_user
+        self._archive_closed(previous_stays)
         self._apply_guest_emails(parsed)
         self._mail_force_keys = resend_keys
         await self._persist(self._stays, self._shared)
@@ -707,6 +716,38 @@ class UsvegliuRuntime:
             "check_out": str(record.get("check_out") or ""),
         }
 
+    def _archive_closed(self, previous: dict[str, dict[str, Any]]) -> None:
+        """Keep a short stay roster after checkout, without secrets."""
+        active = set(self._stays)
+        self._history = [
+            item
+            for item in self._history
+            if str(item.get("key") or "") not in active
+        ]
+        now = dt_util.now().isoformat()
+        for key, record in previous.items():
+            if key in active or key == PREVIEW_KEY or record.get("preview"):
+                continue
+            entry = {
+                "key": key,
+                "guest": str(record.get("guest") or ""),
+                "check_in": str(record.get("check_in") or ""),
+                "check_out": str(record.get("check_out") or ""),
+                "closed": now,
+            }
+            self._history = [
+                item for item in self._history if str(item.get("key") or "") != key
+            ]
+            self._history.append(entry)
+        self._history = self._history[-40:]
+
+    def journal_preview(self) -> list[dict[str, str]]:
+        """Recent journal rows for the Console. Codes stay in the CSV."""
+        try:
+            return self.journal.recent_public(30)
+        except Exception:  # noqa: BLE001
+            return []
+
     def _apply_guest_emails(self, stays: list[Any]) -> None:
         """Copy calendar emails onto stored stays. Keep the last known address."""
         found = {item.key: item.email for item in stays if getattr(item, "email", "")}
@@ -954,6 +995,7 @@ class UsvegliuRuntime:
                 "options": dict(self.entry.options),
                 "stay_count": len(self._stays),
                 "stays": list(self._stays.values()),
+                "stay_history": self._history,
                 "shared_user": self._shared,
                 "snapshot": None
                 if self.coordinator is None
@@ -1027,6 +1069,8 @@ def _snapshot(
     common = {
         "stays": rows,
         "stay_count": len(rows),
+        "historique": list(runtime._history),
+        "journal": runtime.journal_preview(),
         "lien_maison": lien_maison,
         "password": password,
         "devices": runtime._option_int(CONF_DEVICE_LIMIT, DEFAULT_DEVICE_LIMIT),
