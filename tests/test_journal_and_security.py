@@ -123,6 +123,7 @@ def test_diagnostics_and_logs_redact_secrets():
                     "mot_de_passe": "s3cret-password",
                     "code_compte": "s3cret-password",
                     "guest_token": "stay-token-secret",
+                    "guest_email": "ada@villa.fr",
                     "voucher_id": "voucher-1",
                 }
             ],
@@ -136,6 +137,7 @@ def test_diagnostics_and_logs_redact_secrets():
     assert payload["stays"][0]["mot_de_passe"] == "**REDACTED**"
     assert payload["stays"][0]["code_compte"] == "**REDACTED**"
     assert payload["stays"][0]["guest_token"] == "**REDACTED**"
+    assert payload["stays"][0]["guest_email"] == "**REDACTED**"
     assert payload["stays"][0]["guest"] == "**REDACTED**"
     linked = redact({"lien_maison": "https://www.usvegliu.fr/s/stay-token-secret"})
     assert linked["lien_maison"] == "**REDACTED**"
@@ -365,6 +367,10 @@ def test_owner_console_dashboard_has_live_credentials_and_actions():
     assert "reglages.wifi_ssid" in dumped
     assert "s.message_invite" in dumped
     assert "sans compte Home Assistant" in dumped
+    assert "Mail locataire" in dumped
+    assert "s.guest_email" in dumped
+    assert "welcome_mail_sent" in dumped
+    assert "guest_mail_service" in dumped
     assert "Réglages Usvegliu" in dumped
     assert "state_attr('sensor.usvegliu_reglages', 'settings')" in dumped
 

@@ -217,6 +217,30 @@ def guest_first_name(guest: str) -> str:
     return str(guest or "").strip().split()[0] if str(guest or "").strip() else ""
 
 
+def welcome_mail_due(record: dict[str, Any], now: datetime, *, days: int) -> bool:
+    """True when the guest welcome mail should go out (once, from J−days)."""
+    if record.get("preview") or record.get("welcome_mail_sent"):
+        return False
+    if not str(record.get("guest_email") or "").strip():
+        return False
+    start = _parse_stay_date(str(record.get("check_in") or ""))
+    if start is None:
+        return False
+    if now.tzinfo is not None and start.tzinfo is None:
+        start = start.replace(tzinfo=now.tzinfo)
+    elif now.tzinfo is None and start.tzinfo is not None:
+        now = now.replace(tzinfo=start.tzinfo)
+    if now < start - timedelta(days=max(0, int(days))):
+        return False
+    end = _parse_stay_date(str(record.get("check_out") or ""))
+    if end is not None:
+        if now.tzinfo is not None and end.tzinfo is None:
+            end = end.replace(tzinfo=now.tzinfo)
+        if now >= end:
+            return False
+    return True
+
+
 def guest_welcome_message(
     *,
     guest: str,
@@ -323,6 +347,8 @@ def issued_account_view(
             str(record.get("check_out") or ""),
         ),
         "lien_maison": lien_maison,
+        "guest_email": str(record.get("guest_email") or "") or None,
+        "welcome_mail_sent": str(record.get("welcome_mail_sent") or "") or None,
         "message_invite": guest_welcome_message(
             guest=str(record.get("guest") or ""),
             check_in=str(record.get("check_in") or ""),

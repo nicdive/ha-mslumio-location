@@ -28,6 +28,8 @@ SECRET_KEYS: frozenset[str] = frozenset(
         "lien_maison",
         "qr_svg",
         "message_invite",
+        "guest_email",
+        "email",
         "access_token",
         "refresh_token",
         "x-api-key",

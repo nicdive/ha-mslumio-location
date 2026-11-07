@@ -40,6 +40,8 @@
           "confirm_sensitive": "J'autorise caméras, serrures ou alarmes",
           "allow_remote": "Accès internet pendant le séjour",
           "notify_service": "Notification (optionnelle)",
+          "guest_mail_service": "Mail locataire (SMTP)",
+          "guest_mail_days": "Jours avant le mail d'accueil",
           "journal_path": "Fichier journal CSV",
           "title_blocklist": "Titres ignorés",
           "max_stay_days": "Durée max d'un séjour (jours)",
@@ -56,7 +58,7 @@
           "alarm_code": "Code alarme (serveur)"
         },
         "data_description": {
-          "calendar_entity": "N'importe quelle entité calendar (ICS Airbnb, Booking, Google, local).",
+          "calendar_entity": "N'importe quelle entité calendar (ICS Airbnb, Booking, Google, local). Titre = nom du locataire. Mettez son adresse mail dans la description pour l'envoi J−2.",
           "lead_days": "Le voucher Wi-Fi, le compte et le lien Maison sont émis ce nombre de jours avant l'arrivée. Compte et lien ne s'activent que le jour J. Défaut : 3.",
           "device_limit": "Nombre d'appareils autorisés par le même code. Défaut : 10.",
           "download_mbps": "Converti en kbit/s pour l'API (100 Mbit/s = 100000 kbit/s). Défaut : 100.",
@@ -67,7 +69,9 @@
           "tenant_devices": "Toutes les entités de l'appareil sont autorisées, y compris celles ajoutées plus tard. Un appareil qui contient une caméra, une serrure ou une alarme exige la confirmation.",
           "confirm_sensitive": "Sans cette case, l'enregistrement est refusé si la sélection contient une caméra, une serrure ou une alarme.",
           "allow_remote": "Désactivé par défaut. Le compte n'est plus « local uniquement » pendant le séjour. Home Assistant doit déjà être joignable de l'extérieur ; ce module n'ouvre rien. À activer aussi pour un essai du compte HA via Tailscale (une IP 100.x n'est pas locale).",
-          "notify_service": "Ex. notify.mobile_app_telephone. Vide = notification persistante seulement.",
+          "notify_service": "Ex. notify.mobile_app_telephone. Vide = notification persistante seulement. Destinataire : vous, pas le locataire.",
+          "guest_mail_service": "Ex. notify.smtp. Envoie le message d'accueil au locataire (adresse lue dans la description du calendrier). Vide = copier le message à la main.",
+          "guest_mail_days": "Envoi du mail d'accueil ce nombre de jours avant l'arrivée. Défaut : 2. Le code Wi-Fi est déjà créé (J−3).",
           "journal_path": "Relatif au dossier config, ou absolu sous config/ ou un dossier média (partage Synology).",
           "title_blocklist": "Sous-chaînes, séparées par des virgules, qui ne sont pas des locataires (dates bloquées).",
           "print_event": "Si activé, le code en clair part sur le bus (usvegliu_print_voucher) et peut finir dans les traces. Laisser désactivé sauf pour une imprimante.",
@@ -126,6 +130,8 @@
           "confirm_sensitive": "J'autorise caméras, serrures ou alarmes",
           "allow_remote": "Accès internet pendant le séjour",
           "notify_service": "Notification (optionnelle)",
+          "guest_mail_service": "Mail locataire (SMTP)",
+          "guest_mail_days": "Jours avant le mail d'accueil",
           "journal_path": "Fichier journal CSV",
           "title_blocklist": "Titres ignorés",
           "max_stay_days": "Durée max d'un séjour (jours)",
@@ -142,6 +148,8 @@
           "alarm_code": "Code alarme (serveur)"
         },
         "data_description": {
+          "guest_mail_service": "Ex. notify.smtp. Vide = copier le message à la main.",
+          "guest_mail_days": "Envoi du mail d'accueil ce nombre de jours avant l'arrivée. Défaut : 2.",
           "extra_days": "Le voucher reste ces jours après le départ, puis il est retiré. Le lien Maison s'arrête à la fin du jour de départ.",
           "allow_remote": "À activer pour un essai du compte HA via Tailscale : une IP 100.x n'est pas locale, le frontend reste alors sur « Chargement des données ».",
           "print_event": "Place le code en clair sur le bus. À n'activer que pour l'impression.",
@@ -225,7 +233,7 @@
     },
     "renvoyer_notification": {
       "name": "Renvoyer la notification",
-      "description": "Renvoie le code Wi-Fi et le mot de passe à l'administrateur.",
+      "description": "Renvoie la notification propriétaire, et le mail d'accueil au locataire s'il a une adresse.",
       "fields": {
         "reservation_key": {
           "name": "Réservation"

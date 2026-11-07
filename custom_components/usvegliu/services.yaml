@@ -50,7 +50,9 @@ revoquer_acces:
 
 renvoyer_notification:
   name: Renvoyer la notification
-  description: Renvoie le code et, s'il est connu, le mot de passe (admins et utilisateurs avec droits).
+  description: >
+    Renvoie la notification propriétaire, et le mail d'accueil au locataire
+    s'il a une adresse (admins et utilisateurs avec droits).
   fields:
     reservation_key:
       name: Réservation

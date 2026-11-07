@@ -120,7 +120,7 @@ Le formulaire demande ensuite :
 
 | Réglage | Défaut | Rôle |
 | --- | --- | --- |
-| Calendrier | — | N'importe quelle entité `calendar`. Le **titre** est le nom du locataire, les dates sont le séjour. |
+| Calendrier | — | N'importe quelle entité `calendar`. Le **titre** est le nom du locataire, les dates sont le séjour. L'**adresse mail** du locataire va dans la **description** (pas le titre) pour l'envoi automatique J−2. |
 | Jours avant l'arrivée | 3 | Création du voucher Wi-Fi (pour le message à envoyer), du compte HA et du lien Maison. Login HA et lien Maison ne **s'activent que le jour d'arrivée**. |
 | Appareils | 10 | `authorizedGuestLimit` : un seul code, plusieurs appareils. |
 | Débits | 100 / 100 Mbit/s | Convertis en kbit/s SI : 100 Mbit/s = 100000 kbit/s. |
@@ -128,6 +128,8 @@ Le formulaire demande ensuite :
 | Comptes | Un par séjour | Ou un compte `locataire` dont le mot de passe change quand plus aucun séjour n'est actif, puis au suivant. |
 | Entités et appareils | listes vides | Tout domaine. Seules ces entités (et toutes les entités des appareils choisis) sont lisibles et commandables. Caméra, serrure et alarme exigent une case de confirmation. |
 | Accès internet | désactivé | Pendant le séjour seulement, le compte n'est plus « local uniquement ». Rien n'est ouvert sur le réseau : Home Assistant doit déjà être joignable de l'extérieur. |
+| Mail locataire | vide | Service `notify` SMTP (ex. `notify.smtp`). Vide = pas d'envoi auto, le message reste à copier sur la Console. Distinct de la notification propriétaire. |
+| Jours avant le mail | 2 | Envoi du message d'accueil (lien Maison + Wi-Fi) ce nombre de jours avant l'arrivée, une fois le code Wi-Fi créé (J−3 par défaut). |
 | Journal | `usvegliu/journal.csv` | Sous le dossier de configuration, ou un dossier média. |
 | Titres ignorés | `not available`, `indisponible`, `fermé`, … | Les blocages Airbnb / Booking ne deviennent pas des vouchers. |
 | Impression | désactivée | Voir plus bas. |
@@ -261,6 +263,8 @@ Le magasin interne (`.storage/usvegliu.<entrée>`) est privé. Il sert à ne pas
 
 À chaque nouveau code ou mot de passe : notification persistante `Usvegliu — <locataire>`. Un service `notify.…` optionnel reçoit le même texte (beaucoup de notifiers recopient le message dans le log : ne l'activer que si ce log reste privé). La notification peut être fermée : le capteur **Séjours actifs** (appareil Usvegliu) reste la liste de travail tant que le séjour est ouvert.
 
+Le **mail locataire** est un autre service (`notify.smtp` typiquement). J−2 avant l'arrivée, Usvegliu y envoie le message d'accueil (lien Maison, SSID, code Wi-Fi) à l'adresse lue dans la description du calendrier. Les adresses des plateformes (Airbnb, Booking, Vrbo…) sont ignorées. Sans adresse ou sans SMTP, copiez le bloc **Message à envoyer** sur la Console. `usvegliu.renvoyer_notification` renvoie aussi ce mail, même avant J−2.
+
 L'impression n'est pas faite par l'intégration. Service `usvegliu.imprimer_voucher` (ou la case « événement d'impression », désactivée par défaut) : événement `usvegliu_print_voucher` avec le code en clair, pour une automatisation qui imprime. Cet événement peut apparaître dans les traces d'automatisation. Le laisser désactivé si personne n'imprime.
 
 ## Services
@@ -273,7 +277,7 @@ Tous exigent un administrateur **ou** un compte Utilisateur (droits de contrôle
 | `usvegliu.revoquer_voucher` | Supprime le code Wi-Fi jusqu'à régénération. |
 | `usvegliu.regenerer_acces` | Nouveau mot de passe. |
 | `usvegliu.revoquer_acces` | Supprime le compte HA jusqu'à régénération. |
-| `usvegliu.renvoyer_notification` | Renvoie le code, le lien et le mot de passe s'il est déjà stocké. |
+| `usvegliu.renvoyer_notification` | Renvoie la notification propriétaire, et le mail d'accueil au locataire s'il a une adresse. |
 | `usvegliu.reglages_sejour` | Surcharge les entités, les appareils et l'accès internet d'une réservation. |
 | `usvegliu.imprimer_voucher` | Événement d'impression, réponse avec le code. |
 | `usvegliu.exporter_journal` | Chemin du CSV. |

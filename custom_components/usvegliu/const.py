@@ -32,6 +32,8 @@ CONF_TENANT_DEVICES: Final = "tenant_devices"
 CONF_ALLOW_REMOTE: Final = "allow_remote"
 CONF_CONFIRM_SENSITIVE: Final = "confirm_sensitive"
 CONF_NOTIFY_SERVICE: Final = "notify_service"
+CONF_GUEST_MAIL_SERVICE: Final = "guest_mail_service"
+CONF_GUEST_MAIL_DAYS: Final = "guest_mail_days"
 CONF_JOURNAL_PATH: Final = "journal_path"
 CONF_PRINT_EVENT: Final = "print_event"
 CONF_ENABLE_VOUCHERS: Final = "enable_vouchers"
@@ -55,6 +57,7 @@ CONF_ALARM_CODE: Final = "alarm_code"
 
 DEFAULT_PORT: Final = 443
 DEFAULT_LEAD_DAYS: Final = 3
+DEFAULT_GUEST_MAIL_DAYS: Final = 2
 DEFAULT_DEVICE_LIMIT: Final = 10
 DEFAULT_DOWNLOAD_MBPS: Final = 100
 DEFAULT_UPLOAD_MBPS: Final = 100

@@ -23,6 +23,7 @@ from custom_components.usvegliu.guest_session import (
     guest_alarm_service,
     guest_welcome_message,
     issued_account_view,
+    welcome_mail_due,
     map_fan_modes,
     open_issued_records,
     pick_hvac_on,
@@ -156,6 +157,8 @@ def test_open_issued_records_keeps_active_stays_and_live_preview():
     assert row["code_compte"] == "secret-ada"
     assert row["voucher_code"] == "ABCD12"
     assert row["wifi_ssid"] == "Usvegliu-Guest"
+    assert row["guest_email"] is None
+    assert row["welcome_mail_sent"] is None
     invite = row["message_invite"]
     assert "Bonjour Ada," in invite
     assert "https://www.usvegliu.fr/s/TTTT" in invite
@@ -167,6 +170,55 @@ def test_open_issued_records_keeps_active_stays_and_live_preview():
     assert credential_attribute_key("stay-ada") == "compte_stay_ada"
     assert credential_attribute_key("ada@host/x") == "compte_ada_host_x"
     assert open_issued_records(stays, preview, datetime(2026, 8, 1, tzinfo=UTC)) == []
+
+
+def test_welcome_mail_due_from_two_days_before_arrival():
+    record = {
+        "guest_email": "jean@example.com",
+        "check_in": "2026-07-10T00:00:00+00:00",
+        "check_out": "2026-07-17T00:00:00+00:00",
+    }
+    assert welcome_mail_due(
+        record, datetime(2026, 7, 7, 12, tzinfo=UTC), days=2
+    ) is False
+    assert welcome_mail_due(
+        record, datetime(2026, 7, 8, 0, tzinfo=UTC), days=2
+    ) is True
+    assert welcome_mail_due(
+        record, datetime(2026, 7, 12, tzinfo=UTC), days=2
+    ) is True
+    assert welcome_mail_due(
+        record, datetime(2026, 7, 17, tzinfo=UTC), days=2
+    ) is False
+    sent = {**record, "welcome_mail_sent": "2026-07-08T00:00:00+00:00"}
+    assert welcome_mail_due(sent, datetime(2026, 7, 9, tzinfo=UTC), days=2) is False
+    preview = {**record, "preview": True}
+    assert welcome_mail_due(preview, datetime(2026, 7, 9, tzinfo=UTC), days=2) is False
+    bare = {**record, "guest_email": ""}
+    assert welcome_mail_due(bare, datetime(2026, 7, 9, tzinfo=UTC), days=2) is False
+
+
+def test_issued_account_view_exposes_guest_mail_status():
+    now = datetime(2026, 7, 12, tzinfo=UTC)
+    row = issued_account_view(
+        {
+            "key": "stay-ada",
+            "guest": "Ada Lovelace",
+            "check_in": "2026-07-10T00:00:00+00:00",
+            "check_out": "2026-07-17T00:00:00+00:00",
+            "guest_email": "ada@villa.fr",
+            "welcome_mail_sent": "2026-07-08T08:00:00+00:00",
+            "voucher_code": "ABCD12",
+        },
+        username="loc-ada",
+        password="secret-ada",
+        lien_maison="https://www.usvegliu.fr/s/TTTT",
+        path="/usvegliu/s/TTTT",
+        tableau="/usvegliu-sejour",
+        now=now,
+    )
+    assert row["guest_email"] == "ada@villa.fr"
+    assert row["welcome_mail_sent"] == "2026-07-08T08:00:00+00:00"
 
 
 def test_guest_welcome_message_is_villa_copy_without_ha_login():
