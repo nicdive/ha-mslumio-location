@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.22] — 2026-11-07
+
+### Changé
+- Console propriétaire : **accueil** (séjour en cours + prochain), liste ordonnée cliquable, fiche par séjour (identifiants, Wi-Fi, message, actions), onglet **Historique** (séjours clos et journal d'accès). Plus tout sur une seule page.
+
+[0.6.22]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.22
+
 ## [0.6.21] — 2026-11-07
 
 ### Ajouté

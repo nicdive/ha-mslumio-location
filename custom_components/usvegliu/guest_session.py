@@ -147,19 +147,63 @@ def stay_is_active(record: dict[str, Any], now: datetime) -> bool:
     return begin <= now < close
 
 
+ROLE_CURRENT = "current"
+ROLE_UPCOMING = "upcoming"
+ROLE_DEPARTING = "departing"
+ROLE_PREVIEW = "preview"
+_ROLE_RANK = {
+    ROLE_CURRENT: 0,
+    ROLE_UPCOMING: 1,
+    ROLE_DEPARTING: 2,
+    ROLE_PREVIEW: 3,
+}
+ROLE_LABELS = {
+    ROLE_CURRENT: "En cours",
+    ROLE_UPCOMING: "À venir",
+    ROLE_DEPARTING: "Wi-Fi encore actif",
+    ROLE_PREVIEW: "Essai 24 h",
+}
+
+
+def stay_console_role(record: dict[str, Any], now: datetime) -> str:
+    """Where a stay sits on the owner Console."""
+    if record.get("preview"):
+        return ROLE_PREVIEW
+    if stay_is_active(record, now):
+        return ROLE_CURRENT
+    start = stay_activation_start(record, now)
+    if start is not None and now < start:
+        return ROLE_UPCOMING
+    return ROLE_DEPARTING
+
+
+def stay_view_path(reservation_id: str) -> str:
+    """Lovelace subview path for one stay. Safe for dashboard URLs."""
+    safe = re.sub(r"[^0-9a-z]+", "-", str(reservation_id or "").casefold()).strip("-")
+    return f"s-{(safe or 'sejour')[:48]}"
+
+
 def open_issued_records(
     stays: dict[str, dict[str, Any]],
     preview: dict[str, Any] | None,
     now: datetime,
     extra_days: int = DEFAULT_EXTRA_DAYS,
 ) -> list[dict[str, Any]]:
-    """Provisioned stays still listed, then a live preview, by check-in."""
+    """Provisioned stays still listed, then a live preview.
+
+    Order: current stay, upcoming by arrival, leftover Wi-Fi, then a preview.
+    """
     records = [
         record for record in stays.values() if stay_is_issued(record, now, extra_days)
     ]
-    records.sort(key=lambda record: str(record.get("check_in") or ""))
     if isinstance(preview, dict) and stay_is_issued(preview, now, extra_days):
         records.append(preview)
+    records.sort(
+        key=lambda record: (
+            _ROLE_RANK.get(stay_console_role(record, now), 9),
+            str(record.get("check_in") or ""),
+        )
+    )
     return records
 
 
@@ -329,6 +373,11 @@ def issued_account_view(
     active = True if now is None or preview else stay_is_active(record, now)
     code = str(record.get("voucher_code") or "") or None
     ssid = str(wifi_ssid or "").strip() or DEFAULT_WIFI_SSID
+    key = str(record.get("key") or "")
+    if now is None:
+        role = ROLE_PREVIEW if preview else ROLE_CURRENT
+    else:
+        role = stay_console_role(record, now)
     return {
         "guest": str(record.get("guest") or ""),
         "check_in": str(record.get("check_in") or ""),
@@ -360,7 +409,10 @@ def issued_account_view(
             preview=preview,
         ),
         "path": path,
-        "reservation_id": str(record.get("key") or ""),
+        "reservation_id": key,
+        "vue": stay_view_path(key),
+        "role": role,
+        "role_label": ROLE_LABELS.get(role, role),
         "essai": preview,
         "tableau": tableau,
         "access_revoked": bool(record.get("access_revoked")),

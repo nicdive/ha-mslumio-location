@@ -49,13 +49,13 @@ Le dépôt doit être **public**. HACS n'installe pas un dépôt privé.
 
 1. HACS → ⋮ → *Dépôts personnalisés*.
 2. URL `https://github.com/nicdive/ha-mslumio-location`, catégorie **Intégration**.
-3. Télécharger **Usvegliu** en choisissant une **release GitHub** (dernière : [0.6.21](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.21)), pas le commit d'une branche.
+3. Télécharger **Usvegliu** en choisissant une **release GitHub** (dernière : [0.6.22](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.22)), pas le commit d'une branche.
 4. Redémarrer Home Assistant.
 5. Paramètres → Appareils et services → Ajouter une intégration → **Usvegliu**.
 
-Pour **mettre à jour** (ex. 0.6.20 → 0.6.21) : HACS → Usvegliu → ⋮ → **Redownload** → **0.6.21**, puis redémarrer. Le numéro dans Paramètres → Intégrations ne change qu'après ce redémarrage.
+Pour **mettre à jour** (ex. 0.6.21 → 0.6.22) : HACS → Usvegliu → ⋮ → **Redownload** → **0.6.22**, puis redémarrer. Le numéro dans Paramètres → Intégrations ne change qu'après ce redémarrage.
 
-HACS ne liste une version **que** si la [release GitHub](https://github.com/nicdive/ha-mslumio-location/releases) existe. Un numéro dans le `manifest.json` ou une pull request ne suffit pas : sans tag `v0.6.21` poussé, 0.6.21 n'apparaît pas.
+HACS ne liste une version **que** si la [release GitHub](https://github.com/nicdive/ha-mslumio-location/releases) existe. Un numéro dans le `manifest.json` ou une pull request ne suffit pas : sans tag `v0.6.22` poussé, 0.6.22 n'apparaît pas.
 
 ## Versions
 
@@ -221,7 +221,7 @@ Le mot de passe est généré dans Home Assistant (`token_urlsafe`, sous la limi
 
 Tableau locataire : URL `usvegliu-sejour`, titre **Séjour**, visible des non-administrateurs, cartes thermostat / volets / éclairage. Accueil du compte locataire (`default_panel`).
 
-Tableau propriétaire : URL `usvegliu-proprietaire`, titre **Console**. Visible des **administrateurs** et des comptes **Utilisateur** (droits de contrôle), pas des locataires. Deux vues : **Séjours** (dates, identifiant HA, mot de passe en clair, code Wi-Fi, lien Maison, **message à envoyer** au locataire, adresse mail lue dans le calendrier, actions) et **Réglages** (options Usvegliu en vigueur, dont le service SMTP locataire). Le message à coller contient le lien personnel Maison, le réseau et le code Wi-Fi, dans une forme de politesse villa ; pas les identifiants Home Assistant. S'il y a une adresse et un SMTP, le même texte part par mail à J−2. Les identifiants sont lus en direct sur le capteur **Séjours actifs** (rien de secret dans le YAML Lovelace). Home Assistant masque l'attribut `password` : le mot de passe est exposé sous un autre nom pour rester visible. Si un séjour ancien n'a pas de mot de passe enregistré, **Nouveau mot de passe**.
+Tableau propriétaire : URL `usvegliu-proprietaire`, titre **Console**. Visible des **administrateurs** et des comptes **Utilisateur** (droits de contrôle), pas des locataires. Quatre vues : **Accueil** (séjour **en cours** et **prochain**, raccourcis), **Séjours** (liste ordonnée, un clic ouvre la fiche), **Historique** (séjours clos et journal des accès, sans les codes), **Réglages**. La fiche d'un séjour contient le compte HA, le mot de passe, le Wi-Fi, le **message à envoyer** et les actions. Le message à coller contient le lien personnel Maison, le réseau et le code Wi-Fi, dans une forme de politesse villa ; pas les identifiants Home Assistant. S'il y a une adresse et un SMTP, le même texte part par mail à J−2. Les identifiants sont lus en direct sur le capteur **Séjours actifs** (rien de secret dans le YAML Lovelace). Home Assistant masque l'attribut `password` : le mot de passe est exposé sous un autre nom pour rester visible. Si un séjour ancien n'a pas de mot de passe enregistré, **Nouveau mot de passe**.
 
 L'intégration crée les deux tableaux si la collection Lovelace est joignable. Sinon : créer les URL `usvegliu-sejour` et `usvegliu-proprietaire` (tiret obligatoire) puis `usvegliu.appliquer_tableau`.
 
@@ -229,7 +229,7 @@ L'intégration crée les deux tableaux si la collection Lovelace est joignable. 
 
 Ce n'est **pas** le tableau **Séjour** (locataire) ni un tableau créé à la main sous un autre nom. Dans Home Assistant 2026, le bouton **+** des tableaux de bord ne reprend pas le titre comme URL : « Location » devient `dashboard-location`, donc l'intégration n'y écrit rien.
 
-1. Mettre à jour Usvegliu ([0.6.21](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.21)+), redémarrer Home Assistant.
+1. Mettre à jour Usvegliu ([0.6.22](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.22)+), redémarrer Home Assistant.
 2. Outils de développement → Actions → `usvegliu.appliquer_tableau` → Exécuter.
 3. Dans la barre latérale, ouvrir **Console**, ou l'URL `/usvegliu-proprietaire`.
 

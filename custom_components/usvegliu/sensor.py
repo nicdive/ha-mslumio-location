@@ -132,6 +132,8 @@ class IssuedAccountsSensor(CoordinatorEntity, SensorEntity):
         attrs: dict[str, Any] = {
             "count": len(stays),
             "stays": stays,
+            "historique": list(data.get("historique") or []),
+            "journal": list(data.get("journal") or []),
             "comptes": comptes,
             "wifi_ssid": self._runtime.wifi_ssid(),
             "reseau_wifi": self._runtime.wifi_ssid(),

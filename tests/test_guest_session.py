@@ -23,6 +23,8 @@ from custom_components.usvegliu.guest_session import (
     guest_alarm_service,
     guest_welcome_message,
     issued_account_view,
+    stay_console_role,
+    stay_view_path,
     welcome_mail_due,
     map_fan_modes,
     open_issued_records,
@@ -150,6 +152,13 @@ def test_open_issued_records_keeps_active_stays_and_live_preview():
         now=now,
     )
     assert waiting["acces_actif"] is False
+    assert row["role"] == "current"
+    assert row["role_label"] == "En cours"
+    assert row["vue"] == "s-live"
+    assert waiting["role"] == "upcoming"
+    assert waiting["vue"] == "s-soon"
+    assert stay_console_role(stays["soon"], now) == "upcoming"
+    assert stay_view_path("airbnb-1|2026-07-10") == "s-airbnb-1-2026-07-10"
     assert row["lien_maison"].endswith("/s/TTTT")
     assert row["username"] == "loc-ada"
     assert row["password"] == "secret-ada"
