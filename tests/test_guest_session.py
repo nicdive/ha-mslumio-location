@@ -165,6 +165,8 @@ def test_open_issued_records_keeps_active_stays_and_live_preview():
     assert row["mot_de_passe"] == "secret-ada"
     assert row["code_compte"] == "secret-ada"
     assert row["voucher_code"] == "ABCD12"
+    assert row["nuki_code"] is None
+    assert row["nuki_revoked"] is False
     assert row["wifi_ssid"] == "Usvegliu-Guest"
     assert row["guest_email"] is None
     assert row["welcome_mail_sent"] is None
@@ -249,7 +251,22 @@ def test_guest_welcome_message_is_villa_copy_without_ha_login():
     assert "https://www.usvegliu.fr/s/LINK" in note
     assert "Réseau Wi-Fi : Usvegliu-Guest" in note
     assert "Code d'accès : WIFIXY" in note
+    assert "Code porte" not in note
     assert "séjour d'exception" in note
+    with_door = guest_welcome_message(
+        guest="Jean Dupont",
+        check_in="2026-07-10T00:00:00+00:00",
+        check_out="2026-07-17T00:00:00+00:00",
+        lien_maison="https://www.usvegliu.fr/s/LINK",
+        wifi_ssid="Usvegliu-Guest",
+        voucher_code="WIFIXY",
+        voucher_revoked=False,
+        nuki_code="345678",
+        nuki_revoked=False,
+        preview=False,
+    )
+    assert "Code porte (Keypad) : 345678" in with_door
+    assert "clavier de la porte" in with_door
     assert "L'équipe Usvegliu" in note
     assert "mot de passe" not in note.lower()
     preview = guest_welcome_message(
@@ -290,6 +307,39 @@ def test_guest_welcome_message_is_villa_copy_without_ha_login():
     )
     assert "Réseau Wi-Fi : Usvegliu-Guest" in bare
     assert "Code d'accès : 8065941041" in bare
+
+
+def test_nuki_pin_option_controls_welcome_copy_not_the_lock():
+    record = {
+        "key": "live",
+        "guest": "Ada",
+        "check_in": "2026-07-10T00:00:00+00:00",
+        "check_out": "2026-07-17T00:00:00+00:00",
+        "voucher_code": "WIFIXY",
+        "nuki_code": "345678",
+    }
+    without_pin = issued_account_view(
+        record,
+        username="loc-ada",
+        password="secret",
+        lien_maison="https://www.usvegliu.fr/s/TTTT",
+        path="/usvegliu/s/TTTT",
+        tableau="/usvegliu-sejour",
+        nuki_pins=False,
+    )
+    assert without_pin["nuki_code"] == "345678"
+    assert "345678" not in without_pin["message_invite"]
+    assert "Code porte" not in without_pin["message_invite"]
+    with_pin = issued_account_view(
+        record,
+        username="loc-ada",
+        password="secret",
+        lien_maison="https://www.usvegliu.fr/s/TTTT",
+        path="/usvegliu/s/TTTT",
+        tableau="/usvegliu-sejour",
+        nuki_pins=True,
+    )
+    assert "Code porte (Keypad) : 345678" in with_pin["message_invite"]
 
 
 def test_expired_preview_is_rejected():

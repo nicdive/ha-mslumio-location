@@ -20,9 +20,11 @@ from .const import (
     SERVICE_REFRESH_CALENDAR,
     SERVICE_PRINT,
     SERVICE_REGENERATE_ACCESS,
+    SERVICE_REGENERATE_NUKI,
     SERVICE_REGENERATE_VOUCHER,
     SERVICE_RESEND,
     SERVICE_REVOKE_ACCESS,
+    SERVICE_REVOKE_NUKI,
     SERVICE_REVOKE_VOUCHER,
     SERVICE_STAY_SETTINGS,
     SERVICE_GUEST_LINK,
@@ -134,6 +136,8 @@ async def async_unload_entry(hass: Any, entry: Any) -> bool:
             for service in (
                 SERVICE_REGENERATE_VOUCHER,
                 SERVICE_REVOKE_VOUCHER,
+                SERVICE_REGENERATE_NUKI,
+                SERVICE_REVOKE_NUKI,
                 SERVICE_REGENERATE_ACCESS,
                 SERVICE_REVOKE_ACCESS,
                 SERVICE_RESEND,
@@ -172,6 +176,20 @@ async def async_remove_entry(hass: Any, entry: Any) -> None:
                 _LOGGER.warning(
                     "UniFi injoignable : les vouchers restent sur le contrôleur"
                 )
+        from .const import CONF_NUKI_SMARTLOCK_ID, CONF_NUKI_TOKEN
+        from .nuki import NukiClient, NukiError
+
+        token = str(entry.options.get(CONF_NUKI_TOKEN) or "").strip()
+        nuki = None
+        if token:
+            raw_id = str(entry.options.get(CONF_NUKI_SMARTLOCK_ID) or "").strip()
+            lock_id = None
+            if raw_id:
+                try:
+                    lock_id = int(raw_id)
+                except ValueError:
+                    lock_id = None
+            nuki = NukiClient(session, token, smartlock_id=lock_id)
         stays = raw.get("stays") if isinstance(raw.get("stays"), dict) else {}
         for record in stays.values():
             voucher_id = record.get("voucher_id")
@@ -180,6 +198,12 @@ async def async_remove_entry(hass: Any, entry: Any) -> None:
                     await client.async_delete_voucher(str(voucher_id))
                 except UnifiError:
                     _LOGGER.warning("Voucher non supprimé à la désinstallation")
+            auth_id = record.get("nuki_auth_id")
+            if nuki is not None and auth_id:
+                try:
+                    await nuki.async_delete_code(str(auth_id))
+                except NukiError:
+                    _LOGGER.warning("Code porte non supprimé à la désinstallation")
             user_id = record.get("user_id")
             if user_id:
                 from .access import TenantAccessError, async_revoke_user
@@ -233,6 +257,8 @@ def _async_register_services(hass: Any) -> None:
     for service, response in (
         (SERVICE_REGENERATE_VOUCHER, SupportsResponse.OPTIONAL),
         (SERVICE_REVOKE_VOUCHER, SupportsResponse.OPTIONAL),
+        (SERVICE_REGENERATE_NUKI, SupportsResponse.OPTIONAL),
+        (SERVICE_REVOKE_NUKI, SupportsResponse.OPTIONAL),
         (SERVICE_REGENERATE_ACCESS, SupportsResponse.OPTIONAL),
         (SERVICE_REVOKE_ACCESS, SupportsResponse.OPTIONAL),
         (SERVICE_RESEND, SupportsResponse.OPTIONAL),

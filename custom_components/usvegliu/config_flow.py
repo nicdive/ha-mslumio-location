@@ -41,7 +41,10 @@ from .const import (
     CONF_DEVICE_LIMIT,
     CONF_DOWNLOAD_MBPS,
     CONF_ENABLE_ACCESS,
+    CONF_ENABLE_NUKI,
     CONF_ENABLE_VOUCHERS,
+    CONF_NUKI_SMARTLOCK_ID,
+    CONF_NUKI_TOKEN,
     CONF_EXTRA_DAYS,
     CONF_GUEST_BASE_URL,
     CONF_GUEST_MAIL_DAYS,
@@ -230,6 +233,17 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
             vol.Required(
                 CONF_ENABLE_ACCESS, default=defaults.get(CONF_ENABLE_ACCESS, True)
             ): BooleanSelector(),
+            vol.Required(
+                CONF_ENABLE_NUKI,
+                default=defaults.get(CONF_ENABLE_NUKI, False),
+            ): BooleanSelector(),
+            vol.Optional(
+                CONF_NUKI_TOKEN, default=""
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
+            vol.Optional(
+                CONF_NUKI_SMARTLOCK_ID,
+                default=defaults.get(CONF_NUKI_SMARTLOCK_ID, ""),
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
             vol.Required(
                 CONF_PRINT_EVENT, default=defaults.get(CONF_PRINT_EVENT, False)
             ): BooleanSelector(),
@@ -537,6 +551,10 @@ class UsvegliuOptionsFlow(OptionsFlow):
             if not options.get(CONF_ALARM_CODE):
                 options[CONF_ALARM_CODE] = str(
                     self.config_entry.options.get(CONF_ALARM_CODE) or ""
+                )
+            if not options.get(CONF_NUKI_TOKEN):
+                options[CONF_NUKI_TOKEN] = str(
+                    self.config_entry.options.get(CONF_NUKI_TOKEN) or ""
                 )
             error = _house_error(
                 self.hass,

@@ -47,6 +47,9 @@
           "max_stay_days": "Maximum stay length (days)",
           "lookahead_days": "Calendar lookahead (days)",
           "enable_vouchers": "Create UniFi vouchers",
+          "enable_nuki": "Nuki Keypad PIN",
+          "nuki_token": "Nuki Web API token",
+          "nuki_smartlock_id": "Smartlock id (optional)",
           "enable_access": "Create guest accounts",
           "print_event": "Print event on creation",
           "guest_base_url": "Public web app URL",
@@ -71,7 +74,7 @@
           "allow_remote": "Off by default. The account is not local-only for the length of the stay. Home Assistant must already be reachable from outside; this integration opens nothing. Also turn this on to try the HA account over Tailscale (a 100.x address is not local).",
           "notify_service": "e.g. notify.mobile_app_phone. Empty = persistent notification only. This goes to you, not the guest.",
           "guest_mail_service": "e.g. notify.smtp. Sends the welcome note to the guest (address read from the calendar description). Empty = copy the note by hand.",
-          "guest_mail_days": "Send the welcome mail this many days before arrival. Default: 2. The Wi-Fi code is already issued (J−3).",
+          "guest_mail_days": "Send the welcome mail this many days before arrival. Default: 2. The Wi-Fi and door codes are already issued (J−3).",
           "journal_path": "Relative to the config folder, or absolute under config/ or a media folder (Synology share).",
           "title_blocklist": "Comma-separated substrings that are not guests (blocked dates).",
           "print_event": "When enabled, the cleartext code is published on usvegliu_print_voucher and may end up in traces. Leave off unless you print.",
@@ -81,7 +84,10 @@
           "outdoor_temperature": "Shown in the corner of the climate page. Read-only.",
           "pool_temperature": "Shown on the Pool tab. Read-only.",
           "pool_ph": "Optional. Read-only.",
-          "alarm_code": "Used server-side to arm/disarm. Never sent to the browser. Empty = keep the stored code."
+          "alarm_code": "Used server-side to arm/disarm. Never sent to the browser. Empty = keep the stored code.",
+          "enable_nuki": "Per-stay Keypad PIN (mail, Infos, Console). Independent of unlocking the Nuki lock in Maison. Unchecked: the welcome mail still goes out without a door code.",
+          "nuki_token": "Created at https://web.nuki.io (API). Empty = keep the stored token.",
+          "nuki_smartlock_id": "Leave empty if there is only one lock. Otherwise the numeric Nuki id of the front door."
         }
       },
       "reconfigure": {
@@ -137,6 +143,9 @@
           "max_stay_days": "Maximum stay length (days)",
           "lookahead_days": "Calendar lookahead (days)",
           "enable_vouchers": "Create UniFi vouchers",
+          "enable_nuki": "Nuki Keypad PIN",
+          "nuki_token": "Nuki Web API token",
+          "nuki_smartlock_id": "Smartlock id (optional)",
           "enable_access": "Create guest accounts",
           "print_event": "Print event on creation",
           "guest_base_url": "Public web app URL",
@@ -159,7 +168,10 @@
           "outdoor_temperature": "Read-only, in the corner of the climate page.",
           "pool_temperature": "Read-only, on the Pool tab.",
           "pool_ph": "Optional, read-only.",
-          "alarm_code": "Never sent to the browser. Empty = keep the stored code."
+          "alarm_code": "Never sent to the browser. Empty = keep the stored code.",
+          "enable_nuki": "Per-stay Keypad PIN. Unchecked: the mail goes without a door code. Maison lock/unlock does not depend on this.",
+          "nuki_token": "Nuki Web API token. Empty = keep the stored token.",
+          "nuki_smartlock_id": "Empty = first lock with a Keypad."
         }
       }
     },
@@ -214,6 +226,26 @@
     "regenerer_acces": {
       "name": "Regenerate Home Assistant access",
       "description": "Changes the guest password. It appears on the owner console.",
+      "fields": {
+        "reservation_key": {
+          "name": "Reservation",
+          "description": "Empty = the stay shown by the sensor."
+        }
+      }
+    },
+    "regenerer_nuki": {
+      "name": "Regenerate door code",
+      "description": "Deletes the stay Keypad code and creates a new one.",
+      "fields": {
+        "reservation_key": {
+          "name": "Reservation",
+          "description": "Empty = the stay shown by the sensor."
+        }
+      }
+    },
+    "revoquer_nuki": {
+      "name": "Revoke door code",
+      "description": "Deletes the door code. It is created again only with Regenerate door code.",
       "fields": {
         "reservation_key": {
           "name": "Reservation",

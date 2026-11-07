@@ -28,7 +28,10 @@ from .const import (
     CONF_DEVICE_LIMIT,
     CONF_DOWNLOAD_MBPS,
     CONF_ENABLE_ACCESS,
+    CONF_ENABLE_NUKI,
     CONF_ENABLE_VOUCHERS,
+    CONF_NUKI_SMARTLOCK_ID,
+    CONF_NUKI_TOKEN,
     CONF_EXTRA_DAYS,
     CONF_GUEST_BASE_URL,
     CONF_GUEST_MAIL_DAYS,
@@ -78,6 +81,7 @@ from .const import (
 from .access import user_can_manage_stays
 from .dashboard import async_ensure_dashboard, async_ensure_owner_dashboard
 from .engine import async_synchronize
+from .nuki import NukiClient
 from .guest_session import (
     PREVIEW_KEY,
     build_preview_record,
@@ -150,8 +154,10 @@ class UsvegliuRuntime:
         self._shared: dict[str, Any] | None = None
         self._force_voucher: set[str] = set()
         self._force_access: set[str] = set()
+        self._force_nuki: set[str] = set()
         self._force_revoke_voucher: set[str] = set()
         self._force_revoke_access: set[str] = set()
+        self._force_revoke_nuki: set[str] = set()
         self._resend: set[str] = set()
         self._mail_force_keys: set[str] = set()
         self._print: set[str] = set()
@@ -220,6 +226,32 @@ class UsvegliuRuntime:
             or DEFAULT_WIFI_SSID
         ).strip()
 
+    def nuki_client(self) -> NukiClient | None:
+        """Nuki Web API client when a token is stored. None otherwise."""
+        token = str(self.entry.options.get(CONF_NUKI_TOKEN) or "").strip()
+        if not token:
+            return None
+        raw_id = str(self.entry.options.get(CONF_NUKI_SMARTLOCK_ID) or "").strip()
+        smartlock_id = None
+        if raw_id:
+            try:
+                smartlock_id = int(raw_id)
+            except ValueError:
+                smartlock_id = None
+        return NukiClient(self.session, token, smartlock_id=smartlock_id)
+
+    def nuki_pin_option(self) -> bool:
+        """True when the owner asked for per-stay Keypad PINs.
+
+        Independent of using the Nuki ``lock`` entity in Maison to open
+        or close the door.
+        """
+        return bool(self.entry.options.get(CONF_ENABLE_NUKI, False))
+
+    def nuki_enabled(self) -> bool:
+        """True when keypad PINs should be created for new stays."""
+        return self.nuki_pin_option() and self.nuki_client() is not None
+
     def weather(self) -> dict[str, Any] | None:
         """Last Lumio forecast, or None until the first successful fetch."""
         return self._weather
@@ -287,6 +319,7 @@ class UsvegliuRuntime:
         secrets = [str(self.entry.data.get(CONF_API_KEY) or "")]
         for record in self._stays.values():
             secrets.append(str(record.get("voucher_code") or ""))
+            secrets.append(str(record.get("nuki_code") or ""))
             secrets.append(str(record.get("guest_token") or ""))
             secrets.append(str(record.get("password") or ""))
             secrets.append(str(record.get("guest_email") or ""))
@@ -295,6 +328,7 @@ class UsvegliuRuntime:
         if self._preview:
             secrets.append(str(self._preview.get("guest_token") or ""))
         secrets.append(str(self.entry.options.get(CONF_ALARM_CODE) or ""))
+        secrets.append(str(self.entry.options.get(CONF_NUKI_TOKEN) or ""))
         self.log_filter.update(secrets, owner=self.entry.entry_id)
 
     def _option_int(self, key: str, default: int) -> int:
@@ -362,6 +396,8 @@ class UsvegliuRuntime:
         )
         enable_vouchers = bool(options.get(CONF_ENABLE_VOUCHERS, True))
         enable_access = bool(options.get(CONF_ENABLE_ACCESS, True))
+        keypad = self.nuki_client()
+        enable_nuki = self.nuki_enabled()
         resend_keys = set(self._resend)
         previous_stays = {key: dict(value) for key, value in self._stays.items()}
         try:
@@ -372,12 +408,16 @@ class UsvegliuRuntime:
                 now=now,
                 vouchers=self.client if enable_vouchers else None,
                 accounts=self._accounts if enable_access else None,
+                keypad=keypad,
                 enable_vouchers=enable_vouchers,
                 enable_access=enable_access,
+                enable_nuki=enable_nuki,
                 force_rotate_keys=set(self._force_access),
                 force_voucher_keys=set(self._force_voucher),
+                force_nuki_keys=set(self._force_nuki),
                 force_revoke_access_keys=set(self._force_revoke_access),
                 force_revoke_voucher_keys=set(self._force_revoke_voucher),
+                force_revoke_nuki_keys=set(self._force_revoke_nuki),
                 print_keys=set(self._print),
                 resend_keys=set(self._resend),
                 emit_print_on_create=bool(options.get(CONF_PRINT_EVENT, False)),
@@ -394,8 +434,10 @@ class UsvegliuRuntime:
         finally:
             self._force_access.clear()
             self._force_voucher.clear()
+            self._force_nuki.clear()
             self._force_revoke_access.clear()
             self._force_revoke_voucher.clear()
+            self._force_revoke_nuki.clear()
             self._print.clear()
             self._resend.clear()
 
@@ -438,6 +480,8 @@ class UsvegliuRuntime:
         ]
         if note.get("code"):
             lines.append(f"Code Wi-Fi : {note['code']}")
+        if note.get("nuki_code"):
+            lines.append(f"Code porte : {note['nuki_code']}")
         if note.get("username"):
             lines.append(f"Utilisateur Home Assistant : {note['username']}")
         if note.get("password"):
@@ -539,6 +583,8 @@ class UsvegliuRuntime:
             ),
             "enable_access": bool(options.get(CONF_ENABLE_ACCESS, True)),
             "enable_vouchers": bool(options.get(CONF_ENABLE_VOUCHERS, True)),
+            "enable_nuki": self.nuki_pin_option(),
+            "nuki_configured": self.nuki_client() is not None,
             "access_mode": mode,
             "access_mode_label": labels.get(mode, mode),
             "allow_remote": bool(options.get(CONF_ALLOW_REMOTE, False)),
@@ -782,10 +828,15 @@ class UsvegliuRuntime:
                 "voucher_revoked"
             ):
                 continue
+            if self.nuki_enabled() and not record.get("nuki_code") and not record.get(
+                "nuki_revoked"
+            ):
+                continue
             token = str(record.get("guest_token") or "")
             if not token:
                 continue
             link = self.guest_link(record)["url"]
+            include_pin = self.nuki_pin_option()
             body = guest_welcome_message(
                 guest=str(record.get("guest") or ""),
                 check_in=str(record.get("check_in") or ""),
@@ -794,6 +845,10 @@ class UsvegliuRuntime:
                 wifi_ssid=self.wifi_ssid(),
                 voucher_code=str(record.get("voucher_code") or "") or None,
                 voucher_revoked=bool(record.get("voucher_revoked")),
+                nuki_code=(
+                    str(record.get("nuki_code") or "") or None if include_pin else None
+                ),
+                nuki_revoked=bool(record.get("nuki_revoked")) if include_pin else False,
                 preview=False,
             )
             try:
@@ -938,6 +993,10 @@ class UsvegliuRuntime:
                 self._force_voucher.add(resolved)
             elif action == "revoquer_voucher" and resolved:
                 self._force_revoke_voucher.add(resolved)
+            elif action == "regenerer_nuki" and resolved:
+                self._force_nuki.add(resolved)
+            elif action == "revoquer_nuki" and resolved:
+                self._force_revoke_nuki.add(resolved)
             elif action == "regenerer_acces" and resolved:
                 self._force_access.add(resolved)
             elif action == "revoquer_acces" and resolved:
@@ -1042,6 +1101,7 @@ def _issued_rows(
                 path=str(link.get("path") or ""),
                 tableau=f"/{DASHBOARD_URL}",
                 wifi_ssid=runtime.wifi_ssid(),
+                nuki_pins=runtime.nuki_pin_option(),
                 now=now,  # type: ignore[arg-type]
             )
         )

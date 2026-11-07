@@ -5,6 +5,7 @@ from datetime import date, datetime, timezone
 import pytest
 
 from custom_components.usvegliu.engine import async_synchronize
+from custom_components.usvegliu.nuki import NukiError, is_valid_nuki_pin
 from custom_components.usvegliu.planning import build_plan, normalize_event
 from custom_components.usvegliu.unifi import UnifiError
 
@@ -73,6 +74,42 @@ class FakeAccounts:
     async def async_revoke_user(self, user_id: str) -> None:
         self.revoked.append(user_id)
         self.users.pop(user_id, None)
+
+
+class _Auth:
+    def __init__(self, auth_id: str, name: str, code: str) -> None:
+        self.id = auth_id
+        self.name = name
+        self.code = code
+
+
+class FakeKeypad:
+    def __init__(self) -> None:
+        self.auths: list[_Auth] = []
+        self.created = 0
+        self.deleted: list[str] = []
+        self.fail_create = False
+        self.fail_delete = False
+        self.fail_list = False
+
+    async def async_list_codes(self) -> list[_Auth]:
+        if self.fail_list:
+            raise NukiError("nuki unreachable")
+        return list(self.auths)
+
+    async def async_create_code(self, **kwargs: object) -> _Auth:
+        if self.fail_create:
+            raise NukiError("nuki down")
+        self.created += 1
+        auth = _Auth(f"nuki-{self.created}", str(kwargs["name"]), str(kwargs["code"]))
+        self.auths.append(auth)
+        return auth
+
+    async def async_delete_code(self, auth_id: str) -> None:
+        if self.fail_delete:
+            raise NukiError("nuki down")
+        self.deleted.append(auth_id)
+        self.auths = [auth for auth in self.auths if auth.id != auth_id]
 
 
 def _plan(now: datetime, stays: list | None = None, known: list[str] | None = None):
@@ -552,4 +589,191 @@ async def test_voucher_is_ready_in_the_lead_window_login_waits():
     )
     assert gone.stays == {}
     assert uid in accounts.revoked
+    assert unifi.deleted == ["id-1"]
+
+
+@pytest.mark.asyncio
+async def test_nuki_pin_is_created_in_lead_window_and_revoked_at_maison_close():
+    unifi = FakeUnifi()
+    keypad = FakeKeypad()
+    lead_plan = _plan(LEAD)
+    key = lead_plan.ensure[0].key
+    first = await async_synchronize(
+        lead_plan,
+        {},
+        None,
+        now=LEAD,
+        vouchers=unifi,
+        accounts=None,
+        keypad=keypad,
+        enable_vouchers=True,
+        enable_access=False,
+        enable_nuki=True,
+    )
+    pin = first.stays[key]["nuki_code"]
+    assert keypad.created == 1
+    assert is_valid_nuki_pin(pin)
+    assert pin not in str(first.journal)
+    assert pin not in str(first.events)
+    assert first.notifications[0]["nuki_code"] == pin
+    assert first.journal[0]["code"] == "CODE1"
+    assert all(row.get("code") != pin for row in first.journal)
+
+    second = await async_synchronize(
+        lead_plan,
+        first.stays,
+        None,
+        now=LEAD,
+        vouchers=unifi,
+        accounts=None,
+        keypad=keypad,
+        enable_vouchers=True,
+        enable_access=False,
+        enable_nuki=True,
+    )
+    assert keypad.created == 1
+    assert second.stays[key]["nuki_code"] == pin
+    assert second.notifications == []
+
+    leftover = await async_synchronize(
+        _plan(AFTER_CHECKOUT, known=[key]),
+        second.stays,
+        None,
+        now=AFTER_CHECKOUT,
+        vouchers=unifi,
+        accounts=None,
+        keypad=keypad,
+        enable_vouchers=True,
+        enable_access=False,
+        enable_nuki=True,
+    )
+    assert leftover.stays[key]["voucher_code"] == "CODE1"
+    assert leftover.stays[key].get("nuki_code") is None
+    assert keypad.deleted == ["nuki-1"]
+
+    gone = await async_synchronize(
+        _plan(WIFI_GONE, known=[key]),
+        leftover.stays,
+        None,
+        now=WIFI_GONE,
+        vouchers=unifi,
+        accounts=None,
+        keypad=keypad,
+        enable_vouchers=True,
+        enable_access=False,
+        enable_nuki=True,
+    )
+    assert gone.stays == {}
+    assert unifi.deleted == ["id-1"]
+
+
+@pytest.mark.asyncio
+async def test_nuki_revoke_holds_until_regenerate():
+    keypad = FakeKeypad()
+    now = ARRIVAL
+    plan = _plan(now)
+    key = plan.ensure[0].key
+    created = await async_synchronize(
+        plan,
+        {},
+        None,
+        now=now,
+        vouchers=None,
+        accounts=None,
+        keypad=keypad,
+        enable_vouchers=False,
+        enable_access=False,
+        enable_nuki=True,
+    )
+    pin = created.stays[key]["nuki_code"]
+    revoked = await async_synchronize(
+        plan,
+        created.stays,
+        None,
+        now=now,
+        vouchers=None,
+        accounts=None,
+        keypad=keypad,
+        enable_vouchers=False,
+        enable_access=False,
+        enable_nuki=True,
+        force_revoke_nuki_keys={key},
+    )
+    assert revoked.stays[key].get("nuki_revoked") is True
+    assert revoked.stays[key].get("nuki_code") is None
+    assert keypad.deleted == ["nuki-1"]
+    held = await async_synchronize(
+        plan,
+        revoked.stays,
+        None,
+        now=now,
+        vouchers=None,
+        accounts=None,
+        keypad=keypad,
+        enable_vouchers=False,
+        enable_access=False,
+        enable_nuki=True,
+    )
+    assert held.stays[key].get("nuki_revoked") is True
+    assert keypad.created == 1
+    restored = await async_synchronize(
+        plan,
+        held.stays,
+        None,
+        now=now,
+        vouchers=None,
+        accounts=None,
+        keypad=keypad,
+        enable_vouchers=False,
+        enable_access=False,
+        enable_nuki=True,
+        force_nuki_keys={key},
+    )
+    assert restored.stays[key].get("nuki_revoked") is None
+    assert restored.stays[key]["nuki_code"] != pin
+    assert is_valid_nuki_pin(restored.stays[key]["nuki_code"])
+    assert keypad.created == 2
+
+
+@pytest.mark.asyncio
+async def test_nuki_failure_does_not_block_unifi():
+    unifi = FakeUnifi()
+    keypad = FakeKeypad()
+    keypad.fail_create = True
+    now = ARRIVAL
+    plan = _plan(now)
+    key = plan.ensure[0].key
+    created = await async_synchronize(
+        plan,
+        {},
+        None,
+        now=now,
+        vouchers=unifi,
+        accounts=None,
+        keypad=keypad,
+        enable_vouchers=True,
+        enable_access=False,
+        enable_nuki=True,
+    )
+    assert unifi.created == 1
+    assert created.stays[key]["voucher_code"] == "CODE1"
+    assert created.stays[key].get("nuki_code") is None
+
+    keypad.fail_create = False
+    keypad.fail_delete = True
+    created.stays[key]["nuki_auth_id"] = "nuki-leftover"
+    created.stays[key]["nuki_code"] = "345678"
+    gone = await async_synchronize(
+        _plan(WIFI_GONE, known=[key]),
+        created.stays,
+        None,
+        now=WIFI_GONE,
+        vouchers=unifi,
+        accounts=None,
+        keypad=keypad,
+        enable_vouchers=True,
+        enable_access=False,
+        enable_nuki=True,
+    )
+    assert gone.stays == {}
     assert unifi.deleted == ["id-1"]

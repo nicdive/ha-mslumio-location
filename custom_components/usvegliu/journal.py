@@ -37,6 +37,10 @@ ACTION_LABELS: dict[str, str] = {
     "acces_supprime": "Compte retiré",
     "acces_desactive": "Compte désactivé",
     "message_envoye": "Mail d'accueil envoyé",
+    "code_porte_cree": "Code porte créé",
+    "code_porte_adopte": "Code porte repris",
+    "code_porte_regenere": "Code porte renouvelé",
+    "code_porte_supprime": "Code porte retiré",
 }
 
 

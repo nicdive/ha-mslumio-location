@@ -196,7 +196,11 @@
     const ssid = String(info.wifi_ssid || "").trim();
     const revoked = Boolean(info.voucher_revoked);
     const code = revoked ? "" : String(info.voucher_code || "").trim();
-    return Boolean(ssid || code || revoked || stayShareUrl() || info.qr_svg);
+    const nukiRevoked = Boolean(info.nuki_revoked);
+    const nuki = nukiRevoked ? "" : String(info.nuki_code || "").trim();
+    return Boolean(
+      ssid || code || revoked || nuki || nukiRevoked || stayShareUrl() || info.qr_svg
+    );
   }
 
   function metricByKind(kind) {
@@ -356,6 +360,10 @@
     if (ssid) rows.push(infoRow("Réseau Wi-Fi", ssid, true, "ssid"));
     if (revoked) rows.push(infoRow("Code Wi-Fi", "Révoqué", false, "code"));
     else if (code) rows.push(infoRow("Code Wi-Fi", code, true, "code"));
+    const nukiRevoked = Boolean(info.nuki_revoked);
+    const nuki = nukiRevoked ? "" : String(info.nuki_code || "").trim();
+    if (nukiRevoked) rows.push(infoRow("Code porte", "Révoqué", false, "nuki"));
+    else if (nuki) rows.push(infoRow("Code porte", nuki, true, "nuki"));
     const wifi = rows.length ? `<section class="sheet info-sheet">${rows.join("")}</section>` : "";
     const share = shareSection();
     if (!wifi && !share) return "";

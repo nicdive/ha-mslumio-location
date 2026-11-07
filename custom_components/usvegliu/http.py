@@ -475,6 +475,8 @@ def _snapshot(
             metrics.append(item)
     revoked = bool(record.get("voucher_revoked"))
     voucher = "" if revoked else str(record.get("voucher_code") or "")
+    nuki_revoked = bool(record.get("nuki_revoked"))
+    nuki_code = "" if nuki_revoked else str(record.get("nuki_code") or "")
     share = _guest_share_url(request, record)
     return {
         "guest": record.get("guest") or "",
@@ -485,6 +487,8 @@ def _snapshot(
             "wifi_ssid": runtime.wifi_ssid(),
             "voucher_code": voucher or None,
             "voucher_revoked": revoked,
+            "nuki_code": nuki_code or None,
+            "nuki_revoked": nuki_revoked,
             "lien_maison": share or None,
             "qr_svg": make_share_qr_svg(share) if share else None,
         },
