@@ -34,6 +34,7 @@ class CalendarStay:
     check_in: datetime
     check_out: datetime
     summary: str
+    email: str = ""
 
 
 @dataclass(frozen=True)
@@ -89,6 +90,35 @@ def is_blocked_title(summary: str, needles: tuple[str, ...]) -> bool:
     """Return True when the event title looks like a calendar block."""
     folded = summary.casefold()
     return any(needle and needle in folded for needle in needles)
+
+
+_EMAIL_RE = re.compile(r"[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}", re.I)
+_SKIP_EMAIL_DOMAINS = (
+    "airbnb.com",
+    "airbnb.fr",
+    "booking.com",
+    "vrbo.com",
+    "homeaway.com",
+    "expedia.com",
+)
+
+
+def extract_guest_email(*texts: str | None) -> str:
+    """First personal email in calendar description or location.
+
+    Platform addresses (Airbnb, Booking) are skipped. An empty string means
+    none was found — the owner still copies the welcome note by hand.
+    """
+    for text in texts:
+        if not text:
+            continue
+        for match in _EMAIL_RE.findall(str(text)):
+            addr = match.strip().rstrip(".,;>)")
+            domain = addr.rsplit("@", 1)[-1].casefold()
+            if any(domain == skip or domain.endswith("." + skip) for skip in _SKIP_EMAIL_DOMAINS):
+                continue
+            return addr
+    return ""
 
 
 def sanitize_guest(summary: str) -> str:
@@ -194,6 +224,8 @@ def normalize_event(
     uid: str | None = None,
     recurrence_id: str | None = None,
     status: str | None = None,
+    description: str | None = None,
+    location: str | None = None,
     blocklist: tuple[str, ...] = (),
     max_stay_days: int = DEFAULT_MAX_STAY_DAYS,
     tz: datetime.tzinfo | None = None,
@@ -237,6 +269,7 @@ def normalize_event(
         check_in=check_in,
         check_out=check_out,
         summary=summary or guest,
+        email=extract_guest_email(description, location),
     )
 
 

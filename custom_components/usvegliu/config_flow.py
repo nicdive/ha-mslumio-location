@@ -44,6 +44,8 @@ from .const import (
     CONF_ENABLE_VOUCHERS,
     CONF_EXTRA_DAYS,
     CONF_GUEST_BASE_URL,
+    CONF_GUEST_MAIL_DAYS,
+    CONF_GUEST_MAIL_SERVICE,
     CONF_WIFI_SSID,
     CONF_ALARM_CODE,
     CONF_HOUSE_MODE_ENTITY,
@@ -67,6 +69,7 @@ from .const import (
     DEFAULT_DEVICE_LIMIT,
     DEFAULT_DOWNLOAD_MBPS,
     DEFAULT_EXTRA_DAYS,
+    DEFAULT_GUEST_MAIL_DAYS,
     DEFAULT_JOURNAL_PATH,
     DEFAULT_LEAD_DAYS,
     DEFAULT_LOOKAHEAD_DAYS,
@@ -177,6 +180,14 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
                 CONF_NOTIFY_SERVICE, default=defaults.get(CONF_NOTIFY_SERVICE, "")
             ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
             vol.Optional(
+                CONF_GUEST_MAIL_SERVICE,
+                default=defaults.get(CONF_GUEST_MAIL_SERVICE, ""),
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            vol.Required(
+                CONF_GUEST_MAIL_DAYS,
+                default=defaults.get(CONF_GUEST_MAIL_DAYS, DEFAULT_GUEST_MAIL_DAYS),
+            ): _number(0, 30),
+            vol.Optional(
                 CONF_GUEST_BASE_URL,
                 default=defaults.get(CONF_GUEST_BASE_URL, ""),
             ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
@@ -237,6 +248,7 @@ def _clean_options(user_input: Mapping[str, Any]) -> dict[str, Any]:
         CONF_EXTRA_DAYS,
         CONF_MAX_STAY_DAYS,
         CONF_LOOKAHEAD_DAYS,
+        CONF_GUEST_MAIL_DAYS,
     ):
         if key in cleaned and cleaned[key] is not None:
             cleaned[key] = int(cleaned[key])
@@ -253,6 +265,9 @@ def _clean_options(user_input: Mapping[str, Any]) -> dict[str, Any]:
     for key in (CONF_CLIMATE_ENTITIES, CONF_COVER_ENTITIES, CONF_LIGHT_ENTITIES):
         cleaned.pop(key, None)
     cleaned[CONF_NOTIFY_SERVICE] = str(cleaned.get(CONF_NOTIFY_SERVICE) or "").strip()
+    cleaned[CONF_GUEST_MAIL_SERVICE] = str(
+        cleaned.get(CONF_GUEST_MAIL_SERVICE) or ""
+    ).strip()
     cleaned[CONF_GUEST_BASE_URL] = str(cleaned.get(CONF_GUEST_BASE_URL) or "").strip()
     cleaned[CONF_WIFI_SSID] = str(cleaned.get(CONF_WIFI_SSID) or "").strip()
     cleaned[CONF_HOUSE_MODE_ENTITY] = str(

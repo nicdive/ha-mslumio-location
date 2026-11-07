@@ -5,6 +5,7 @@ from datetime import date, datetime, timedelta, timezone
 from custom_components.usvegliu.planning import (
     build_plan,
     default_blocklist,
+    extract_guest_email,
     maison_closes_at,
     mbps_to_kbps,
     normalize_event,
@@ -152,6 +153,25 @@ def test_cancelled_status_is_ignored():
         )
         is None
     )
+
+
+def test_guest_email_is_read_from_the_calendar_description():
+    stay = _stay(description="Jean Dupont\njean.dupont@example.com")
+    assert stay is not None
+    assert stay.email == "jean.dupont@example.com"
+    from_location = _stay(description="", location="contact: ada@villa.fr")
+    assert from_location is not None
+    assert from_location.email == "ada@villa.fr"
+    none = _stay(description="pas de mail ici")
+    assert none is not None
+    assert none.email == ""
+
+
+def test_platform_emails_are_skipped():
+    assert extract_guest_email("guest@airbnb.com\nmoi@villa.fr") == "moi@villa.fr"
+    assert extract_guest_email("noreply@booking.com") == ""
+    assert extract_guest_email("Host <host@vrbo.com>") == ""
+    assert extract_guest_email("Ada <ada@Usvegliu.fr>.") == "ada@Usvegliu.fr"
 
 
 def test_quotes_are_stripped_from_the_voucher_name():
