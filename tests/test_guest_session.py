@@ -8,6 +8,7 @@ from custom_components.usvegliu.guest_session import (
     build_preview_record,
     charger_view_state,
     classify_guest_entity,
+    speaker_view_state,
     doorbell_is_ringing,
     climate_activity,
     climate_is_on,
@@ -346,6 +347,18 @@ def test_guest_entity_classification():
         )
         == "charger"
     )
+    assert classify_guest_entity("media_player.salon", name="Sonos Amp salon") == (
+        "speaker"
+    )
+    assert (
+        classify_guest_entity(
+            "media_player.tv_salon", device_class="tv", name="TV salon"
+        )
+        is None
+    )
+    assert speaker_view_state("playing") == "playing"
+    assert speaker_view_state("paused") == "paused"
+    assert speaker_view_state("off") == "idle"
     assert alarm_view_state("armed_away") == "armed"
     assert alarm_view_state("disarmed") == "disarmed"
     assert charger_view_state("Charging") == "charging"

@@ -339,6 +339,74 @@ button:active:not(:disabled) {
   text-transform: uppercase;
 }
 
+.sound-cut {
+  width: 100%;
+  height: 48px;
+  margin: 0 0 14px;
+}
+
+.sound-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.sound-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+}
+
+.sound-top,
+.sound-vol {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sound-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--serif);
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.sound-status {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sound-zone.live .sound-status {
+  color: var(--cool);
+}
+
+.sound-vol span {
+  min-width: 52px;
+  text-align: center;
+  font-family: var(--serif);
+  font-size: 20px;
+  font-variant-numeric: oldstyle-nums;
+}
+
+.sound-mute {
+  margin-left: auto;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .pool-sheet {
   padding: 24px 22px 22px;
   background: var(--paper);
@@ -1141,7 +1209,8 @@ h1 {
 
   .climate-list,
   .light-list,
-  .access-list {
+  .access-list,
+  .sound-list {
     grid-template-columns: 1fr 1fr;
     gap: 14px;
   }

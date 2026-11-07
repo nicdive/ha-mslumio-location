@@ -683,6 +683,12 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert "guest_alarm_service" in http
     assert "TYDOM_SET_MODE" in http
     assert "function visioPopup" in js
+    assert '"speakers"' in http
+    assert "GUEST_KIND_SPEAKER" in http
+    assert "function soundSection" in js
+    assert "Tout couper" in js
+    assert "data-act=\"sound-cut\"" in js
+    assert "media_player" in http
     assert "Ouvrir le portail" in js
     assert "data-act=\"visio-open\"" in js
     assert "data-act=\"visio-close\"" in js

@@ -312,6 +312,7 @@ La web app **Maison** est servie par le même Home Assistant. Le locataire n'ouv
 - **Pool** : température, pH, et lumière du bassin.
 - **Lumière** : lumières et scénarios (à cocher dans les entités locataire).
 - **Accès** : porte, garage, portail, alarme (armer / désarmer), volets, sonnette (état), borne de recharge (lecture). La photo visio est sur l'accueil, pas ici.
+- **Son** : zones `media_player` (Amp Sonos) : volume, pause / lecture, muet, tout couper. L'onglet n'apparaît que si au moins une zone est cochée. Pas de Spotify / source de la villa.
 - **Infos** : nom du réseau Wi-Fi, code voucher, et QR code du lien personnel Maison. Pas sur l'accueil.
 
 Pour apparaître, chaque appareil doit d'abord exister dans Home Assistant, puis être dans **Entités autorisées** (alarme / serrure : cocher la case sensible, et renseigner le **code alarme** Delta Dore / TYDOM).
@@ -319,6 +320,7 @@ Pour apparaître, chaque appareil doit d'abord exister dans Home Assistant, puis
 - **Borne Schneider** : OCPP (HACS) ou Modbus sur un EVlink. Cocher le capteur d'état ou `binary_sensor` « en charge ». La web app affiche Libre / Branché / En charge, sans démarrer ni arrêter la charge.
 - **Alarme Delta Dore** : **Tydom 2** déjà en place. HACS *Delta Dore Tydom*, cocher `alarm_control_panel`, coller le code. L'app appelle `set_mode_using_stored_pin` si ce service existe.
 - **Sonnette / visiophone** : sonnerie via `binary_sensor` / `event`. Popup accueil (photo + ouvrir le portail) si une `camera` (Linea 3000 / 300EOS) est cochée (case sensible). Parler reste sur le HomeTouch / 300EOS / app Home + Security.
+- **Sonos Amp** : cocher les `media_player` des zones (salon, terrasse, piscine). Pas les TV. Le locataire règle le volume et coupe le son ; il lance sa musique depuis son téléphone (AirPlay / appli Sonos).
 
 Le navigateur n'envoie que le jeton. Les commandes sont exécutées côté serveur après contrôle de la liste d'entités du séjour.
 

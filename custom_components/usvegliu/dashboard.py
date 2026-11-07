@@ -41,10 +41,14 @@ def build_dashboard_config(entity_ids: list[str]) -> dict[str, Any]:
     climate = [entity for entity in entity_ids if entity.startswith("climate.")]
     covers = [entity for entity in entity_ids if entity.startswith("cover.")]
     lights = [entity for entity in entity_ids if entity.startswith("light.")]
+    speakers = [entity for entity in entity_ids if entity.startswith("media_player.")]
     others = [
         entity
         for entity in entity_ids
-        if entity not in climate and entity not in covers and entity not in lights
+        if entity not in climate
+        and entity not in covers
+        and entity not in lights
+        and entity not in speakers
     ]
     cards: list[dict[str, Any]] = [
         {
@@ -61,6 +65,8 @@ def build_dashboard_config(entity_ids: list[str]) -> dict[str, Any]:
         cards.append({"type": "entities", "title": "Volets", "entities": covers})
     if lights:
         cards.append({"type": "entities", "title": "Éclairage", "entities": lights})
+    if speakers:
+        cards.append({"type": "entities", "title": "Son", "entities": speakers})
     if others:
         cards.append({"type": "entities", "title": "Équipements", "entities": others})
     return {

@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.20] — 2026-11-07
+
+### Ajouté
+- Onglet **Son** : volume, pause, muet et *Tout couper* sur les `media_player` cochés (Amp Sonos dès qu'ils sont dans HA). Les TV restent hors app.
+
+[0.6.20]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.20
+
 ## [0.6.19] — 2026-11-07
 
 ### Modifié
