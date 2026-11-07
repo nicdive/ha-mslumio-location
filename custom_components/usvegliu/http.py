@@ -21,6 +21,7 @@ from .guest_session import (
     stay_activation_start,
     stay_is_active,
     GUEST_KIND_ALARM,
+    GUEST_KIND_CAMERA,
     GUEST_KIND_CHARGER,
     GUEST_KIND_CLIMATE,
     GUEST_KIND_DOORBELL,
@@ -42,7 +43,10 @@ from .guest_session import (
     cover_is_moving,
     cover_is_open,
     doorbell_is_ringing,
+    guest_alarm_service,
     house_mode_label,
+    TYDOM_DOMAIN,
+    TYDOM_SET_MODE,
     infer_fan_speed,
     map_fan_modes,
     pick_hvac_on,
@@ -66,6 +70,7 @@ _GUEST_DOMAINS = frozenset(
         "sensor",
         "binary_sensor",
         "event",
+        "camera",
         "weather",
     }
 )
@@ -95,6 +100,7 @@ def async_setup_http(hass: Any) -> None:
     hass.http.register_view(GuestClimateView())
     hass.http.register_view(GuestLockView())
     hass.http.register_view(GuestCommandView())
+    hass.http.register_view(GuestSnapshotView())
     register = getattr(hass.http, "async_register_static_paths", None)
     if callable(register):
         hass.async_create_task(
@@ -334,6 +340,16 @@ def _serialize_charger(hass: Any, entity_id: str) -> dict[str, Any] | None:
     }
 
 
+def _serialize_camera(hass: Any, entity_id: str) -> dict[str, Any] | None:
+    state = hass.states.get(entity_id)
+    if state is None:
+        return None
+    return {
+        "entity_id": entity_id,
+        "name": str(state.attributes.get("friendly_name") or entity_id),
+    }
+
+
 def _serialize_doorbell(hass: Any, entity_id: str) -> dict[str, Any] | None:
     state = hass.states.get(entity_id)
     if state is None:
@@ -511,6 +527,11 @@ def _snapshot(
             item
             for entity_id in _ids(grouped, GUEST_KIND_DOORBELL)
             if (item := _serialize_doorbell(hass, entity_id))
+        ],
+        "cameras": [
+            item
+            for entity_id in _ids(grouped, GUEST_KIND_CAMERA)
+            if (item := _serialize_camera(hass, entity_id))
         ],
     }
 
@@ -854,13 +875,14 @@ async def _async_guest_command(
         await hass.services.async_call("lock", action, data, blocking=True)
         return
     if kind == GUEST_KIND_ALARM:
-        if action not in {"arm", "disarm"}:
-            raise ValueError("bad_action")
-        service = "alarm_arm_away" if action == "arm" else "alarm_disarm"
-        code = runtime.alarm_code()
-        if code:
-            data["code"] = code
-        await hass.services.async_call("alarm_control_panel", service, data, blocking=True)
+        has_tydom = hass.services.has_service(TYDOM_DOMAIN, TYDOM_SET_MODE)
+        domain, service, payload = guest_alarm_service(
+            action,
+            entity_id,
+            has_tydom=has_tydom,
+            code=runtime.alarm_code(),
+        )
+        await hass.services.async_call(domain, service, payload, blocking=True)
         return
     raise ValueError("bad_action")
 
@@ -877,3 +899,41 @@ def _serialize_command_result(hass: Any, entity_id: str, kind: str) -> dict[str,
     if kind == GUEST_KIND_ALARM:
         return _serialize_alarm(hass, entity_id)
     return {"entity_id": entity_id}
+
+
+class GuestSnapshotView(HomeAssistantView):
+    """Still from an allowed visio camera. Token in the query for <img>."""
+
+    requires_auth = False
+    cors_allowed = True
+    url = f"/api/{DOMAIN}/guest/snapshot"
+    name = f"api:{DOMAIN}:guest_snapshot"
+
+    async def get(self, request: Any) -> Any:
+        from aiohttp import web
+
+        hass, runtime, record = await _bound(request)
+        if runtime is None:
+            return _json_error(self, 503, "not_loaded")
+        denied = _guest_not_ready(self, record)
+        if denied is not None:
+            return denied
+        entity_id = str(request.query.get("entity_id") or "")
+        allowed = runtime.allowed_entity_ids(record)
+        if entity_id not in allowed:
+            return _json_error(self, 403, "forbidden")
+        if _entity_kind(hass, entity_id) != GUEST_KIND_CAMERA:
+            return _json_error(self, 403, "forbidden")
+        try:
+            from homeassistant.components.camera import async_get_image
+
+            image = await async_get_image(hass, entity_id, timeout=10)
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception("Guest snapshot failed")
+            return _json_error(self, 502, "snapshot_failed")
+        content_type = getattr(image, "content_type", None) or "image/jpeg"
+        return web.Response(
+            body=image.content,
+            content_type=content_type,
+            headers={"Cache-Control": "no-store"},
+        )

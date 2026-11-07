@@ -4,6 +4,14 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.18] — 2026-11-07
+
+### Ajouté
+- Alarme **Tydom 2** : armer / désarmer via `deltadore_tydom.set_mode_using_stored_pin` si l'intégration est là.
+- Accès : **photo de la platine** (caméra Linea / 300EOS cochée), actualisée quand ça sonne.
+
+[0.6.18]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.18
+
 ## [0.6.17] — 2026-11-06
 
 ### Ajouté

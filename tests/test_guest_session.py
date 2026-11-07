@@ -19,6 +19,7 @@ from custom_components.usvegliu.guest_session import (
     house_mode_label,
     infer_fan_speed,
     format_stay_span,
+    guest_alarm_service,
     guest_welcome_message,
     issued_account_view,
     map_fan_modes,
@@ -324,6 +325,7 @@ def test_guest_entity_classification():
         "pool_ph"
     )
     assert classify_guest_entity("switch.prise_salon") is None
+    assert classify_guest_entity("camera.linea_3000", name="Portail") == "camera"
     assert classify_guest_entity("light.piscine") == "pool_light"
     assert classify_guest_entity("switch.lumiere_bassin", name="Lumière bassin") == (
         "pool_light"
@@ -358,6 +360,17 @@ def test_guest_entity_classification():
     assert doorbell_is_ringing("2026-07-10T12:00:00+00:00", now=fresh) is True
     assert doorbell_is_ringing("2026-07-10T11:50:00+00:00", now=fresh) is False
     assert cover_is_open("opening") is True
+    domain, service, data = guest_alarm_service(
+        "arm", "alarm_control_panel.tyxal", has_tydom=True, code="1234"
+    )
+    assert (domain, service) == ("deltadore_tydom", "set_mode_using_stored_pin")
+    assert data["mode"] == "away"
+    assert "code" not in data
+    domain, service, data = guest_alarm_service(
+        "disarm", "alarm_control_panel.maison", has_tydom=False, code="1234"
+    )
+    assert (domain, service) == ("alarm_control_panel", "alarm_disarm")
+    assert data["code"] == "1234"
 
 
 def test_public_url_uses_s_path():
