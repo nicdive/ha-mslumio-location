@@ -682,9 +682,13 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert "GuestSnapshotView" in http
     assert "guest_alarm_service" in http
     assert "TYDOM_SET_MODE" in http
-    assert "function visioBlock" in js
+    assert "function visioPopup" in js
+    assert "Ouvrir le portail" in js
+    assert "data-act=\"visio-open\"" in js
+    assert "data-act=\"visio-close\"" in js
     assert "/api/usvegliu/guest/snapshot" in js
-    assert "Actualiser" in js
+    assert "function visioBlock" not in js
+    assert "Actualiser" not in js
 
 
 def test_guest_app_javascript_parses():

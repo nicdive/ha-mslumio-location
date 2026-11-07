@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.19] — 2026-11-07
+
+### Modifié
+- Interphone : **popup sur l'accueil** (photo Linea + *Ouvrir le portail* à côté) quand ça sonne. Plus de bloc visio dans Accès.
+
+[0.6.19]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.19
+
 ## [0.6.18] — 2026-11-07
 
 ### Ajouté

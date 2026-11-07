@@ -307,18 +307,18 @@ Sans UID calendrier, la clé est un condensat du nom et des dates : renommer le 
 
 La web app **Maison** est servie par le même Home Assistant. Le locataire n'ouvre pas l'UI admin : un lien avec jeton suffit. L'interface est une application à sections (accueil, clim, pool, lumière, accès, infos), adaptée au téléphone et à l'iPad mini. Le bandeau reprend le logo **U Svegliu**.
 
-- **Maison** : accueil nominatif, dates du séjour, météo du jour à Lumio, état de la borne et sonnette si quelqu'un sonne.
+- **Maison** : accueil nominatif, dates du séjour, météo du jour à Lumio, état de la borne. Si quelqu'un sonne, un popup avec la photo de la platine et *Ouvrir le portail*.
 - **Clim** : thermostats autorisés (marche / arrêt, consigne, ventilation) ; titre **Chauffage** ou **Climatisation** selon le switch du propriétaire. Température extérieure en coin.
 - **Pool** : température, pH, et lumière du bassin.
 - **Lumière** : lumières et scénarios (à cocher dans les entités locataire).
-- **Accès** : porte, garage, portail, alarme (armer / désarmer), volets, sonnette, borne de recharge (lecture).
+- **Accès** : porte, garage, portail, alarme (armer / désarmer), volets, sonnette (état), borne de recharge (lecture). La photo visio est sur l'accueil, pas ici.
 - **Infos** : nom du réseau Wi-Fi, code voucher, et QR code du lien personnel Maison. Pas sur l'accueil.
 
 Pour apparaître, chaque appareil doit d'abord exister dans Home Assistant, puis être dans **Entités autorisées** (alarme / serrure : cocher la case sensible, et renseigner le **code alarme** Delta Dore / TYDOM).
 
 - **Borne Schneider** : OCPP (HACS) ou Modbus sur un EVlink. Cocher le capteur d'état ou `binary_sensor` « en charge ». La web app affiche Libre / Branché / En charge, sans démarrer ni arrêter la charge.
 - **Alarme Delta Dore** : **Tydom 2** déjà en place. HACS *Delta Dore Tydom*, cocher `alarm_control_panel`, coller le code. L'app appelle `set_mode_using_stored_pin` si ce service existe.
-- **Sonnette / visiophone** : sonnerie via `binary_sensor` / `event`. Photo de la platine si une `camera` (Linea 3000 / 300EOS) est cochée (case sensible). Parler reste sur le HomeTouch / 300EOS / app Home + Security.
+- **Sonnette / visiophone** : sonnerie via `binary_sensor` / `event`. Popup accueil (photo + ouvrir le portail) si une `camera` (Linea 3000 / 300EOS) est cochée (case sensible). Parler reste sur le HomeTouch / 300EOS / app Home + Security.
 
 Le navigateur n'envoie que le jeton. Les commandes sont exécutées côté serveur après contrôle de la liste d'entités du séjour.
 

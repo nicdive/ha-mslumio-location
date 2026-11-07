@@ -89,6 +89,7 @@ button:active:not(:disabled) {
 }
 
 .shell {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
@@ -253,26 +254,52 @@ button:active:not(:disabled) {
   color: var(--danger);
 }
 
-.visio-sheet {
+.visio-pop {
+  position: fixed;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  z-index: 20;
+  width: var(--app);
+  transform: translateX(-50%);
   display: flex;
-  flex-direction: column;
-  gap: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 22px 16px calc(18px + env(safe-area-inset-bottom));
+  background: rgba(43, 36, 28, 0.42);
+}
+
+.visio-pop-card {
+  width: min(100%, 420px);
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  overflow: hidden;
   box-shadow: var(--shadow);
+  padding: 18px 16px 12px;
 }
 
-.visio-sheet + .visio-sheet,
-.visio-sheet + .status-sheet,
-.status-sheet + .visio-sheet {
-  margin-top: 10px;
+.visio-pop-kicker {
+  margin: 0 0 12px;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.visio-pop-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px;
+  gap: 12px;
+  align-items: stretch;
 }
 
 .visio-frame {
+  min-width: 0;
+  height: 168px;
   background: var(--bg-deep);
-  aspect-ratio: 4 / 3;
+  border-radius: 14px;
+  overflow: hidden;
 }
 
 .visio-frame img {
@@ -282,14 +309,34 @@ button:active:not(:disabled) {
   object-fit: cover;
 }
 
-.visio-sheet .access {
-  border: 0;
-  box-shadow: none;
-  border-radius: 0;
+.visio-pop-row .access-action.visio-open {
+  width: 100%;
+  height: 100%;
+  min-height: 168px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  white-space: normal;
+  line-height: 1.25;
+  padding: 12px 10px;
 }
 
-.access-list .visio-sheet {
+.visio-pop-row .access-action.visio-open.solo {
   grid-column: 1 / -1;
+  min-height: 88px;
+}
+
+.visio-pop-close {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .pool-sheet {
