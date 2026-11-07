@@ -171,8 +171,7 @@
         ((state && state.shutters) || []).length ||
         ((state && state.alarms) || []).length ||
         ((state && state.doorbells) || []).length ||
-        ((state && state.chargers) || []).length ||
-        ((state && state.cameras) || []).length
+        ((state && state.chargers) || []).length
     );
   }
 
@@ -428,6 +427,8 @@
 
   let snapshotStamp = Date.now();
   let snapshotTimer = null;
+  let visioOpen = false;
+  let visioDismissed = false;
 
   function snapshotSrc(entityId) {
     return (
@@ -447,42 +448,44 @@
       clearInterval(snapshotTimer);
       snapshotTimer = null;
     }
-    if (!anyRinging() || !((state && state.cameras) || []).length) return;
+    if (!visioOpen || !((state && state.cameras) || []).length) return;
     snapshotTimer = setInterval(() => {
       snapshotStamp = Date.now();
       render();
     }, 4000);
   }
 
-  function visioBlock(ringing) {
-    const cameras = (state && state.cameras) || [];
-    if (!cameras.length) return "";
-    return cameras
-      .map(
-        (cam) => `<section class="visio-sheet${ringing ? " ringing" : ""}">
-        <div class="visio-frame">
+  function gateTarget() {
+    const gates = (state && state.gates) || [];
+    const garages = (state && state.garages) || [];
+    return gates[0] || garages[0] || null;
+  }
+
+  function visioPopup() {
+    if (!visioOpen) return "";
+    const cam = ((state && state.cameras) || [])[0];
+    const gate = gateTarget();
+    const photo = cam
+      ? `<div class="visio-frame">
           <img alt="${escapeAttr(cam.name)}" src="${escapeAttr(snapshotSrc(cam.entity_id))}" />
-        </div>
-        <div class="access">
-          <div class="access-copy">
-            <div class="access-name">${escapeHtml(cam.name)}</div>
-            <div class="access-status">${ringing ? "Quelqu'un sonne" : "Entrée"}</div>
-          </div>
-          <button class="access-action" type="button" data-act="snapshot" data-id="${escapeAttr(cam.entity_id)}">Actualiser</button>
-        </div>
-      </section>`
-      )
-      .join("");
+        </div>`
+      : "";
+    const openBtn = gate
+      ? `<button class="access-action filled visio-open${cam ? "" : " solo"}" type="button" data-act="visio-open" data-id="${escapeAttr(gate.entity_id)}" data-cmd="open">Ouvrir le portail</button>`
+      : "";
+    return `<aside class="visio-pop" role="dialog" aria-modal="true" aria-label="Interphone">
+      <div class="visio-pop-card">
+        <p class="visio-pop-kicker">Quelqu'un sonne</p>
+        <div class="visio-pop-row">${photo}${openBtn}</div>
+        <button class="visio-pop-close" type="button" data-act="visio-close">Fermer</button>
+      </div>
+    </aside>`;
   }
 
   function statusCards() {
     const chargers = (state && state.chargers) || [];
-    const doorbells = ((state && state.doorbells) || []).filter(
-      (item) => item.ringing || item.state === "ringing"
-    );
-    const visio = doorbells.length ? visioBlock(true) : "";
-    if (!chargers.length && !doorbells.length && !visio) return "";
-    const chargerRows = chargers
+    if (!chargers.length) return "";
+    return chargers
       .map(
         (item) => `<section class="status-sheet${item.state === "charging" ? " live" : ""}">
         <div class="status-label">Borne</div>
@@ -491,18 +494,6 @@
       </section>`
       )
       .join("");
-    const bellRows = doorbells.length && !((state && state.cameras) || []).length
-      ? doorbells
-          .map(
-            (item) => `<section class="status-sheet ringing">
-        <div class="status-label">Entrée</div>
-        <div class="status-name">${escapeHtml(item.name)}</div>
-        <div class="status-value">${escapeHtml(doorbellStatus(item))}</div>
-      </section>`
-          )
-          .join("")
-      : "";
-    return `${visio}${bellRows}${chargerRows}`;
   }
 
   function poolLights() {
@@ -706,7 +697,6 @@
     const alarms = (state && state.alarms) || [];
     const doorbells = (state && state.doorbells) || [];
     const chargers = (state && state.chargers) || [];
-    const cameras = (state && state.cameras) || [];
     if (
       !locks.length &&
       !garages.length &&
@@ -714,8 +704,7 @@
       !alarms.length &&
       !shutters.length &&
       !doorbells.length &&
-      !chargers.length &&
-      !cameras.length
+      !chargers.length
     ) {
       return "";
     }
@@ -768,8 +757,7 @@
         </div>
       </div>`
     );
-    const visio = visioBlock(anyRinging());
-    return `<div class="access-list">${visio}${doorbellRows.join("")}${lockRows.join("")}${coverRows.join("")}${shutterBlock}${alarmRows.join("")}${chargerRows.join("")}</div>`;
+    return `<div class="access-list">${doorbellRows.join("")}${lockRows.join("")}${coverRows.join("")}${shutterBlock}${alarmRows.join("")}${chargerRows.join("")}</div>`;
   }
 
   function homePage() {
@@ -823,7 +811,7 @@
   }
 
   function appChrome(inner, withBack) {
-    return `<div class="shell${withBack ? " shell-room" : ""}">${brandBar(withBack)}${dock()}<main class="stage">${inner}</main></div>`;
+    return `<div class="shell${withBack ? " shell-room" : ""}">${brandBar(withBack)}${dock()}<main class="stage">${inner}</main>${visioPopup()}</div>`;
   }
 
   function statusPage(message, kind) {
@@ -1000,9 +988,20 @@
       commandEntity("alarms", id, button.getAttribute("data-cmd"));
       return;
     }
-    if (act === "snapshot") {
-      snapshotStamp = Date.now();
+    if (act === "visio-close") {
+      visioOpen = false;
+      visioDismissed = true;
+      scheduleSnapshotRefresh();
       render();
+      return;
+    }
+    if (act === "visio-open") {
+      const gate = gateTarget();
+      if (!gate) return;
+      commandEntity(coverListKey(gate.entity_id), gate.entity_id, "open", {
+        open: true,
+        state: "open",
+      });
     }
   }
 
@@ -1084,6 +1083,15 @@
     state = next;
     error = "";
     arrivalNote = "";
+    if (anyRinging()) {
+      if (!visioDismissed) {
+        visioOpen = true;
+        screen = "home";
+      }
+    } else {
+      visioOpen = false;
+      visioDismissed = false;
+    }
     scheduleSnapshotRefresh();
     render();
   }
