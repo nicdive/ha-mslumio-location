@@ -1,9 +1,9 @@
-"""Apply a sync plan to UniFi vouchers and tenant accounts.
+"""Apply a sync plan to UniFi vouchers, tenant accounts and keypad PINs.
 
 The network and Home Assistant details sit behind small callables so this
 module can be tested with fakes. A failed UniFi call aborts the cycle before
 any revocation: an offline controller must not lock guests out or duplicate
-vouchers.
+vouchers. A Nuki failure is logged and retried; UniFi and HA still run.
 """
 
 from __future__ import annotations
@@ -11,12 +11,16 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
+import logging
 from typing import Any, Protocol
 
 from .access import resolve_shared_access, resolve_stay_access
 from .guest_session import ensure_guest_token, stay_is_active
-from .planning import StayPlan, SyncPlan, VoucherSpec
+from .nuki import NukiError, generate_nuki_pin, keypad_auth_name
+from .planning import StayPlan, SyncPlan, VoucherSpec, maison_closes_at
 from .redact import mask_code
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class VoucherDirectory(Protocol):
@@ -59,6 +63,26 @@ class AccountDirectory(Protocol):
 
     async def async_revoke_user(self, user_id: str) -> None:
         """Disable or delete a tenant. Must refuse admin accounts."""
+
+
+class KeypadDirectory(Protocol):
+    """The slice of the Nuki client the engine needs."""
+
+    async def async_list_codes(self) -> list[Any]:
+        """Return keypad authorizations currently on the lock."""
+
+    async def async_create_code(
+        self,
+        *,
+        name: str,
+        code: str,
+        valid_from: datetime,
+        valid_until: datetime,
+    ) -> Any:
+        """Create one keypad PIN."""
+
+    async def async_delete_code(self, auth_id: str) -> None:
+        """Delete one keypad authorization. Missing ids are not an error."""
 
 
 @dataclass
@@ -147,6 +171,10 @@ async def async_synchronize(
     force_voucher_keys: set[str] | None = None,
     force_revoke_access_keys: set[str] | None = None,
     force_revoke_voucher_keys: set[str] | None = None,
+    force_nuki_keys: set[str] | None = None,
+    force_revoke_nuki_keys: set[str] | None = None,
+    keypad: KeypadDirectory | None = None,
+    enable_nuki: bool = False,
     print_keys: set[str] | None = None,
     resend_keys: set[str] | None = None,
     emit_print_on_create: bool = False,
@@ -170,12 +198,24 @@ async def async_synchronize(
     recreate_keys = force_voucher_keys or set()
     revoke_access_keys = force_revoke_access_keys or set()
     revoke_voucher_keys = force_revoke_voucher_keys or set()
+    recreate_nuki_keys = force_nuki_keys or set()
+    revoke_nuki_keys = force_revoke_nuki_keys or set()
     resend = resend_keys or set()
     to_print = set(print_keys or set())
 
     listed: list[Any] | None = None
     if enable_vouchers and vouchers is not None and (plan.ensure or plan.revoke_keys):
         listed = list(await vouchers.async_list_vouchers())
+
+    listed_codes: list[Any] | None = None
+    if keypad is not None and (plan.ensure or plan.revoke_keys):
+        try:
+            listed_codes = list(await keypad.async_list_codes())
+        except NukiError:
+            _LOGGER.warning(
+                "Nuki injoignable : les codes porte seront réessayés au prochain cycle"
+            )
+            listed_codes = None
 
     for key in plan.revoke_keys:
         record = stays.get(key)
@@ -194,6 +234,8 @@ async def async_synchronize(
             vouchers=vouchers if enable_vouchers else None,
             accounts=accounts,
             listed=listed,
+            keypad=keypad,
+            listed_codes=listed_codes,
             account_action=account_action,
         )
         if finished:
@@ -216,6 +258,10 @@ async def async_synchronize(
             record["access_revoked"] = True
         if item.key in rotate_keys:
             record.pop("access_revoked", None)
+        if item.key in revoke_nuki_keys:
+            record["nuki_revoked"] = True
+        if item.key in recreate_nuki_keys:
+            record.pop("nuki_revoked", None)
         active = stay_is_active(
             {"check_in": item.check_in, "check_out": item.check_out},
             now,
@@ -254,6 +300,24 @@ async def async_synchronize(
                     entity_ids=entities,
                     device_ids=devices,
                     is_active=active,
+                )
+        if keypad is not None:
+            maison_open = now < maison_closes_at(item.check_out)
+            if record.get("nuki_revoked") or not maison_open:
+                await _clear_nuki(
+                    record,
+                    result,
+                    keypad=keypad,
+                    listed=listed_codes,
+                )
+            elif enable_nuki:
+                await _ensure_nuki(
+                    record,
+                    item,
+                    result,
+                    keypad=keypad,
+                    listed=listed_codes,
+                    recreate=item.key in recreate_nuki_keys,
                 )
         if item.key in resend or item.key in to_print:
             _queue_notification(
@@ -625,6 +689,154 @@ async def _clear_account(
     record.pop("password", None)
 
 
+async def _ensure_nuki(
+    record: dict[str, Any],
+    item: StayPlan,
+    result: CycleResult,
+    *,
+    keypad: KeypadDirectory,
+    listed: list[Any] | None,
+    recreate: bool,
+) -> None:
+    """Create or keep a keypad PIN. Failures are logged, never raised."""
+    name = keypad_auth_name(item.guest, item.key)
+    current = _find_nuki_id(listed or [], record.get("nuki_auth_id"))
+    if (
+        not recreate
+        and current is not None
+        and record.get("nuki_code")
+        and getattr(current, "name", None) == name
+    ):
+        record["nuki_name"] = name
+        listed_code = str(getattr(current, "code", "") or "")
+        if listed_code:
+            record["nuki_code"] = listed_code
+        return
+    if listed is None and not recreate and record.get("nuki_auth_id") and record.get(
+        "nuki_code"
+    ):
+        record["nuki_name"] = name
+        return
+    if listed is None:
+        _LOGGER.warning("Code porte non créé : la liste Nuki est indisponible")
+        return
+    try:
+        created, adopted = await _replace_nuki(
+            record,
+            item,
+            keypad,
+            listed,
+            name=name,
+            recreate=recreate,
+        )
+    except NukiError:
+        _LOGGER.warning("Code porte non créé pour %s", item.guest)
+        return
+    record["nuki_auth_id"] = created.id or record.get("nuki_auth_id")
+    record["nuki_code"] = created.code or record.get("nuki_code")
+    record["nuki_name"] = name
+    record.pop("nuki_revoked", None)
+    action = "code_porte_regenere" if recreate else "code_porte_cree"
+    if adopted and not recreate:
+        action = "code_porte_adopte"
+    result.journal.append(_journal_row(action, record, detail="keypad"))
+    result.events.append(_event_from(action, record))
+    if action != "code_porte_adopte":
+        _queue_notification(
+            result, record, password=str(record.get("password") or "")
+        )
+
+
+async def _replace_nuki(
+    record: dict[str, Any],
+    item: StayPlan,
+    keypad: KeypadDirectory,
+    listed: list[Any],
+    *,
+    name: str,
+    recreate: bool,
+) -> tuple[Any, bool]:
+    """Delete a previous PIN when regenerating, else adopt a matching name."""
+    if recreate:
+        previous = record.get("nuki_auth_id")
+        if previous:
+            await keypad.async_delete_code(str(previous))
+            _drop_nuki(listed, str(previous))
+        record["nuki_auth_id"] = None
+        record["nuki_code"] = None
+    else:
+        matches = [
+            auth for auth in listed if getattr(auth, "name", None) == name
+        ]
+        if matches:
+            kept = matches[0]
+            for extra in matches[1:]:
+                extra_id = str(getattr(extra, "id", "") or "")
+                if extra_id:
+                    await keypad.async_delete_code(extra_id)
+                    _drop_nuki(listed, extra_id)
+            return kept, True
+        current_id = record.get("nuki_auth_id")
+        current = _find_nuki_id(listed, current_id)
+        if current is not None:
+            return current, True
+    existing = {
+        str(getattr(auth, "code", "") or "")
+        for auth in listed
+        if getattr(auth, "code", None)
+    }
+    pin = generate_nuki_pin(existing)
+    created = await keypad.async_create_code(
+        name=name,
+        code=pin,
+        valid_from=item.check_in,
+        valid_until=maison_closes_at(item.check_out),
+    )
+    listed.append(created)
+    return created, False
+
+
+async def _clear_nuki(
+    record: dict[str, Any],
+    result: CycleResult,
+    *,
+    keypad: KeypadDirectory | None,
+    listed: list[Any] | None,
+) -> None:
+    """Delete the keypad PIN but keep the stay. Never raises."""
+    auth_id = record.get("nuki_auth_id")
+    had_code = bool(auth_id or record.get("nuki_code"))
+    if auth_id and keypad is not None:
+        try:
+            await keypad.async_delete_code(str(auth_id))
+        except NukiError:
+            _LOGGER.warning("Code porte non retiré sur Nuki")
+            return
+        if listed is not None:
+            _drop_nuki(listed, str(auth_id))
+    if had_code:
+        result.journal.append(_journal_row("code_porte_supprime", record, detail="keypad"))
+        result.events.append(_event_from("code_porte_supprime", record))
+    record["nuki_auth_id"] = None
+    record["nuki_code"] = None
+    record["nuki_name"] = None
+
+
+def _find_nuki_id(auths: list[Any], auth_id: str | None) -> Any | None:
+    if not auth_id:
+        return None
+    for auth in auths:
+        if str(getattr(auth, "id", "") or "") == str(auth_id):
+            return auth
+    return None
+
+
+def _drop_nuki(listed: list[Any], auth_id: str) -> None:
+    listed[:] = [
+        auth for auth in listed if str(getattr(auth, "id", "") or "") != auth_id
+    ]
+
+
 async def _revoke_stay(
     record: dict[str, Any],
     result: CycleResult,
@@ -632,14 +844,17 @@ async def _revoke_stay(
     vouchers: VoucherDirectory | None,
     accounts: AccountDirectory | None,
     listed: list[Any] | None,
+    keypad: KeypadDirectory | None = None,
+    listed_codes: list[Any] | None = None,
     account_action: str,
 ) -> bool:
     """Revoke a stay.
 
     ``account_action`` is ``revoke`` (delete the per-stay user), ``keep``
     (access is disabled, remember the user) or ``detach`` (shared account,
-    owned by the top-level record).
+    owned by the top-level record). A Nuki failure does not abort UniFi.
     """
+    await _clear_nuki(record, result, keypad=keypad, listed=listed_codes)
     voucher_id = record.get("voucher_id")
     if voucher_id:
         if vouchers is None:
@@ -667,13 +882,18 @@ async def _revoke_stay(
 
 
 def _queue_notification(result: CycleResult, record: dict[str, Any], *, password: str) -> None:
-    """Queue an owner notification. Duplicates for the same code are skipped."""
+    """Queue an owner notification. Duplicates for the same stay are merged."""
     code = str(record.get("voucher_code") or "")
+    nuki = str(record.get("nuki_code") or "")
     key = str(record.get("key") or "")
     for existing in result.notifications:
-        if existing.get("reservation_id") == key and existing.get("code") == code:
+        if existing.get("reservation_id") == key:
             if password and not existing.get("password"):
                 existing["password"] = password
+            if code:
+                existing["code"] = code
+            if nuki:
+                existing["nuki_code"] = nuki
             return
     result.notifications.append(
         {
@@ -682,6 +902,7 @@ def _queue_notification(result: CycleResult, record: dict[str, Any], *, password
             "check_in": str(record.get("check_in") or ""),
             "check_out": str(record.get("check_out") or ""),
             "code": code,
+            "nuki_code": nuki,
             "username": str(record.get("username") or ""),
             "password": password,
             "voucher_id": str(record.get("voucher_id") or ""),

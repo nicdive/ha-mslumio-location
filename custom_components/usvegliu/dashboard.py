@@ -26,9 +26,11 @@ from .const import (
     SERVICE_REFRESH_CALENDAR,
     SERVICE_PRINT,
     SERVICE_REGENERATE_ACCESS,
+    SERVICE_REGENERATE_NUKI,
     SERVICE_REGENERATE_VOUCHER,
     SERVICE_RESEND,
     SERVICE_REVOKE_ACCESS,
+    SERVICE_REVOKE_NUKI,
     SERVICE_REVOKE_VOUCHER,
 )
 from .guest_session import credential_attribute_key, stay_view_path
@@ -317,7 +319,7 @@ def _stay_markdown(
         "\n"
         "{% if not s.essai and s.acces_actif == False %}\n"
         "*Compte HA et lien Maison s'ouvrent le jour d'arrivée. "
-        "Le code Wi-Fi est déjà dans le message.*\n"
+        "Les codes d'accès sont déjà dans le message.*\n"
         "\n"
         "{% endif %}\n"
         "{% if s.essai %}\n"
@@ -345,6 +347,12 @@ def _stay_markdown(
         "{% if ssid %}{{ ssid }} · {% endif %}"
         "{% if s.voucher_revoked %}*révoqué*\n"
         "{% else %}`{{ s.voucher_code or '—' }}`\n"
+        "{% endif %}\n"
+        "\n"
+        "**Porte** : "
+        "{% if s.nuki_revoked %}*révoqué*\n"
+        "{% elif s.nuki_code %}`{{ s.nuki_code }}`\n"
+        "{% else %}—\n"
         "{% endif %}\n"
         "\n"
         "{% if s.lien_maison %}[Maison]({{ s.lien_maison }}){% endif %}"
@@ -397,6 +405,14 @@ def _stay_markdown(
         "\n"
         "Ouvrez le lien depuis votre téléphone, rejoignez le réseau, "
         "puis saisissez le code sur la page d'accueil Wi-Fi.\n"
+        "{% if s.nuki_revoked %}"
+        "\n"
+        "Le code porte a été révoqué. Nous vous en ferons parvenir un autre.\n"
+        "{% elif s.nuki_code %}"
+        "\n"
+        "Code porte (Keypad) : {{ s.nuki_code }}\n"
+        "Saisissez-le sur le clavier de la porte d'entrée.\n"
+        "{% endif %}"
         "\n"
         "Nous vous souhaitons un séjour d'exception.\n"
         "\n"
@@ -426,6 +442,7 @@ def _settings_markdown(entity_id: str) -> str:
         "- Comptes HA : **{{ 'oui' if a.enable_access else 'non' }}** "
         "({{ a.access_mode_label or '—' }})\n"
         "- Vouchers UniFi : **{{ 'oui' if a.enable_vouchers else 'non' }}**\n"
+        "- Keypad Nuki : **{{ 'oui' if a.enable_nuki else 'non' }}**\n"
         "- Internet pendant le séjour : "
         "**{{ 'oui' if a.allow_remote else 'non' }}**\n"
         "- Entités : **{{ a.tenant_entity_count }}** · appareils : "
@@ -598,6 +615,22 @@ def _stay_action_rows(guest: str, reservation_id: str) -> list[dict[str, Any]]:
             "mdi:wifi-off",
             SERVICE_REVOKE_VOUCHER,
             f"Révoquer le voucher Wi-Fi de {guest} ?",
+            reservation_id=reservation_id,
+            action_name="Révoquer",
+        ),
+        _action_row(
+            "Nouveau code porte",
+            "mdi:dialpad",
+            SERVICE_REGENERATE_NUKI,
+            f"Générer un nouveau code porte pour {guest} ?",
+            reservation_id=reservation_id,
+            action_name="Générer",
+        ),
+        _action_row(
+            "Révoquer le code porte",
+            "mdi:lock-off",
+            SERVICE_REVOKE_NUKI,
+            f"Révoquer le code porte de {guest} ?",
             reservation_id=reservation_id,
             action_name="Révoquer",
         ),

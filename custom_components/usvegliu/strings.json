@@ -47,6 +47,9 @@
           "max_stay_days": "Durée max d'un séjour (jours)",
           "lookahead_days": "Horizon du calendrier (jours)",
           "enable_vouchers": "Créer les vouchers UniFi",
+          "enable_nuki": "Créer un code Keypad Nuki",
+          "nuki_token": "Jeton Nuki Web API",
+          "nuki_smartlock_id": "Identifiant du smartlock (optionnel)",
           "enable_access": "Créer les comptes locataires",
           "print_event": "Événement d'impression à la création",
           "guest_base_url": "URL publique de la web app",
@@ -71,7 +74,7 @@
           "allow_remote": "Désactivé par défaut. Le compte n'est plus « local uniquement » pendant le séjour. Home Assistant doit déjà être joignable de l'extérieur ; ce module n'ouvre rien. À activer aussi pour un essai du compte HA via Tailscale (une IP 100.x n'est pas locale).",
           "notify_service": "Ex. notify.mobile_app_telephone. Vide = notification persistante seulement. Destinataire : vous, pas le locataire.",
           "guest_mail_service": "Ex. notify.smtp. Envoie le message d'accueil au locataire (adresse lue dans la description du calendrier). Vide = copier le message à la main.",
-          "guest_mail_days": "Envoi du mail d'accueil ce nombre de jours avant l'arrivée. Défaut : 2. Le code Wi-Fi est déjà créé (J−3).",
+          "guest_mail_days": "Envoi du mail d'accueil ce nombre de jours avant l'arrivée. Défaut : 2. Le code Wi-Fi et le code porte sont déjà créés (J−3).",
           "journal_path": "Relatif au dossier config, ou absolu sous config/ ou un dossier média (partage Synology).",
           "title_blocklist": "Sous-chaînes, séparées par des virgules, qui ne sont pas des locataires (dates bloquées).",
           "print_event": "Si activé, le code en clair part sur le bus (usvegliu_print_voucher) et peut finir dans les traces. Laisser désactivé sauf pour une imprimante.",
@@ -81,7 +84,10 @@
           "outdoor_temperature": "Affichée en coin sur la page Clim. Lecture seule.",
           "pool_temperature": "Affichée dans l'onglet Pool. Lecture seule.",
           "pool_ph": "Optionnel. Lecture seule.",
-          "alarm_code": "Utilisé côté serveur pour armer/désarmer. Jamais envoyé au navigateur. Vide = conserver le code déjà enregistré."
+          "alarm_code": "Utilisé côté serveur pour armer/désarmer. Jamais envoyé au navigateur. Vide = conserver le code déjà enregistré.",
+          "enable_nuki": "Un code porte par séjour, créé à l'avance comme le Wi-Fi, retiré à la fin du jour de départ. Exige un Keypad Nuki jumelé et un jeton Web API.",
+          "nuki_token": "Créé sur https://web.nuki.io (API). Vide = conserver le jeton déjà enregistré.",
+          "nuki_smartlock_id": "Laissez vide s'il n'y a qu'une serrure. Sinon l'identifiant numérique Nuki de la porte d'entrée."
         }
       },
       "reconfigure": {
@@ -137,6 +143,9 @@
           "max_stay_days": "Durée max d'un séjour (jours)",
           "lookahead_days": "Horizon du calendrier (jours)",
           "enable_vouchers": "Créer les vouchers UniFi",
+          "enable_nuki": "Créer un code Keypad Nuki",
+          "nuki_token": "Jeton Nuki Web API",
+          "nuki_smartlock_id": "Identifiant du smartlock (optionnel)",
           "enable_access": "Créer les comptes locataires",
           "print_event": "Événement d'impression à la création",
           "guest_base_url": "URL publique de la web app",
@@ -159,7 +168,10 @@
           "outdoor_temperature": "Lecture seule, en coin sur la page Clim.",
           "pool_temperature": "Lecture seule, dans l'onglet Pool.",
           "pool_ph": "Optionnel, lecture seule.",
-          "alarm_code": "Jamais envoyé au navigateur. Vide = ne pas changer."
+          "alarm_code": "Jamais envoyé au navigateur. Vide = ne pas changer.",
+          "enable_nuki": "Un code porte par séjour, retiré à la fin du jour de départ.",
+          "nuki_token": "Jeton Nuki Web API. Vide = ne pas changer.",
+          "nuki_smartlock_id": "Vide = première serrure avec Keypad."
         }
       }
     },
@@ -214,6 +226,26 @@
     "regenerer_acces": {
       "name": "Régénérer l'accès Home Assistant",
       "description": "Change le mot de passe du locataire. Il apparaît sur la console.",
+      "fields": {
+        "reservation_key": {
+          "name": "Réservation",
+          "description": "Vide = séjour affiché par le capteur."
+        }
+      }
+    },
+    "regenerer_nuki": {
+      "name": "Régénérer le code porte",
+      "description": "Supprime le code Keypad du séjour et en crée un nouveau.",
+      "fields": {
+        "reservation_key": {
+          "name": "Réservation",
+          "description": "Vide = séjour affiché par le capteur."
+        }
+      }
+    },
+    "revoquer_nuki": {
+      "name": "Révoquer le code porte",
+      "description": "Supprime le code porte. Il n'est recréé qu'avec Régénérer le code porte.",
       "fields": {
         "reservation_key": {
           "name": "Réservation",

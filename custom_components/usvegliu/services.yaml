@@ -24,6 +24,31 @@ revoquer_voucher:
       selector:
         text:
 
+regenerer_nuki:
+  name: Régénérer le code porte
+  description: >
+    Supprime le code Keypad Nuki du séjour et en crée un nouveau.
+    Administrateurs et utilisateurs avec droits. Pas les locataires.
+    Le PIN n'est pas écrit dans le journal HA.
+  fields:
+    reservation_key:
+      name: Réservation
+      description: Vide = séjour affiché par le capteur.
+      selector:
+        text:
+
+revoquer_nuki:
+  name: Révoquer le code porte
+  description: >
+    Supprime le code Keypad du séjour. Il n'est pas recréé tant que vous
+    n'appelez pas Régénérer le code porte.
+  fields:
+    reservation_key:
+      name: Réservation
+      description: Vide = séjour affiché par le capteur.
+      selector:
+        text:
+
 regenerer_acces:
   name: Régénérer l'accès Home Assistant
   description: >

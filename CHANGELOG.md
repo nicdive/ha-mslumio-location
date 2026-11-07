@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.23] — 2026-11-07
+
+### Ajouté
+- **Code porte Nuki Keypad** par séjour, comme le Wi-Fi : créé dans la fenêtre d'avance (J−3), dans le mail d'accueil et Infos / Console, retiré à la fin du jour de départ (pas le jour Wi-Fi extra). Jeton Web API dans les options. Une panne Nuki n'empêche pas UniFi ni le compte HA.
+
+[0.6.23]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.23
+
 ## [0.6.22] — 2026-11-07
 
 ### Changé

@@ -151,6 +151,8 @@ def test_diagnostics_and_logs_redact_secrets():
                 {
                     "guest": "Jean Dupont",
                     "voucher_code": "ABCD12",
+                    "nuki_code": "345678",
+                    "nuki_token": "nuki-web-token-secret",
                     "password": "s3cret-password",
                     "mot_de_passe": "s3cret-password",
                     "code_compte": "s3cret-password",
@@ -165,6 +167,8 @@ def test_diagnostics_and_logs_redact_secrets():
     assert payload["entry_data"]["api_key"] == "**REDACTED**"
     assert payload["entry_data"]["host"] == "192.168.1.1"
     assert payload["stays"][0]["voucher_code"] == "**REDACTED**"
+    assert payload["stays"][0]["nuki_code"] == "**REDACTED**"
+    assert payload["stays"][0]["nuki_token"] == "**REDACTED**"
     assert payload["stays"][0]["password"] == "**REDACTED**"
     assert payload["stays"][0]["mot_de_passe"] == "**REDACTED**"
     assert payload["stays"][0]["code_compte"] == "**REDACTED**"
@@ -385,6 +389,11 @@ def test_owner_console_dashboard_has_live_credentials_and_actions():
     assert "Révoquer le compte" in dumped
     assert "Nouveau code Wi-Fi" in dumped
     assert "Révoquer le Wi-Fi" in dumped
+    assert "Nouveau code porte" in dumped
+    assert "Révoquer le code porte" in dumped
+    assert "usvegliu.regenerer_nuki" in dumped
+    assert "usvegliu.revoquer_nuki" in dumped
+    assert dumped.count("usvegliu.regenerer_nuki") == 1
     assert "usvegliu.regenerer_acces" in dumped
     assert "usvegliu.revoquer_acces" in dumped
     assert "usvegliu.regenerer_voucher" in dumped
@@ -410,7 +419,11 @@ def test_owner_console_dashboard_has_live_credentials_and_actions():
     assert "Message à envoyer" in dumped
     assert "s.acces_actif" in dumped
     assert "jour d'arrivée" in dumped
-    assert "Le code Wi-Fi est déjà dans le message" in dumped
+    assert "Les codes d'accès sont déjà dans le message" in dumped
+    assert "s.nuki_code" in dumped
+    assert "Code porte (Keypad)" in dumped
+    assert "Keypad Nuki" in dumped
+    assert "a.enable_nuki" in dumped
     assert "Réseau Wi-Fi :" in dumped
     assert "Usvegliu-Guest" in dumped
     assert "reglages.wifi_ssid" in dumped
@@ -713,6 +726,11 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert "Informations" in js
     assert "Réseau Wi-Fi" in js
     assert "Code Wi-Fi" in js
+    assert "Code porte" in js
+    assert "nuki_code" in http
+    assert "nuki_revoked" in http
+    assert 'CONF_ENABLE_NUKI: Final = "enable_nuki"' in const
+    assert 'CONF_NUKI_TOKEN: Final = "nuki_token"' in const
     assert "data-act=\"copy\"" in js
     assert "too_early" in http
     assert "too_early" in js

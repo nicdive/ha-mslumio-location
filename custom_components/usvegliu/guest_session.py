@@ -295,6 +295,8 @@ def guest_welcome_message(
     voucher_code: str | None,
     voucher_revoked: bool,
     preview: bool,
+    nuki_code: str | None = None,
+    nuki_revoked: bool = False,
 ) -> str:
     """Copy-ready note for the guest. No Home Assistant login."""
     name = guest_first_name(guest)
@@ -304,6 +306,7 @@ def guest_welcome_message(
     link = str(lien_maison or "").strip()
     ssid = str(wifi_ssid or "").strip() or DEFAULT_WIFI_SSID
     code = "" if voucher_revoked else str(voucher_code or "").strip()
+    door = "" if nuki_revoked else str(nuki_code or "").strip()
     if preview:
         lines = [
             hello,
@@ -340,6 +343,21 @@ def guest_welcome_message(
                 "puis saisissez le code sur la page d'accueil Wi-Fi.",
             ]
         )
+    if door:
+        lines.extend(
+            [
+                "",
+                f"Code porte (Keypad) : {door}",
+                "Saisissez-le sur le clavier de la porte d'entrée.",
+            ]
+        )
+    elif nuki_revoked:
+        lines.extend(
+            [
+                "",
+                "Le code porte a été révoqué. Nous vous en ferons parvenir un autre.",
+            ]
+        )
     lines.extend(
         [
             "",
@@ -370,8 +388,10 @@ def issued_account_view(
     secret = str(password or record.get("password") or "") or None
     preview = bool(record.get("preview"))
     revoked = bool(record.get("voucher_revoked"))
+    nuki_revoked = bool(record.get("nuki_revoked"))
     active = True if now is None or preview else stay_is_active(record, now)
     code = str(record.get("voucher_code") or "") or None
+    door = str(record.get("nuki_code") or "") or None
     ssid = str(wifi_ssid or "").strip() or DEFAULT_WIFI_SSID
     key = str(record.get("key") or "")
     if now is None:
@@ -388,6 +408,8 @@ def issued_account_view(
         "mot_de_passe": secret,
         "code_compte": secret,
         "voucher_code": code,
+        "nuki_code": door,
+        "nuki_revoked": nuki_revoked,
         "wifi_ssid": ssid,
         "reseau_wifi": ssid,
         "prenom": guest_first_name(str(record.get("guest") or "")),
@@ -406,6 +428,8 @@ def issued_account_view(
             wifi_ssid=ssid,
             voucher_code=code,
             voucher_revoked=revoked,
+            nuki_code=door,
+            nuki_revoked=nuki_revoked,
             preview=preview,
         ),
         "path": path,
