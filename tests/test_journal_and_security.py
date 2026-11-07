@@ -678,6 +678,13 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert "En charge" in js
     assert "Armer" in js
     assert "Désarmer" in js
+    assert '"cameras"' in http
+    assert "GuestSnapshotView" in http
+    assert "guest_alarm_service" in http
+    assert "TYDOM_SET_MODE" in http
+    assert "function visioBlock" in js
+    assert "/api/usvegliu/guest/snapshot" in js
+    assert "Actualiser" in js
 
 
 def test_guest_app_javascript_parses():

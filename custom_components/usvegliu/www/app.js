@@ -171,7 +171,8 @@
         ((state && state.shutters) || []).length ||
         ((state && state.alarms) || []).length ||
         ((state && state.doorbells) || []).length ||
-        ((state && state.chargers) || []).length
+        ((state && state.chargers) || []).length ||
+        ((state && state.cameras) || []).length
     );
   }
 
@@ -425,12 +426,62 @@
     return item.ringing || item.state === "ringing" ? "Quelqu'un sonne" : "En attente";
   }
 
+  let snapshotStamp = Date.now();
+  let snapshotTimer = null;
+
+  function snapshotSrc(entityId) {
+    return (
+      `/api/usvegliu/guest/snapshot?entity_id=${encodeURIComponent(entityId)}` +
+      `&token=${encodeURIComponent(token)}&t=${snapshotStamp}`
+    );
+  }
+
+  function anyRinging() {
+    return ((state && state.doorbells) || []).some(
+      (item) => item.ringing || item.state === "ringing"
+    );
+  }
+
+  function scheduleSnapshotRefresh() {
+    if (snapshotTimer) {
+      clearInterval(snapshotTimer);
+      snapshotTimer = null;
+    }
+    if (!anyRinging() || !((state && state.cameras) || []).length) return;
+    snapshotTimer = setInterval(() => {
+      snapshotStamp = Date.now();
+      render();
+    }, 4000);
+  }
+
+  function visioBlock(ringing) {
+    const cameras = (state && state.cameras) || [];
+    if (!cameras.length) return "";
+    return cameras
+      .map(
+        (cam) => `<section class="visio-sheet${ringing ? " ringing" : ""}">
+        <div class="visio-frame">
+          <img alt="${escapeAttr(cam.name)}" src="${escapeAttr(snapshotSrc(cam.entity_id))}" />
+        </div>
+        <div class="access">
+          <div class="access-copy">
+            <div class="access-name">${escapeHtml(cam.name)}</div>
+            <div class="access-status">${ringing ? "Quelqu'un sonne" : "Entrée"}</div>
+          </div>
+          <button class="access-action" type="button" data-act="snapshot" data-id="${escapeAttr(cam.entity_id)}">Actualiser</button>
+        </div>
+      </section>`
+      )
+      .join("");
+  }
+
   function statusCards() {
     const chargers = (state && state.chargers) || [];
     const doorbells = ((state && state.doorbells) || []).filter(
       (item) => item.ringing || item.state === "ringing"
     );
-    if (!chargers.length && !doorbells.length) return "";
+    const visio = doorbells.length ? visioBlock(true) : "";
+    if (!chargers.length && !doorbells.length && !visio) return "";
     const chargerRows = chargers
       .map(
         (item) => `<section class="status-sheet${item.state === "charging" ? " live" : ""}">
@@ -440,16 +491,18 @@
       </section>`
       )
       .join("");
-    const bellRows = doorbells
-      .map(
-        (item) => `<section class="status-sheet ringing">
+    const bellRows = doorbells.length && !((state && state.cameras) || []).length
+      ? doorbells
+          .map(
+            (item) => `<section class="status-sheet ringing">
         <div class="status-label">Entrée</div>
         <div class="status-name">${escapeHtml(item.name)}</div>
         <div class="status-value">${escapeHtml(doorbellStatus(item))}</div>
       </section>`
-      )
-      .join("");
-    return `${bellRows}${chargerRows}`;
+          )
+          .join("")
+      : "";
+    return `${visio}${bellRows}${chargerRows}`;
   }
 
   function poolLights() {
@@ -653,6 +706,7 @@
     const alarms = (state && state.alarms) || [];
     const doorbells = (state && state.doorbells) || [];
     const chargers = (state && state.chargers) || [];
+    const cameras = (state && state.cameras) || [];
     if (
       !locks.length &&
       !garages.length &&
@@ -660,7 +714,8 @@
       !alarms.length &&
       !shutters.length &&
       !doorbells.length &&
-      !chargers.length
+      !chargers.length &&
+      !cameras.length
     ) {
       return "";
     }
@@ -713,7 +768,8 @@
         </div>
       </div>`
     );
-    return `<div class="access-list">${doorbellRows.join("")}${lockRows.join("")}${coverRows.join("")}${shutterBlock}${alarmRows.join("")}${chargerRows.join("")}</div>`;
+    const visio = visioBlock(anyRinging());
+    return `<div class="access-list">${visio}${doorbellRows.join("")}${lockRows.join("")}${coverRows.join("")}${shutterBlock}${alarmRows.join("")}${chargerRows.join("")}</div>`;
   }
 
   function homePage() {
@@ -942,6 +998,11 @@
     }
     if (act === "alarm") {
       commandEntity("alarms", id, button.getAttribute("data-cmd"));
+      return;
+    }
+    if (act === "snapshot") {
+      snapshotStamp = Date.now();
+      render();
     }
   }
 
@@ -1023,6 +1084,7 @@
     state = next;
     error = "";
     arrivalNote = "";
+    scheduleSnapshotRefresh();
     render();
   }
 

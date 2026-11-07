@@ -535,6 +535,9 @@ GUEST_KIND_POOL_PH = "pool_ph"
 GUEST_KIND_POOL_LIGHT = "pool_light"
 GUEST_KIND_CHARGER = "charger"
 GUEST_KIND_DOORBELL = "doorbell"
+GUEST_KIND_CAMERA = "camera"
+TYDOM_DOMAIN = "deltadore_tydom"
+TYDOM_SET_MODE = "set_mode_using_stored_pin"
 
 _POOL_NEEDLES = ("piscine", "pool", "bassin")
 _CHARGER_NEEDLES = (
@@ -616,6 +619,8 @@ def classify_guest_entity(
         return GUEST_KIND_LOCK
     if domain == "alarm_control_panel":
         return GUEST_KIND_ALARM
+    if domain == "camera":
+        return GUEST_KIND_CAMERA
     if domain == "light":
         if _has_needle(label, _POOL_NEEDLES):
             return GUEST_KIND_POOL_LIGHT
@@ -719,6 +724,33 @@ def doorbell_is_ringing(raw: str | None, now: datetime | None = None) -> bool:
     if now.tzinfo is None and stamped.tzinfo is not None:
         now = now.replace(tzinfo=stamped.tzinfo)
     return abs((now - stamped).total_seconds()) < 45
+
+
+def guest_alarm_service(
+    action: str, entity_id: str, *, has_tydom: bool, code: str | None
+) -> tuple[str, str, dict[str, Any]]:
+    """Domain, service and data to arm or disarm from the Maison app.
+
+    A Tydom 2 box (HACS Delta Dore Tydom) keeps the PIN on the integration
+    and exposes ``set_mode_using_stored_pin``. Other panels use the stock
+    Home Assistant alarm services and the code stored in Usvegliu options.
+    """
+    if action not in {"arm", "disarm"}:
+        raise ValueError("bad_action")
+    if has_tydom:
+        return (
+            TYDOM_DOMAIN,
+            TYDOM_SET_MODE,
+            {
+                "entity_id": entity_id,
+                "mode": "away" if action == "arm" else "disarm",
+            },
+        )
+    data: dict[str, Any] = {"entity_id": entity_id}
+    if code:
+        data["code"] = code
+    service = "alarm_arm_away" if action == "arm" else "alarm_disarm"
+    return "alarm_control_panel", service, data
 
 
 def alarm_view_state(raw: str | None) -> str:

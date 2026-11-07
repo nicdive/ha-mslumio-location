@@ -253,6 +253,45 @@ button:active:not(:disabled) {
   color: var(--danger);
 }
 
+.visio-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.visio-sheet + .visio-sheet,
+.visio-sheet + .status-sheet,
+.status-sheet + .visio-sheet {
+  margin-top: 10px;
+}
+
+.visio-frame {
+  background: var(--bg-deep);
+  aspect-ratio: 4 / 3;
+}
+
+.visio-frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.visio-sheet .access {
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.access-list .visio-sheet {
+  grid-column: 1 / -1;
+}
+
 .pool-sheet {
   padding: 24px 22px 22px;
   background: var(--paper);

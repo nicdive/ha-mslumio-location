@@ -317,8 +317,8 @@ La web app **Maison** est servie par le même Home Assistant. Le locataire n'ouv
 Pour apparaître, chaque appareil doit d'abord exister dans Home Assistant, puis être dans **Entités autorisées** (alarme / serrure : cocher la case sensible, et renseigner le **code alarme** Delta Dore / TYDOM).
 
 - **Borne Schneider** : OCPP (HACS) ou Modbus sur un EVlink. Cocher le capteur d'état ou `binary_sensor` « en charge ». La web app affiche Libre / Branché / En charge, sans démarrer ni arrêter la charge.
-- **Alarme Delta Dore** : passerelle **TYDOM** dans HA (`alarm_control_panel`). Sans TYDOM, le Tyxal ne se commande pas.
-- **Sonnette / visiophone** : un `binary_sensor` sonnette suffit pour « quelqu'un sonne ». La visio (image, parler) dépend du modèle ; à brancher ensuite.
+- **Alarme Delta Dore** : **Tydom 2** déjà en place. HACS *Delta Dore Tydom*, cocher `alarm_control_panel`, coller le code. L'app appelle `set_mode_using_stored_pin` si ce service existe.
+- **Sonnette / visiophone** : sonnerie via `binary_sensor` / `event`. Photo de la platine si une `camera` (Linea 3000 / 300EOS) est cochée (case sensible). Parler reste sur le HomeTouch / 300EOS / app Home + Security.
 
 Le navigateur n'envoie que le jeton. Les commandes sont exécutées côté serveur après contrôle de la liste d'entités du séjour.
 
@@ -355,6 +355,7 @@ La web app écoute sur Home Assistant :
 | `/api/usvegliu/guest/climate` | commandes thermostat |
 | `/api/usvegliu/guest/lock` | Nuki |
 | `/api/usvegliu/guest/command` | lumières, scènes, bassin, garage, portail, alarme |
+| `/api/usvegliu/guest/snapshot` | photo d'une caméra visio autorisée |
 
 Exemple pour `https://www.usvegliu.fr/s/…` vers HA en local :
 
