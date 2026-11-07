@@ -31,6 +31,8 @@ from .const import (
     CONF_ENABLE_VOUCHERS,
     CONF_EXTRA_DAYS,
     CONF_GUEST_BASE_URL,
+    CONF_GUEST_MAIL_DAYS,
+    CONF_GUEST_MAIL_SERVICE,
     CONF_WIFI_SSID,
     DEFAULT_WIFI_SSID,
     CONF_ALARM_CODE,
@@ -58,6 +60,7 @@ from .const import (
     DEFAULT_DEVICE_LIMIT,
     DEFAULT_DOWNLOAD_MBPS,
     DEFAULT_EXTRA_DAYS,
+    DEFAULT_GUEST_MAIL_DAYS,
     DEFAULT_JOURNAL_PATH,
     DEFAULT_LEAD_DAYS,
     DEFAULT_LOOKAHEAD_DAYS,
@@ -80,10 +83,12 @@ from .guest_session import (
     build_preview_record,
     find_record_by_token,
     guest_path,
+    guest_welcome_message,
     issued_account_view,
     open_issued_records,
     public_guest_url,
     stay_is_open,
+    welcome_mail_due,
 )
 from .journal import Journal, JournalPathError, resolve_journal_path
 from .planning import (
@@ -147,6 +152,7 @@ class UsvegliuRuntime:
         self._force_revoke_voucher: set[str] = set()
         self._force_revoke_access: set[str] = set()
         self._resend: set[str] = set()
+        self._mail_force_keys: set[str] = set()
         self._print: set[str] = set()
         self._overrides: dict[str, dict[str, Any]] = {}
         self._preview: dict[str, Any] | None = None
@@ -276,6 +282,7 @@ class UsvegliuRuntime:
             secrets.append(str(record.get("voucher_code") or ""))
             secrets.append(str(record.get("guest_token") or ""))
             secrets.append(str(record.get("password") or ""))
+            secrets.append(str(record.get("guest_email") or ""))
         if self._shared:
             secrets.append(str(self._shared.get("password") or ""))
         if self._preview:
@@ -326,6 +333,8 @@ class UsvegliuRuntime:
                 uid=getattr(event, "uid", None),
                 recurrence_id=getattr(event, "recurrence_id", None),
                 status=str(status_text) if status_text is not None else None,
+                description=_event_text(event, "description"),
+                location=_event_text(event, "location"),
                 blocklist=blocklist,
                 max_stay_days=max_stay,
                 tz=now.tzinfo,
@@ -346,6 +355,7 @@ class UsvegliuRuntime:
         )
         enable_vouchers = bool(options.get(CONF_ENABLE_VOUCHERS, True))
         enable_access = bool(options.get(CONF_ENABLE_ACCESS, True))
+        resend_keys = set(self._resend)
         try:
             result = await async_synchronize(
                 plan,
@@ -383,11 +393,13 @@ class UsvegliuRuntime:
 
         self._stays = result.stays
         self._shared = result.shared_user
-        await self._persist(result.stays, result.shared_user)
+        self._apply_guest_emails(parsed)
+        self._mail_force_keys = resend_keys
+        await self._persist(self._stays, self._shared)
         for row in result.journal:
             await self.journal.async_append(row)
         await self._async_dashboard()
-        snapshot = _snapshot(result.stays, result.shared_user, now, self)
+        snapshot = _snapshot(self._stays, self._shared, now, self)
         return snapshot, result
 
     async def _emit(self, result: object) -> None:
@@ -404,6 +416,11 @@ class UsvegliuRuntime:
             self.hass.bus.async_fire(EVENT_PRINT, event)
         for note in result.notifications:  # type: ignore[attr-defined]
             await self._async_notify(note)
+        await self._async_send_due_welcome_mail(
+            dt_util.now(),
+            force_keys=set(getattr(self, "_mail_force_keys", ())),
+        )
+        self._mail_force_keys = set()
 
     async def _async_notify(self, note: dict[str, str]) -> None:
         lines = [
@@ -532,6 +549,10 @@ class UsvegliuRuntime:
             "alarm_configured": bool(self.alarm_code()),
             "journal_path": journal_path,
             "notify_service": str(options.get(CONF_NOTIFY_SERVICE) or ""),
+            "guest_mail_service": str(options.get(CONF_GUEST_MAIL_SERVICE) or ""),
+            "guest_mail_days": self._option_int(
+                CONF_GUEST_MAIL_DAYS, DEFAULT_GUEST_MAIL_DAYS
+            ),
             "print_event": bool(options.get(CONF_PRINT_EVENT, False)),
             "guest_base_url": str(options.get(CONF_GUEST_BASE_URL) or ""),
             "wifi_ssid": self.wifi_ssid(),
@@ -685,6 +706,83 @@ class UsvegliuRuntime:
             "guest": str(record.get("guest") or ""),
             "check_out": str(record.get("check_out") or ""),
         }
+
+    def _apply_guest_emails(self, stays: list[Any]) -> None:
+        """Copy calendar emails onto stored stays. Keep the last known address."""
+        found = {item.key: item.email for item in stays if getattr(item, "email", "")}
+        for key, record in self._stays.items():
+            email = found.get(key) or ""
+            if not email:
+                continue
+            previous = str(record.get("guest_email") or "")
+            record["guest_email"] = email
+            if previous and previous.casefold() != email.casefold():
+                record.pop("welcome_mail_sent", None)
+
+    async def _async_send_due_welcome_mail(
+        self, now: Any, *, force_keys: set[str]
+    ) -> None:
+        service = str(self.entry.options.get(CONF_GUEST_MAIL_SERVICE) or "").strip()
+        if not service:
+            return
+        days = self._option_int(CONF_GUEST_MAIL_DAYS, DEFAULT_GUEST_MAIL_DAYS)
+        vouchers_on = bool(self.entry.options.get(CONF_ENABLE_VOUCHERS, True))
+        sent_any = False
+        for key, record in list(self._stays.items()):
+            if record.get("preview"):
+                continue
+            email = str(record.get("guest_email") or "").strip()
+            if not email:
+                continue
+            forced = key in force_keys
+            if not forced and not welcome_mail_due(record, now, days=days):
+                continue
+            if vouchers_on and not record.get("voucher_code") and not record.get(
+                "voucher_revoked"
+            ):
+                continue
+            token = str(record.get("guest_token") or "")
+            if not token:
+                continue
+            link = self.guest_link(record)["url"]
+            body = guest_welcome_message(
+                guest=str(record.get("guest") or ""),
+                check_in=str(record.get("check_in") or ""),
+                check_out=str(record.get("check_out") or ""),
+                lien_maison=link,
+                wifi_ssid=self.wifi_ssid(),
+                voucher_code=str(record.get("voucher_code") or "") or None,
+                voucher_revoked=bool(record.get("voucher_revoked")),
+                preview=False,
+            )
+            try:
+                await self.hass.services.async_call(
+                    "notify",
+                    _notify_service_name(service),
+                    {
+                        "title": "Usvegliu",
+                        "message": body,
+                        "target": [email],
+                    },
+                    blocking=True,
+                )
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception("Guest welcome mail failed")
+                continue
+            record["welcome_mail_sent"] = now.isoformat()
+            sent_any = True
+            await self.journal.async_append(
+                {
+                    "action": "message_envoye",
+                    "reservation_id": key,
+                    "locataire": str(record.get("guest") or ""),
+                    "debut": str(record.get("check_in") or ""),
+                    "fin": str(record.get("check_out") or ""),
+                    "detail": "mail_accueil",
+                }
+            )
+        if sent_any:
+            await self._persist(self._stays, self._shared)
 
     async def _async_guest_link(self, data: dict[str, Any]) -> dict[str, Any]:
         """Return (and optionally mint) a guest URL without talking to UniFi."""
@@ -973,6 +1071,15 @@ async def _async_require_manager(hass: HomeAssistant, call: ServiceCall) -> None
     user = await hass.auth.async_get_user(user_id)
     if user is None or not user_can_manage_stays(user):
         raise Unauthorized()
+
+
+def _event_text(event: Any, name: str) -> str:
+    value = getattr(event, name, None)
+    if value:
+        return str(value)
+    if isinstance(event, dict):
+        return str(event.get(name) or "")
+    return ""
 
 
 async def _async_calendar_events(

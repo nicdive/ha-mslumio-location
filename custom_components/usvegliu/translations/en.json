@@ -40,6 +40,8 @@
           "confirm_sensitive": "I allow cameras, locks or alarms",
           "allow_remote": "Internet access during the stay",
           "notify_service": "Notification (optional)",
+          "guest_mail_service": "Guest mail (SMTP)",
+          "guest_mail_days": "Days before the welcome mail",
           "journal_path": "CSV journal file",
           "title_blocklist": "Ignored titles",
           "max_stay_days": "Maximum stay length (days)",
@@ -56,7 +58,7 @@
           "alarm_code": "Alarm code (server)"
         },
         "data_description": {
-          "calendar_entity": "Any calendar entity (Airbnb, Booking, Google or local ICS).",
+          "calendar_entity": "Any calendar entity (Airbnb, Booking, Google or local ICS). Title = guest name. Put their email in the description for the J−2 mail.",
           "lead_days": "The Wi-Fi voucher, HA account and Maison link are issued this many days before arrival. Login and link become active on arrival day. Default: 3.",
           "device_limit": "Devices allowed to use the same code. Default: 10.",
           "download_mbps": "Converted to kbit/s for the API (100 Mbit/s = 100000 kbit/s). Default: 100.",
@@ -67,7 +69,9 @@
           "tenant_devices": "Every entity of the device is allowed, including ones added later. A device that contains a camera, lock or alarm requires confirmation.",
           "confirm_sensitive": "Without this box, saving is refused when the selection contains a camera, lock or alarm.",
           "allow_remote": "Off by default. The account is not local-only for the length of the stay. Home Assistant must already be reachable from outside; this integration opens nothing. Also turn this on to try the HA account over Tailscale (a 100.x address is not local).",
-          "notify_service": "e.g. notify.mobile_app_phone. Empty = persistent notification only.",
+          "notify_service": "e.g. notify.mobile_app_phone. Empty = persistent notification only. This goes to you, not the guest.",
+          "guest_mail_service": "e.g. notify.smtp. Sends the welcome note to the guest (address read from the calendar description). Empty = copy the note by hand.",
+          "guest_mail_days": "Send the welcome mail this many days before arrival. Default: 2. The Wi-Fi code is already issued (J−3).",
           "journal_path": "Relative to the config folder, or absolute under config/ or a media folder (Synology share).",
           "title_blocklist": "Comma-separated substrings that are not guests (blocked dates).",
           "print_event": "When enabled, the cleartext code is published on usvegliu_print_voucher and may end up in traces. Leave off unless you print.",
@@ -126,6 +130,8 @@
           "confirm_sensitive": "I allow cameras, locks or alarms",
           "allow_remote": "Internet access during the stay",
           "notify_service": "Notification (optional)",
+          "guest_mail_service": "Guest mail (SMTP)",
+          "guest_mail_days": "Days before the welcome mail",
           "journal_path": "CSV journal file",
           "title_blocklist": "Ignored titles",
           "max_stay_days": "Maximum stay length (days)",
@@ -142,6 +148,8 @@
           "alarm_code": "Alarm code (server)"
         },
         "data_description": {
+          "guest_mail_service": "e.g. notify.smtp. Empty = copy the note by hand.",
+          "guest_mail_days": "Send the welcome mail this many days before arrival. Default: 2.",
           "extra_days": "The voucher stays these days after departure, then it is deleted. The Maison link stops at the end of departure day.",
           "allow_remote": "Turn this on to try the HA account over Tailscale: a 100.x address is not local, so the frontend stays on Loading data.",
           "print_event": "Publishes the cleartext code on the bus. Enable only for printing.",
@@ -225,7 +233,7 @@
     },
     "renvoyer_notification": {
       "name": "Resend notification",
-      "description": "Sends the Wi-Fi code and the password to the administrator again.",
+      "description": "Sends the owner notification again, and the welcome mail to the guest if an address is known.",
       "fields": {
         "reservation_key": {
           "name": "Reservation"

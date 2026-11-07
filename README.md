@@ -49,21 +49,25 @@ Le dépôt doit être **public**. HACS n'installe pas un dépôt privé.
 
 1. HACS → ⋮ → *Dépôts personnalisés*.
 2. URL `https://github.com/nicdive/ha-mslumio-location`, catégorie **Intégration**.
-3. Télécharger **Usvegliu** en choisissant une **release** (`0.5.0` ou plus), pas seulement le commit de `main`.
+3. Télécharger **Usvegliu** en choisissant une **release GitHub** (dernière : [0.6.21](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.21)), pas le commit d'une branche.
 4. Redémarrer Home Assistant.
 5. Paramètres → Appareils et services → Ajouter une intégration → **Usvegliu**.
 
+Pour **mettre à jour** (ex. 0.6.20 → 0.6.21) : HACS → Usvegliu → ⋮ → **Redownload** → **0.6.21**, puis redémarrer. Le numéro dans Paramètres → Intégrations ne change qu'après ce redémarrage.
+
+HACS ne liste une version **que** si la [release GitHub](https://github.com/nicdive/ha-mslumio-location/releases) existe. Un numéro dans le `manifest.json` ou une pull request ne suffit pas : sans tag `v0.6.21` poussé, 0.6.21 n'apparaît pas.
+
 ## Versions
 
-SemVer dans `custom_components/usvegliu/manifest.json`, historisé dans [CHANGELOG.md](CHANGELOG.md). HACS affiche les [releases GitHub](https://github.com/nicdive/ha-mslumio-location/releases).
+SemVer dans `custom_components/usvegliu/manifest.json`, historisé dans [CHANGELOG.md](CHANGELOG.md). HACS affiche uniquement les [releases GitHub](https://github.com/nicdive/ha-mslumio-location/releases), pas les tags seuls ni les branches.
 
 Pour publier :
 
 1. Monter le `version` du `manifest.json`.
 2. Ajouter une section en tête du changelog.
-3. Commit sur `main`.
+3. Commit (la branche qui porte ce numéro).
 4. Tag annoté `vX.Y.Z` (même numéro que le manifest) et `git push origin vX.Y.Z`.
-5. L'action **Release** crée la release GitHub. Sans elle : GitHub → Releases → *Create a new release* à partir du tag.
+5. L'action **Release** crée alors la release GitHub. **Sans ce push de tag, HACS reste sur la version précédente.** Si l'action manque : GitHub → Releases → *Create a new release* à partir du tag.
 
 ### Copie manuelle
 
@@ -120,7 +124,7 @@ Le formulaire demande ensuite :
 
 | Réglage | Défaut | Rôle |
 | --- | --- | --- |
-| Calendrier | — | N'importe quelle entité `calendar`. Le **titre** est le nom du locataire, les dates sont le séjour. |
+| Calendrier | — | N'importe quelle entité `calendar`. Le **titre** est le nom du locataire, les dates sont le séjour. L'**adresse mail** du locataire va dans la **description** (pas le titre) pour l'envoi automatique J−2. |
 | Jours avant l'arrivée | 3 | Création du voucher Wi-Fi (pour le message à envoyer), du compte HA et du lien Maison. Login HA et lien Maison ne **s'activent que le jour d'arrivée**. |
 | Appareils | 10 | `authorizedGuestLimit` : un seul code, plusieurs appareils. |
 | Débits | 100 / 100 Mbit/s | Convertis en kbit/s SI : 100 Mbit/s = 100000 kbit/s. |
@@ -128,6 +132,8 @@ Le formulaire demande ensuite :
 | Comptes | Un par séjour | Ou un compte `locataire` dont le mot de passe change quand plus aucun séjour n'est actif, puis au suivant. |
 | Entités et appareils | listes vides | Tout domaine. Seules ces entités (et toutes les entités des appareils choisis) sont lisibles et commandables. Caméra, serrure et alarme exigent une case de confirmation. |
 | Accès internet | désactivé | Pendant le séjour seulement, le compte n'est plus « local uniquement ». Rien n'est ouvert sur le réseau : Home Assistant doit déjà être joignable de l'extérieur. |
+| Mail locataire | vide | Service `notify` SMTP (ex. `notify.smtp`). Vide = pas d'envoi auto, le message reste à copier sur la Console. Distinct de la notification propriétaire. |
+| Jours avant le mail | 2 | Envoi du message d'accueil (lien Maison + Wi-Fi) ce nombre de jours avant l'arrivée, une fois le code Wi-Fi créé (J−3 par défaut). |
 | Journal | `usvegliu/journal.csv` | Sous le dossier de configuration, ou un dossier média. |
 | Titres ignorés | `not available`, `indisponible`, `fermé`, … | Les blocages Airbnb / Booking ne deviennent pas des vouchers. |
 | Impression | désactivée | Voir plus bas. |
@@ -215,7 +221,7 @@ Le mot de passe est généré dans Home Assistant (`token_urlsafe`, sous la limi
 
 Tableau locataire : URL `usvegliu-sejour`, titre **Séjour**, visible des non-administrateurs, cartes thermostat / volets / éclairage. Accueil du compte locataire (`default_panel`).
 
-Tableau propriétaire : URL `usvegliu-proprietaire`, titre **Console**. Visible des **administrateurs** et des comptes **Utilisateur** (droits de contrôle), pas des locataires. Deux vues : **Séjours** (dates, identifiant HA, mot de passe en clair, code Wi-Fi, lien Maison, **message à envoyer** au locataire, actions) et **Réglages** (options Usvegliu en vigueur). Le message à coller contient le lien personnel Maison, le réseau et le code Wi-Fi, dans une forme de politesse villa ; pas les identifiants Home Assistant. Les identifiants sont lus en direct sur le capteur **Séjours actifs** (rien de secret dans le YAML Lovelace). Home Assistant masque l'attribut `password` : le mot de passe est exposé sous un autre nom pour rester visible. Si un séjour ancien n'a pas de mot de passe enregistré, **Nouveau mot de passe**.
+Tableau propriétaire : URL `usvegliu-proprietaire`, titre **Console**. Visible des **administrateurs** et des comptes **Utilisateur** (droits de contrôle), pas des locataires. Deux vues : **Séjours** (dates, identifiant HA, mot de passe en clair, code Wi-Fi, lien Maison, **message à envoyer** au locataire, adresse mail lue dans le calendrier, actions) et **Réglages** (options Usvegliu en vigueur, dont le service SMTP locataire). Le message à coller contient le lien personnel Maison, le réseau et le code Wi-Fi, dans une forme de politesse villa ; pas les identifiants Home Assistant. S'il y a une adresse et un SMTP, le même texte part par mail à J−2. Les identifiants sont lus en direct sur le capteur **Séjours actifs** (rien de secret dans le YAML Lovelace). Home Assistant masque l'attribut `password` : le mot de passe est exposé sous un autre nom pour rester visible. Si un séjour ancien n'a pas de mot de passe enregistré, **Nouveau mot de passe**.
 
 L'intégration crée les deux tableaux si la collection Lovelace est joignable. Sinon : créer les URL `usvegliu-sejour` et `usvegliu-proprietaire` (tiret obligatoire) puis `usvegliu.appliquer_tableau`.
 
@@ -223,7 +229,7 @@ L'intégration crée les deux tableaux si la collection Lovelace est joignable. 
 
 Ce n'est **pas** le tableau **Séjour** (locataire) ni un tableau créé à la main sous un autre nom. Dans Home Assistant 2026, le bouton **+** des tableaux de bord ne reprend pas le titre comme URL : « Location » devient `dashboard-location`, donc l'intégration n'y écrit rien.
 
-1. Mettre à jour Usvegliu (0.5.9+), redémarrer Home Assistant.
+1. Mettre à jour Usvegliu ([0.6.21](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.21)+), redémarrer Home Assistant.
 2. Outils de développement → Actions → `usvegliu.appliquer_tableau` → Exécuter.
 3. Dans la barre latérale, ouvrir **Console**, ou l'URL `/usvegliu-proprietaire`.
 
@@ -244,7 +250,7 @@ Pas besoin d'assigner un groupe dans Paramètres → Personnes : l'intégration 
 
 ## Journal et Synology
 
-Fichier CSV, une ligne par action (`voucher_cree`, `voucher_adopte`, `voucher_regenere`, `voucher_supprime`, `acces_cree`, `acces_regenere`, `acces_supprime`, `acces_desactive`). Colonnes : horodatage, action, réservation, locataire, début, fin, id voucher, nom du voucher, **code voucher**, MAC si le contrôleur la renvoie, détail. Le schéma voucher v11.0.97 ne documente pas de MAC : la colonne reste vide tant qu'une réponse n'en contient pas (`macAddress`, `mac`, ou une liste de clients).
+Fichier CSV, une ligne par action (`voucher_cree`, `voucher_adopte`, `voucher_regenere`, `voucher_supprime`, `acces_cree`, `acces_regenere`, `acces_supprime`, `acces_desactive`, `message_envoye`). Colonnes : horodatage, action, réservation, locataire, début, fin, id voucher, nom du voucher, **code voucher**, MAC si le contrôleur la renvoie, détail. Le schéma voucher v11.0.97 ne documente pas de MAC : la colonne reste vide tant qu'une réponse n'en contient pas (`macAddress`, `mac`, ou une liste de clients).
 
 Pas de mot de passe, pas d'identifiant de connexion. Un ancien fichier qui en contenait est réécrit sans ces colonnes à la prochaine ligne. Le code voucher reste dans le CSV : c'est le secret d'accès Wi-Fi à archiver. Le poser sur un partage Synology monté dans Home Assistant, par exemple :
 
@@ -261,6 +267,8 @@ Le magasin interne (`.storage/usvegliu.<entrée>`) est privé. Il sert à ne pas
 
 À chaque nouveau code ou mot de passe : notification persistante `Usvegliu — <locataire>`. Un service `notify.…` optionnel reçoit le même texte (beaucoup de notifiers recopient le message dans le log : ne l'activer que si ce log reste privé). La notification peut être fermée : le capteur **Séjours actifs** (appareil Usvegliu) reste la liste de travail tant que le séjour est ouvert.
 
+Le **mail locataire** est un autre service (`notify.smtp` typiquement). J−2 avant l'arrivée, Usvegliu y envoie le message d'accueil (lien Maison, SSID, code Wi-Fi) à l'adresse lue dans la description du calendrier. Les adresses des plateformes (Airbnb, Booking, Vrbo…) sont ignorées. Sans adresse ou sans SMTP, copiez le bloc **Message à envoyer** sur la Console. `usvegliu.renvoyer_notification` renvoie aussi ce mail, même avant J−2.
+
 L'impression n'est pas faite par l'intégration. Service `usvegliu.imprimer_voucher` (ou la case « événement d'impression », désactivée par défaut) : événement `usvegliu_print_voucher` avec le code en clair, pour une automatisation qui imprime. Cet événement peut apparaître dans les traces d'automatisation. Le laisser désactivé si personne n'imprime.
 
 ## Services
@@ -273,7 +281,7 @@ Tous exigent un administrateur **ou** un compte Utilisateur (droits de contrôle
 | `usvegliu.revoquer_voucher` | Supprime le code Wi-Fi jusqu'à régénération. |
 | `usvegliu.regenerer_acces` | Nouveau mot de passe. |
 | `usvegliu.revoquer_acces` | Supprime le compte HA jusqu'à régénération. |
-| `usvegliu.renvoyer_notification` | Renvoie le code, le lien et le mot de passe s'il est déjà stocké. |
+| `usvegliu.renvoyer_notification` | Renvoie la notification propriétaire, et le mail d'accueil au locataire s'il a une adresse. |
 | `usvegliu.reglages_sejour` | Surcharge les entités, les appareils et l'accès internet d'une réservation. |
 | `usvegliu.imprimer_voucher` | Événement d'impression, réponse avec le code. |
 | `usvegliu.exporter_journal` | Chemin du CSV. |

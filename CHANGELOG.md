@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.21] — 2026-11-07
+
+### Ajouté
+- Message d'accueil **envoyé par mail J−2** si l'adresse du locataire est dans la description (ou le lieu) de l'événement calendrier. Service SMTP dédié (`guest_mail_service`), distinct de la notification propriétaire. **Renvoyer la notification** force aussi ce mail.
+
+[0.6.21]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.21
+
 ## [0.6.20] — 2026-11-07
 
 ### Ajouté

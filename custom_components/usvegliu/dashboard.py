@@ -342,6 +342,20 @@ def _stay_markdown(
         "### Message à envoyer\n"
         "Sélectionnez le texte, puis copiez. Lien Maison et Wi-Fi seulement, "
         "sans compte Home Assistant.\n"
+        "{% if not s.essai %}\n"
+        "{% if s.guest_email %}\n"
+        "Mail locataire : `{{ s.guest_email }}`"
+        "{% if reglages.guest_mail_service %}"
+        "{% if s.welcome_mail_sent %} — envoyé"
+        "{% else %} — envoi J−{{ reglages.guest_mail_days or 2 }}"
+        "{% endif %}\n"
+        "{% else %} — copiez le message (aucun service SMTP)\n"
+        "{% endif %}\n"
+        "{% else %}\n"
+        "*Pas d'adresse dans la description du calendrier — "
+        "copiez le message ci-dessous.*\n"
+        "{% endif %}\n"
+        "{% endif %}\n"
         "{% if not s.essai and not ssid %}\n"
         "\n"
         "*Nom du réseau manquant. Renseigner **Nom du réseau Wi-Fi** "
@@ -421,6 +435,8 @@ def _settings_markdown(entity_id: str) -> str:
         "### Journal\n"
         "- Fichier : `{{ a.journal_path or '—' }}`\n"
         "- Notification : `{{ a.notify_service or 'persistante seulement' }}`\n"
+        "- Mail locataire : `{{ a.guest_mail_service or 'désactivé' }}` "
+        "(J−{{ a.guest_mail_days }})\n"
         "- Impression auto : **{{ 'oui' if a.print_event else 'non' }}**\n"
         "- URL web app : `{{ a.guest_base_url or 'interne HA' }}`\n"
     )
@@ -483,7 +499,7 @@ def _stay_action_rows(guest: str, reservation_id: str) -> list[dict[str, Any]]:
             "Renvoyer la notification",
             "mdi:bell-ring",
             SERVICE_RESEND,
-            f"Renvoyer le code et le mot de passe de {guest} ?",
+            f"Renvoyer le message d'accueil et la notification de {guest} ?",
             reservation_id=reservation_id,
             action_name="Envoyer",
         ),
