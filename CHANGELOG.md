@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.25] — 2026-11-08
+
+### Changé
+- Accueil Maison : la borne **véhicule** n'apparaît que si un câble est branché. Affiche **En charge**, **Charge terminée** ou **Branché**, plus le niveau (%) quand Home Assistant le fournit.
+
+[0.6.25]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.25
+
 ## [0.6.24] — 2026-11-07
 
 ### Changé

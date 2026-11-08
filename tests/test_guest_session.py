@@ -6,7 +6,9 @@ from custom_components.usvegliu.guest_session import (
     PREVIEW_KEY,
     alarm_view_state,
     build_preview_record,
+    charger_charge_level,
     charger_view_state,
+    combine_charger_views,
     classify_guest_entity,
     speaker_view_state,
     doorbell_is_ringing,
@@ -475,9 +477,61 @@ def test_guest_entity_classification():
     assert charger_view_state("Charging") == "charging"
     assert charger_view_state("Available") == "idle"
     assert charger_view_state("Preparing") == "plugged"
+    assert charger_view_state("Finishing") == "finished"
+    assert charger_view_state("Charged") == "finished"
+    assert charger_view_state("SuspendedEV", level=100) == "finished"
+    assert charger_view_state("SuspendedEV", level=64) == "plugged"
     assert charger_view_state("8") == "charging"
     assert charger_view_state("1200", unit="W") == "charging"
     assert charger_view_state("10", unit="W") == "idle"
+    assert charger_view_state("64", unit="%") == "idle"
+    assert charger_view_state("100", unit="%") == "idle"
+    assert charger_charge_level("Charging") is None
+    assert charger_charge_level("64", unit="%") == 64
+    assert charger_charge_level("on", attributes={"battery_level": 81}) == 81
+    assert charger_charge_level("0.8", attributes={"soc": 0.8}) == 80
+    merged = combine_charger_views(
+        [
+            {
+                "entity_id": "sensor.evlink_status",
+                "name": "Borne",
+                "state": "charging",
+                "level": None,
+                "raw": "Charging",
+            },
+            {
+                "entity_id": "sensor.evlink_soc",
+                "name": "SOC véhicule",
+                "state": "plugged",
+                "level": 64,
+                "raw": "64",
+            },
+        ]
+    )
+    assert len(merged) == 1
+    assert merged[0]["state"] == "charging"
+    assert merged[0]["level"] == 64
+    assert merged[0]["name"] == "Borne"
+    parked = combine_charger_views(
+        [
+            {
+                "entity_id": "sensor.evlink_status",
+                "name": "Borne",
+                "state": "idle",
+                "level": None,
+                "raw": "Available",
+            },
+            {
+                "entity_id": "sensor.evlink_soc",
+                "name": "SOC véhicule",
+                "state": "idle",
+                "level": 64,
+                "raw": "64",
+            },
+        ]
+    )
+    assert parked[0]["state"] == "idle"
+    assert parked[0]["level"] == 64
     assert doorbell_is_ringing("on") is True
     assert doorbell_is_ringing("off") is False
     fresh = datetime(2026, 7, 10, 12, 0, 10, tzinfo=UTC)

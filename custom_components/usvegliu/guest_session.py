@@ -5,6 +5,7 @@ Pure Python: no Home Assistant import, so the mapping can be unit-tested.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
 import re
 import secrets
@@ -668,11 +669,31 @@ _DOORBELL_NEEDLES = (
 )
 _TV_CLASSES = ("tv", "receiver")
 _CHARGING_STATES = ("charging", "charge", "en_charge", "en charge")
+_FINISHED_STATES = (
+    "finishing",
+    "finished",
+    "charged",
+    "complete",
+    "completed",
+    "done",
+    "charge_complete",
+)
+_LEVEL_ATTRS = (
+    "battery_level",
+    "soc",
+    "state_of_charge",
+    "ev_soc",
+    "vehicle_soc",
+    "charging_percentage",
+    "charge_percentage",
+    "battery",
+    "percentage",
+)
+_LEVEL_NAME_NEEDLES = ("soc", "batterie", "battery", "niveau", "%")
 _PLUGGED_STATES = (
     "preparing",
     "suspendedev",
     "suspendedevse",
-    "finishing",
     "connected",
     "plugged",
     "ready",
@@ -797,19 +818,66 @@ def speaker_view_state(raw: str | None) -> str:
     return "idle"
 
 
-def charger_view_state(
-    raw: str | None, *, unit: str | None = None
-) -> str:
-    """idle / plugged / charging / fault for a wallbox entity."""
-    fold = str(raw or "").casefold().strip()
+def _as_percent(value: Any) -> int | None:
+    """Return 0–100, or None when the value is not a charge level."""
+    if value in (None, "", "unknown", "unavailable", "none"):
+        return None
+    try:
+        number = float(str(value).strip().replace(",", ".").replace("%", ""))
+    except (TypeError, ValueError):
+        return None
+    if 0 < number < 1:
+        number *= 100
+    if 0 <= number <= 100:
+        return int(round(number))
+    return None
+
+
+def charger_charge_level(
+    raw: str | None,
+    *,
+    unit: str | None = None,
+    attributes: Mapping[str, Any] | None = None,
+) -> int | None:
+    """Battery / SOC percentage when the wallbox or a sibling sensor reports it."""
+    attrs = attributes or {}
+    for key in _LEVEL_ATTRS:
+        level = _as_percent(attrs.get(key))
+        if level is not None:
+            return level
     measure = str(unit or "").casefold().replace(" ", "")
-    if fold in _FAULT_STATES:
+    if measure in {"%", "percent", "pct"}:
+        return _as_percent(raw)
+    return None
+
+
+def charger_view_state(
+    raw: str | None,
+    *,
+    unit: str | None = None,
+    level: int | None = None,
+) -> str:
+    """idle / plugged / charging / finished / fault for a wallbox entity."""
+    fold = str(raw or "").casefold().strip()
+    compact = fold.replace(" ", "").replace("_", "").replace("-", "")
+    measure = str(unit or "").casefold().replace(" ", "")
+    if fold in _FAULT_STATES or compact in _FAULT_STATES:
         return "fault"
-    if fold in _CHARGING_STATES or fold in {"on", "true", "c2", "d2"}:
+    if (
+        fold in _CHARGING_STATES
+        or compact in {"charging", "charge", "encharge"}
+        or fold in {"on", "true", "c2", "d2"}
+    ):
         return "charging"
-    if fold in _PLUGGED_STATES:
+    if (
+        fold in _FINISHED_STATES
+        or compact in _FINISHED_STATES
+        or (level is not None and level >= 99 and compact in _PLUGGED_STATES)
+    ):
+        return "finished"
+    if fold in _PLUGGED_STATES or compact in _PLUGGED_STATES:
         return "plugged"
-    if fold in _IDLE_STATES:
+    if fold in _IDLE_STATES or compact in _IDLE_STATES:
         return "idle"
     number: float | None
     try:
@@ -817,6 +885,8 @@ def charger_view_state(
     except ValueError:
         number = None
     if number is not None:
+        if measure in {"%", "percent", "pct"}:
+            return "idle"
         if measure in {"w", "kw"}:
             watts = number * 1000 if measure == "kw" else number
             return "charging" if watts >= 50 else "idle"
@@ -828,7 +898,43 @@ def charger_view_state(
             return "plugged"
         if number in {0, 1, 2, 6}:
             return "idle"
+    if level is not None:
+        return "finished" if level >= 99 else "plugged"
     return "idle"
+
+
+def combine_charger_views(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One guest card: station status plus the best SOC among sibling sensors."""
+    if len(items) <= 1:
+        return items
+    rank = {
+        "charging": 4,
+        "finished": 3,
+        "plugged": 2,
+        "fault": 1,
+        "idle": 0,
+    }
+    best = max(items, key=lambda item: rank.get(str(item.get("state") or "idle"), 0))
+    levels = [
+        int(item["level"])
+        for item in items
+        if item.get("level") is not None
+    ]
+    name = str(best.get("name") or "Borne")
+    for item in items:
+        label = str(item.get("name") or "").casefold()
+        if not _has_needle(label, _LEVEL_NAME_NEEDLES):
+            name = str(item.get("name") or name)
+            break
+    return [
+        {
+            "entity_id": best.get("entity_id"),
+            "name": name,
+            "state": best.get("state"),
+            "level": max(levels) if levels else None,
+            "raw": best.get("raw"),
+        }
+    ]
 
 
 def doorbell_is_ringing(raw: str | None, now: datetime | None = None) -> bool:
