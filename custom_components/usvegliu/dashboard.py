@@ -461,6 +461,7 @@ def _settings_markdown(entity_id: str) -> str:
         "\n"
         "### Maison\n"
         "- Site : `{{ a.site or a.host or '—' }}`\n"
+        "- Mode démo web app : **{{ 'oui' if a.demo_mode else 'non' }}**\n"
         "- Chauffage / clim : `{{ a.house_mode_entity or 'non configuré' }}`\n"
         "- Extérieur : `{{ a.outdoor_temperature or '—' }}`\n"
         "- Piscine : `{{ a.pool_temperature or '—' }}` · "

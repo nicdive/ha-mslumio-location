@@ -424,6 +424,8 @@ def test_owner_console_dashboard_has_live_credentials_and_actions():
     assert "Code porte (Keypad)" in dumped
     assert "Code PIN Nuki" in dumped
     assert "a.enable_nuki" in dumped
+    assert "a.demo_mode" in dumped
+    assert "Mode démo web app" in dumped
     assert "mail sans code porte" in dumped
     assert "reglages.enable_nuki" in dumped
     assert "Réseau Wi-Fi :" in dumped
@@ -732,6 +734,9 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert "nuki_code" in http
     assert "nuki_revoked" in http
     assert 'CONF_ENABLE_NUKI: Final = "enable_nuki"' in const
+    assert 'PLATFORMS: Final = ["sensor", "switch"]' in const
+    assert "EVENT_DEMO" in const
+    assert "def demo_mode" in coord
     assert 'CONF_NUKI_TOKEN: Final = "nuki_token"' in const
     assert "def nuki_pin_option" in coord
     assert "Code PIN Nuki" in flow or "CONF_ENABLE_NUKI" in flow
@@ -757,6 +762,9 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert "chargerIsPlugged" in js
     assert "Véhicule" in js
     assert "combine_charger_views" in http
+    assert "overlay_demo_snapshot" in http
+    assert "Mode démo" in js
+    assert "state.demo" in js
     assert "Armer" in js
     assert "Désarmer" in js
     assert '"cameras"' in http

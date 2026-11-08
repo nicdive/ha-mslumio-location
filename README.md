@@ -50,13 +50,13 @@ Le dépôt doit être **public**. HACS n'installe pas un dépôt privé.
 
 1. HACS → ⋮ → *Dépôts personnalisés*.
 2. URL `https://github.com/nicdive/ha-mslumio-location`, catégorie **Intégration**.
-3. Télécharger **Usvegliu** en choisissant une **release GitHub** (dernière : [0.6.25](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.25)), pas le commit d'une branche.
+3. Télécharger **Usvegliu** en choisissant une **release GitHub** (dernière : [0.6.26](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.26)), pas le commit d'une branche.
 4. Redémarrer Home Assistant.
 5. Paramètres → Appareils et services → Ajouter une intégration → **Usvegliu**.
 
-Pour **mettre à jour** (ex. 0.6.24 → 0.6.25) : HACS → Usvegliu → ⋮ → **Redownload** → **0.6.25**, puis redémarrer. Le numéro dans Paramètres → Intégrations ne change qu'après ce redémarrage.
+Pour **mettre à jour** (ex. 0.6.25 → 0.6.26) : HACS → Usvegliu → ⋮ → **Redownload** → **0.6.26**, puis redémarrer. Le numéro dans Paramètres → Intégrations ne change qu'après ce redémarrage.
 
-HACS ne liste une version **que** si la [release GitHub](https://github.com/nicdive/ha-mslumio-location/releases) existe. Un numéro dans le `manifest.json` ou une pull request ne suffit pas : sans tag `v0.6.25` poussé, 0.6.25 n'apparaît pas.
+HACS ne liste une version **que** si la [release GitHub](https://github.com/nicdive/ha-mslumio-location/releases) existe. Un numéro dans le `manifest.json` ou une pull request ne suffit pas : sans tag `v0.6.26` poussé, 0.6.26 n'apparaît pas.
 
 ## Versions
 
@@ -249,7 +249,7 @@ L'intégration crée les deux tableaux si la collection Lovelace est joignable. 
 
 Ce n'est **pas** le tableau **Séjour** (locataire) ni un tableau créé à la main sous un autre nom. Dans Home Assistant 2026, le bouton **+** des tableaux de bord ne reprend pas le titre comme URL : « Location » devient `dashboard-location`, donc l'intégration n'y écrit rien.
 
-1. Mettre à jour Usvegliu ([0.6.25](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.25)+), redémarrer Home Assistant.
+1. Mettre à jour Usvegliu ([0.6.26](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.26)+), redémarrer Home Assistant.
 2. Outils de développement → Actions → `usvegliu.appliquer_tableau` → Exécuter.
 3. Dans la barre latérale, ouvrir **Console**, ou l'URL `/usvegliu-proprietaire`.
 
@@ -354,6 +354,15 @@ Pour apparaître, chaque appareil doit d'abord exister dans Home Assistant, puis
 - **Sonos Amp** : cocher les `media_player` des zones (salon, terrasse, piscine). Pas les TV. Le locataire règle le volume et coupe le son ; il lance sa musique depuis son téléphone (AirPlay / appli Sonos).
 
 Le navigateur n'envoie que le jeton. Les commandes sont exécutées côté serveur après contrôle de la liste d'entités du séjour.
+
+### Mode démo
+
+Pour voir le rendu complet **avant** d'avoir branché thermostats, borne, alarme, etc. dans Home Assistant :
+
+1. Appareil **Usvegliu** → allumer le switch **Mode démo**.
+2. Ouvrir un lien Maison (`usvegliu.lien_maison` → essai 24 h, ou un séjour déjà provisionné).
+
+L'app affiche alors 10 thermostats, le véhicule en charge, lumières, scènes, porte, garage, portail, volets, alarme, piscine, son, Infos. Les boutons réagissent (mémoire, rien n'est envoyé aux vrais appareils). Un bandeau **Mode démo** le rappelle. Éteindre le switch avant un vrai séjour.
 
 ### Configurer pour tester
 

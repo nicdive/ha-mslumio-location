@@ -264,10 +264,11 @@
     const dates = state && state.preview
       ? "Visite d'essai"
       : formatStayDates(state && state.check_in, state && state.check_out);
+    const demo = state && state.demo ? `<p class="stay-dates">Mode démo</p>` : "";
     return `<div class="hero">
       <p class="kicker">${greeting()}</p>
       <h1 class="welcome">${guest ? escapeHtml(guest) : "Bienvenue"}</h1>
-      ${dates ? `<p class="stay-dates">${escapeHtml(dates)}</p>` : ""}
+      ${dates ? `<p class="stay-dates">${escapeHtml(dates)}</p>` : ""}${demo}
     </div>`;
   }
 

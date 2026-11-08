@@ -109,6 +109,7 @@ STORAGE_VERSION: Final = 1
 
 EVENT_JOURNAL: Final = "usvegliu_journal"
 EVENT_PRINT: Final = "usvegliu_print_voucher"
+EVENT_DEMO: Final = "usvegliu_demo"
 
 SERVICE_REGENERATE_VOUCHER: Final = "regenerer_voucher"
 SERVICE_REVOKE_VOUCHER: Final = "revoquer_voucher"
@@ -126,4 +127,4 @@ SERVICE_GUEST_LINK: Final = "lien_maison"
 
 ATTR_RESERVATION_KEY: Final = "reservation_key"
 
-PLATFORMS: Final = ["sensor"]
+PLATFORMS: Final = ["sensor", "switch"]

@@ -200,6 +200,11 @@
       "reglages": {
         "name": "Settings"
       }
+    },
+    "switch": {
+      "demo_mode": {
+        "name": "Demo mode"
+      }
     }
   },
   "services": {
