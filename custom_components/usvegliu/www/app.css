@@ -217,6 +217,32 @@ button:active:not(:disabled) {
   box-shadow: var(--shadow);
 }
 
+.charger-sheet {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.car-mark {
+  display: block;
+  flex-shrink: 0;
+  color: var(--bronze);
+}
+
+.status-sheet.live .car-mark,
+.access.live .car-mark {
+  color: var(--cool);
+}
+
+.charger-copy {
+  min-width: 0;
+}
+
+.charger-access .car-mark {
+  width: 56px;
+  height: 38px;
+}
+
 .status-sheet + .status-sheet,
 .status-sheet + .weather {
   margin-top: 10px;

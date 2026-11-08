@@ -760,6 +760,8 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert "En charge" in js
     assert "Charge terminée" in js
     assert "chargerIsPlugged" in js
+    assert "carGlyph" in js
+    assert "car-mark" in js
     assert "Véhicule" in js
     assert "combine_charger_views" in http
     assert "overlay_demo_snapshot" in http

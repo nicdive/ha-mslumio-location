@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.28] — 2026-11-08
+
+### Ajouté
+- Pictogramme **voiture de profil** (câble vers la borne) sur la carte véhicule de l'accueil et dans Accès, comme sur un écran de wallbox.
+
+[0.6.28]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.28
+
 ## [0.6.27] — 2026-11-08
 
 ### Corrigé

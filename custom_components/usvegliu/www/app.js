@@ -433,6 +433,23 @@
     </svg>`;
   }
 
+  function carGlyph(item) {
+    const plugged = chargerIsPlugged(item);
+    const post = plugged
+      ? `<path d="M8 56 V18 H20 V24 H14 V56" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+         <path d="M20 22 C28 22 26 34 24 40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>`
+      : "";
+    return `<svg class="car-mark" width="96" height="64" viewBox="0 0 96 64" aria-hidden="true">
+      ${post}
+      <path d="M24 40 C24 36 26 34 30 32 L36 22 C38 18 42 17 48 17 H68 C74 17 78 22 82 32 L90 34 V46 H82 A8 8 0 0 1 66 46 H50 A8 8 0 0 1 34 46 H24 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M38 32 L44 21 H66 L76 32" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+      <circle cx="41" cy="47" r="7" fill="none" stroke="currentColor" stroke-width="2"/>
+      <circle cx="74" cy="47" r="7" fill="none" stroke="currentColor" stroke-width="2"/>
+      <circle cx="41" cy="47" r="2.2" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <circle cx="74" cy="47" r="2.2" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    </svg>`;
+  }
+
   function chargerLevel(item) {
     const level = Number(item && item.level);
     if (!Number.isFinite(level) || level < 0 || level > 100) return "";
@@ -523,10 +540,13 @@
     if (!chargers.length) return "";
     return chargers
       .map(
-        (item) => `<section class="status-sheet${item.state === "charging" ? " live" : ""}">
-        <div class="status-label">Véhicule</div>
-        <div class="status-name">${escapeHtml(item.name)}</div>
-        <div class="status-value">${escapeHtml(chargerStatus(item))}</div>
+        (item) => `<section class="status-sheet charger-sheet${item.state === "charging" ? " live" : ""}">
+        ${carGlyph(item)}
+        <div class="charger-copy">
+          <div class="status-label">Véhicule</div>
+          <div class="status-name">${escapeHtml(item.name)}</div>
+          <div class="status-value">${escapeHtml(chargerStatus(item))}</div>
+        </div>
       </section>`
       )
       .join("");
@@ -786,7 +806,8 @@
     );
     const chargerRows = chargers.map(
       (item) =>
-        `<div class="access${item.state === "charging" ? " live" : ""}">
+        `<div class="access charger-access${item.state === "charging" ? " live" : ""}">
+        ${carGlyph(item)}
         <div class="access-copy">
           <div class="access-name">${escapeHtml(item.name)}</div>
           <div class="access-status">${escapeHtml(chargerStatus(item))}</div>
