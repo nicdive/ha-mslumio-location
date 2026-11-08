@@ -37,8 +37,10 @@ from .guest_session import (
     GUEST_KIND_SHUTTER,
     GUEST_KIND_SPEAKER,
     alarm_view_state,
+    charger_charge_level,
     charger_view_state,
     classify_guest_entity,
+    combine_charger_views,
     climate_activity,
     climate_is_on,
     cover_is_moving,
@@ -336,10 +338,12 @@ def _serialize_charger(hass: Any, entity_id: str) -> dict[str, Any] | None:
         return None
     raw = str(state.state)
     unit = str(state.attributes.get("unit_of_measurement") or "")
+    level = charger_charge_level(raw, unit=unit, attributes=state.attributes)
     return {
         "entity_id": entity_id,
         "name": str(state.attributes.get("friendly_name") or entity_id),
-        "state": charger_view_state(raw, unit=unit),
+        "state": charger_view_state(raw, unit=unit, level=level),
+        "level": level,
         "raw": raw,
     }
 
@@ -541,11 +545,13 @@ def _snapshot(
             for entity_id in _ids(grouped, GUEST_KIND_POOL_LIGHT)
             if (item := _serialize_light(hass, entity_id))
         ],
-        "chargers": [
-            item
-            for entity_id in _ids(grouped, GUEST_KIND_CHARGER)
-            if (item := _serialize_charger(hass, entity_id))
-        ],
+        "chargers": combine_charger_views(
+            [
+                item
+                for entity_id in _ids(grouped, GUEST_KIND_CHARGER)
+                if (item := _serialize_charger(hass, entity_id))
+            ]
+        ),
         "doorbells": [
             item
             for entity_id in _ids(grouped, GUEST_KIND_DOORBELL)

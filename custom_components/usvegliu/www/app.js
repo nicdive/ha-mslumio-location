@@ -427,11 +427,28 @@
     </svg>`;
   }
 
+  function chargerLevel(item) {
+    const level = Number(item && item.level);
+    if (!Number.isFinite(level) || level < 0 || level > 100) return "";
+    return `${Math.round(level)} %`;
+  }
+
   function chargerStatus(item) {
-    if (item.state === "charging") return "En charge";
-    if (item.state === "plugged") return "Branché";
-    if (item.state === "fault") return "Hors service";
-    return "Libre";
+    let text = "Libre";
+    if (item.state === "charging") text = "En charge";
+    else if (item.state === "finished") text = "Charge terminée";
+    else if (item.state === "plugged") text = "Branché";
+    else if (item.state === "fault") text = "Hors service";
+    const level = chargerLevel(item);
+    return level ? `${text} · ${level}` : text;
+  }
+
+  function chargerIsPlugged(item) {
+    return (
+      item.state === "charging" ||
+      item.state === "plugged" ||
+      item.state === "finished"
+    );
   }
 
   function doorbellStatus(item) {
@@ -496,12 +513,12 @@
   }
 
   function statusCards() {
-    const chargers = (state && state.chargers) || [];
+    const chargers = ((state && state.chargers) || []).filter(chargerIsPlugged);
     if (!chargers.length) return "";
     return chargers
       .map(
         (item) => `<section class="status-sheet${item.state === "charging" ? " live" : ""}">
-        <div class="status-label">Borne</div>
+        <div class="status-label">Véhicule</div>
         <div class="status-name">${escapeHtml(item.name)}</div>
         <div class="status-value">${escapeHtml(chargerStatus(item))}</div>
       </section>`

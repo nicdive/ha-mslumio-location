@@ -753,6 +753,10 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert "data-act=\"pool-light\"" in js
     assert "Quelqu'un sonne" in js
     assert "En charge" in js
+    assert "Charge terminée" in js
+    assert "chargerIsPlugged" in js
+    assert "Véhicule" in js
+    assert "combine_charger_views" in http
     assert "Armer" in js
     assert "Désarmer" in js
     assert '"cameras"' in http
