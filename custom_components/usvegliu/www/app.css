@@ -217,6 +217,39 @@ button:active:not(:disabled) {
   box-shadow: var(--shadow);
 }
 
+.charger-sheet {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.car-mark,
+.access-mark {
+  display: block;
+  flex-shrink: 0;
+  color: var(--bronze);
+}
+
+.status-sheet.live .car-mark,
+.access.live .car-mark,
+.access.live .access-mark {
+  color: var(--cool);
+}
+
+.access.ringing .access-mark,
+.access.triggered .access-mark {
+  color: var(--danger);
+}
+
+.charger-copy {
+  min-width: 0;
+}
+
+.charger-access .car-mark {
+  width: 56px;
+  height: 38px;
+}
+
 .status-sheet + .status-sheet,
 .status-sheet + .weather {
   margin-top: 10px;
@@ -469,10 +502,21 @@ h1 {
 }
 
 .stay-dates {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
   margin: 10px 0 0;
   font-size: 14px;
   letter-spacing: 0.02em;
   color: var(--muted);
+}
+
+.demo-flag {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
 .home-note {
@@ -720,11 +764,24 @@ h1 {
 
 .room-card-temp,
 .adjust .measured,
-.row span:last-child {
+.row span:last-child:not(.lamp) {
   font-family: var(--serif);
   font-size: 20px;
   font-variant-numeric: oldstyle-nums;
   letter-spacing: -0.02em;
+}
+
+.row .lamp {
+  display: flex;
+  color: var(--bronze);
+}
+
+.row .lamp.off {
+  color: var(--muted);
+}
+
+.lamp-mark {
+  display: block;
 }
 
 .row .off,
@@ -1174,6 +1231,7 @@ h1 {
     grid-column: 2;
     grid-row: 1 / span 2;
     align-self: end;
+    align-items: flex-end;
     margin: 0;
     text-align: right;
   }

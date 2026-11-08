@@ -73,6 +73,7 @@ from .const import (
     DASHBOARD_URL,
     DOMAIN,
     OWNER_DASHBOARD_URL,
+    EVENT_DEMO,
     EVENT_JOURNAL,
     EVENT_PRINT,
     STORAGE_VERSION,
@@ -170,6 +171,8 @@ class UsvegliuRuntime:
         self._last_dashboard: dict[str, Any] = {}
         self._weather: dict[str, Any] | None = None
         self._weather_at = None
+        self._demo_on = False
+        self._demo: dict[str, Any] | None = None
 
     def tenant_entity_ids(self) -> list[str]:
         """Entities selected for tenants, including the previous three lists."""
@@ -252,6 +255,32 @@ class UsvegliuRuntime:
         """True when keypad PINs should be created for new stays."""
         return self.nuki_pin_option() and self.nuki_client() is not None
 
+    def demo_mode(self) -> bool:
+        """True while the guest app shows the synthetic villa."""
+        return self._demo_on
+
+    def demo_villa(self) -> dict[str, Any] | None:
+        """In-memory demo catalog, or None when the switch is off."""
+        if not self._demo_on:
+            return None
+        if self._demo is None:
+            from .demo import build_demo_villa
+
+            self._demo = build_demo_villa()
+        return self._demo
+
+    async def async_set_demo_mode(self, enabled: bool) -> None:
+        """Turn the guest demo villa on or off and persist the switch."""
+        from .demo import build_demo_villa
+
+        self._demo_on = bool(enabled)
+        if self._demo_on and self._demo is None:
+            self._demo = build_demo_villa()
+        await self._persist(self._stays, self._shared)
+        self.hass.bus.async_fire(EVENT_DEMO)
+        if self.coordinator is not None and self.coordinator.data is not None:
+            self.coordinator.async_set_updated_data(self.coordinator.data)
+
     def weather(self) -> dict[str, Any] | None:
         """Last Lumio forecast, or None until the first successful fetch."""
         return self._weather
@@ -289,6 +318,11 @@ class UsvegliuRuntime:
         preview = raw.get("guest_preview")
         if isinstance(preview, dict):
             self._preview = _scrub_secrets(preview)
+        self._demo_on = bool(raw.get("demo_mode"))
+        if self._demo_on:
+            from .demo import build_demo_villa
+
+            self._demo = build_demo_villa()
         history = raw.get("stay_history")
         if isinstance(history, list):
             self._history = [
@@ -311,6 +345,7 @@ class UsvegliuRuntime:
                 "overrides": self._overrides,
                 "guest_preview": self._preview,
                 "stay_history": self._history,
+                "demo_mode": self._demo_on,
             }
         )
         self._refresh_log_filter()
@@ -611,6 +646,7 @@ class UsvegliuRuntime:
             "print_event": bool(options.get(CONF_PRINT_EVENT, False)),
             "guest_base_url": str(options.get(CONF_GUEST_BASE_URL) or ""),
             "wifi_ssid": self.wifi_ssid(),
+            "demo_mode": self.demo_mode(),
         }
 
     async def _async_dashboard(self) -> None:
@@ -1055,6 +1091,7 @@ class UsvegliuRuntime:
                 "stay_count": len(self._stays),
                 "stays": list(self._stays.values()),
                 "stay_history": self._history,
+                "demo_mode": self._demo_on,
                 "shared_user": self._shared,
                 "snapshot": None
                 if self.coordinator is None

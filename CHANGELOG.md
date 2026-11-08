@@ -4,6 +4,41 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.30] — 2026-11-08
+
+### Ajouté
+- Accès : pictogrammes **porte**, **garage**, **portail**, **volet**, **alarme** et **sonnette**, dans le même trait que la lampe et la voiture.
+
+[0.6.30]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.30
+
+## [0.6.29] — 2026-11-08
+
+### Changé
+- Lumières (et lumière piscine) : icône de **lampe** à la place du texte Allumée / Éteinte.
+
+[0.6.29]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.29
+
+## [0.6.28] — 2026-11-08
+
+### Ajouté
+- Pictogramme **voiture de profil** (câble vers la borne) sur la carte véhicule de l'accueil et dans Accès, comme sur un écran de wallbox.
+
+[0.6.28]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.28
+
+## [0.6.27] — 2026-11-08
+
+### Corrigé
+- Accueil Maison : **Mode démo** ne recouvre plus les dates du séjour (iPad).
+
+[0.6.27]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.27
+
+## [0.6.26] — 2026-11-08
+
+### Ajouté
+- Switch **Mode démo** sur l'appareil Usvegliu : la web app Maison affiche une villa complète (10 thermostats, véhicule en charge, lumières, accès, piscine, son) sans attendre les entités Home Assistant. À éteindre avant un vrai séjour.
+
+[0.6.26]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.26
+
 ## [0.6.25] — 2026-11-08
 
 ### Changé

@@ -50,13 +50,13 @@ Le dépôt doit être **public**. HACS n'installe pas un dépôt privé.
 
 1. HACS → ⋮ → *Dépôts personnalisés*.
 2. URL `https://github.com/nicdive/ha-mslumio-location`, catégorie **Intégration**.
-3. Télécharger **Usvegliu** en choisissant une **release GitHub** (dernière : [0.6.25](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.25)), pas le commit d'une branche.
+3. Télécharger **Usvegliu** en choisissant une **release GitHub** (dernière : [0.6.30](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.30)), pas le commit d'une branche.
 4. Redémarrer Home Assistant.
 5. Paramètres → Appareils et services → Ajouter une intégration → **Usvegliu**.
 
-Pour **mettre à jour** (ex. 0.6.24 → 0.6.25) : HACS → Usvegliu → ⋮ → **Redownload** → **0.6.25**, puis redémarrer. Le numéro dans Paramètres → Intégrations ne change qu'après ce redémarrage.
+Pour **mettre à jour** (ex. 0.6.29 → 0.6.30) : HACS → Usvegliu → ⋮ → **Redownload** → **0.6.30**, puis redémarrer. Le numéro dans Paramètres → Intégrations ne change qu'après ce redémarrage.
 
-HACS ne liste une version **que** si la [release GitHub](https://github.com/nicdive/ha-mslumio-location/releases) existe. Un numéro dans le `manifest.json` ou une pull request ne suffit pas : sans tag `v0.6.25` poussé, 0.6.25 n'apparaît pas.
+HACS ne liste une version **que** si la [release GitHub](https://github.com/nicdive/ha-mslumio-location/releases) existe. Un numéro dans le `manifest.json` ou une pull request ne suffit pas : sans tag `v0.6.30` poussé, 0.6.30 n'apparaît pas.
 
 ## Versions
 
@@ -249,7 +249,7 @@ L'intégration crée les deux tableaux si la collection Lovelace est joignable. 
 
 Ce n'est **pas** le tableau **Séjour** (locataire) ni un tableau créé à la main sous un autre nom. Dans Home Assistant 2026, le bouton **+** des tableaux de bord ne reprend pas le titre comme URL : « Location » devient `dashboard-location`, donc l'intégration n'y écrit rien.
 
-1. Mettre à jour Usvegliu ([0.6.25](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.25)+), redémarrer Home Assistant.
+1. Mettre à jour Usvegliu ([0.6.30](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.30)+), redémarrer Home Assistant.
 2. Outils de développement → Actions → `usvegliu.appliquer_tableau` → Exécuter.
 3. Dans la barre latérale, ouvrir **Console**, ou l'URL `/usvegliu-proprietaire`.
 
@@ -338,22 +338,31 @@ Sans UID calendrier, la clé est un condensat du nom et des dates : renommer le 
 
 La web app **Maison** est servie par le même Home Assistant. Le locataire n'ouvre pas l'UI admin : un lien avec jeton suffit. L'interface est une application à sections (accueil, clim, pool, lumière, accès, infos), adaptée au téléphone et à l'iPad mini. Le bandeau reprend le logo **U Svegliu**.
 
-- **Maison** : accueil nominatif, dates du séjour, météo du jour à Lumio, **véhicule** seulement s'il est branché (en charge, niveau, charge terminée). Si quelqu'un sonne, un popup avec la photo de la platine et *Ouvrir le portail*.
+- **Maison** : accueil nominatif, dates du séjour, météo du jour à Lumio, **véhicule** seulement s'il est branché (pictogramme de voiture, en charge, niveau, charge terminée). Si quelqu'un sonne, un popup avec la photo de la platine et *Ouvrir le portail*.
 - **Clim** : thermostats autorisés (marche / arrêt, consigne, ventilation) ; titre **Chauffage** ou **Climatisation** selon le switch du propriétaire. Température extérieure en coin.
 - **Pool** : température, pH, et lumière du bassin.
-- **Lumière** : lumières et scénarios (à cocher dans les entités locataire).
-- **Accès** : porte, garage, portail, alarme (armer / désarmer), volets, sonnette (état), borne de recharge (lecture). La photo visio est sur l'accueil, pas ici.
+- **Lumière** : lumières (icône de lampe allumée / éteinte) et scénarios (à cocher dans les entités locataire).
+- **Accès** : porte, garage, portail, alarme (armer / désarmer), volets, sonnette (état), borne de recharge (lecture), chacun avec un pictogramme. La photo visio est sur l'accueil, pas ici.
 - **Son** : zones `media_player` (Amp Sonos) : volume, pause / lecture, muet, tout couper. L'onglet n'apparaît que si au moins une zone est cochée. Pas de Spotify / source de la villa.
 - **Infos** : nom du réseau Wi-Fi, code voucher, code porte Keypad, et QR code du lien personnel Maison. Pas sur l'accueil.
 
 Pour apparaître, chaque appareil doit d'abord exister dans Home Assistant, puis être dans **Entités autorisées** (alarme / serrure : cocher la case sensible, et renseigner le **code alarme** Delta Dore / TYDOM).
 
-- **Borne** : OCPP, Modbus EVlink, Wallbox, etc. Cocher le capteur d'état et, s'il existe, le capteur de niveau (SOC %). Accueil : visible seulement si un véhicule est branché (**En charge**, **Branché**, **Charge terminée**, avec le % s'il est dans HA). L'onglet Accès garde aussi **Libre**. Pas de démarrage / arrêt de charge.
+- **Borne** : OCPP, Modbus EVlink, Wallbox, etc. Cocher le capteur d'état et, s'il existe, le capteur de niveau (SOC %). Accueil : visible seulement si un véhicule est branché, avec un **pictogramme de voiture** (câble vers la borne), **En charge**, **Branché** ou **Charge terminée**, plus le % s'il est dans HA. L'onglet Accès garde aussi **Libre**. Pas de démarrage / arrêt de charge.
 - **Alarme Delta Dore** : **Tydom 2** déjà en place. HACS *Delta Dore Tydom*, cocher `alarm_control_panel`, coller le code. L'app appelle `set_mode_using_stored_pin` si ce service existe.
 - **Sonnette / visiophone** : sonnerie via `binary_sensor` / `event`. Popup accueil (photo + ouvrir le portail) si une `camera` (Linea 3000 / 300EOS) est cochée (case sensible). Parler reste sur le HomeTouch / 300EOS / app Home + Security.
 - **Sonos Amp** : cocher les `media_player` des zones (salon, terrasse, piscine). Pas les TV. Le locataire règle le volume et coupe le son ; il lance sa musique depuis son téléphone (AirPlay / appli Sonos).
 
 Le navigateur n'envoie que le jeton. Les commandes sont exécutées côté serveur après contrôle de la liste d'entités du séjour.
+
+### Mode démo
+
+Pour voir le rendu complet **avant** d'avoir branché thermostats, borne, alarme, etc. dans Home Assistant :
+
+1. Appareil **Usvegliu** → allumer le switch **Mode démo**.
+2. Ouvrir un lien Maison (`usvegliu.lien_maison` → essai 24 h, ou un séjour déjà provisionné).
+
+L'app affiche alors 10 thermostats, le véhicule en charge, lumières, scènes, porte, garage, portail, volets, alarme, piscine, son, Infos. Les boutons réagissent (mémoire, rien n'est envoyé aux vrais appareils). Un bandeau **Mode démo** le rappelle. Éteindre le switch avant un vrai séjour.
 
 ### Configurer pour tester
 

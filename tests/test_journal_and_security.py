@@ -424,6 +424,8 @@ def test_owner_console_dashboard_has_live_credentials_and_actions():
     assert "Code porte (Keypad)" in dumped
     assert "Code PIN Nuki" in dumped
     assert "a.enable_nuki" in dumped
+    assert "a.demo_mode" in dumped
+    assert "Mode démo web app" in dumped
     assert "mail sans code porte" in dumped
     assert "reglages.enable_nuki" in dumped
     assert "Réseau Wi-Fi :" in dumped
@@ -732,6 +734,9 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert "nuki_code" in http
     assert "nuki_revoked" in http
     assert 'CONF_ENABLE_NUKI: Final = "enable_nuki"' in const
+    assert 'PLATFORMS: Final = ["sensor", "switch"]' in const
+    assert "EVENT_DEMO" in const
+    assert "def demo_mode" in coord
     assert 'CONF_NUKI_TOKEN: Final = "nuki_token"' in const
     assert "def nuki_pin_option" in coord
     assert "Code PIN Nuki" in flow or "CONF_ENABLE_NUKI" in flow
@@ -750,13 +755,21 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert '"doorbells"' in http
     assert "GUEST_KIND_POOL_LIGHT" in http
     assert "function poolLights" in js
-    assert "data-act=\"pool-light\"" in js
+    assert 'lightRow(light, "pool-light")' in js
     assert "Quelqu'un sonne" in js
     assert "En charge" in js
     assert "Charge terminée" in js
     assert "chargerIsPlugged" in js
+    assert "carGlyph" in js
+    assert "accessGlyph" in js
+    assert "access-mark" in js
+    assert "car-mark" in js
     assert "Véhicule" in js
     assert "combine_charger_views" in http
+    assert "overlay_demo_snapshot" in http
+    assert "Mode démo" in js
+    assert "demo-flag" in js
+    assert "state.demo" in js
     assert "Armer" in js
     assert "Désarmer" in js
     assert '"cameras"' in http
@@ -874,6 +887,8 @@ def test_guest_stream_is_server_sent_events():
     assert "metricsView" not in js
     assert "weather" in text
     assert "Allumée" in js
+    assert "lampGlyph" in js
+    assert "lamp-mark" in js
     assert "brand-logo" in js
     assert "logo-banner.png" in js
     assert "wordmark" not in js

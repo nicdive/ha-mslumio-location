@@ -15,7 +15,14 @@ from typing import Any
 
 from homeassistant.components.http import HomeAssistantView
 
-from .const import DOMAIN
+from .const import DOMAIN, EVENT_DEMO
+from .demo import (
+    apply_demo_climate,
+    apply_demo_command,
+    demo_entity_kind,
+    is_demo_entity,
+    overlay_demo_snapshot,
+)
 from .guest_session import (
     format_arrival_day,
     stay_activation_start,
@@ -482,7 +489,7 @@ def _snapshot(
     nuki_revoked = bool(record.get("nuki_revoked"))
     nuki_code = "" if nuki_revoked else str(record.get("nuki_code") or "")
     share = _guest_share_url(request, record)
-    return {
+    payload = {
         "guest": record.get("guest") or "",
         "check_in": record.get("check_in") or "",
         "check_out": record.get("check_out") or "",
@@ -568,6 +575,10 @@ def _snapshot(
             if (item := _serialize_speaker(hass, entity_id))
         ],
     }
+    villa = runtime.demo_villa() if runtime.demo_mode() else None
+    if villa:
+        return overlay_demo_snapshot(payload, villa, house_mode=house_mode)
+    return payload
 
 
 def _partition(hass: Any, entity_ids: list[str]) -> tuple[list[str], list[str]]:
@@ -687,6 +698,7 @@ class GuestStreamView(HomeAssistantView):
                 notify("state")
 
         unsub = hass.bus.async_listen("state_changed", listener)
+        unsub_demo = hass.bus.async_listen(EVENT_DEMO, lambda _event: notify("state"))
 
         async def emit(name: str, payload: dict[str, Any]) -> None:
             body = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
@@ -716,6 +728,7 @@ class GuestStreamView(HomeAssistantView):
             pass
         finally:
             unsub()
+            unsub_demo()
         return response
 
 
@@ -739,6 +752,16 @@ class GuestClimateView(HomeAssistantView):
         except Exception:  # noqa: BLE001
             return _json_error(self, 400, "bad_json")
         entity_id = str(body.get("entity_id") or "")
+        if runtime.demo_mode() and is_demo_entity(entity_id):
+            villa = runtime.demo_villa()
+            if villa is None:
+                return _json_error(self, 404, "missing")
+            house_mode = _house_mode(hass, runtime, [])
+            item = apply_demo_climate(villa, entity_id, body, house_mode=house_mode)
+            if item is None:
+                return _json_error(self, 404, "missing")
+            hass.bus.async_fire(EVENT_DEMO)
+            return self.json(item)
         climates, _locks = _partition(hass, runtime.allowed_entity_ids(record))
         if entity_id not in climates:
             return _json_error(self, 403, "forbidden")
@@ -814,10 +837,24 @@ class GuestLockView(HomeAssistantView):
         except Exception:  # noqa: BLE001
             return _json_error(self, 400, "bad_json")
         entity_id = str(body.get("entity_id") or "")
+        action = str(body.get("action") or "unlock")
+        if runtime.demo_mode() and is_demo_entity(entity_id):
+            if action not in {"unlock", "lock"}:
+                return _json_error(self, 400, "bad_action")
+            villa = runtime.demo_villa()
+            if villa is None:
+                return _json_error(self, 404, "missing")
+            try:
+                item = apply_demo_command(villa, entity_id, "lock", action)
+            except ValueError:
+                return _json_error(self, 400, "bad_action")
+            if item is None:
+                return _json_error(self, 404, "missing")
+            hass.bus.async_fire(EVENT_DEMO)
+            return self.json(item)
         _climates, locks = _partition(hass, runtime.allowed_entity_ids(record))
         if entity_id not in locks:
             return _json_error(self, 403, "forbidden")
-        action = str(body.get("action") or "unlock")
         if action not in {"unlock", "lock"}:
             return _json_error(self, 400, "bad_action")
         try:
@@ -856,6 +893,19 @@ class GuestCommandView(HomeAssistantView):
         entity_id = str(body.get("entity_id") or "")
         action = str(body.get("action") or "")
         value = body.get("value")
+        if runtime.demo_mode() and is_demo_entity(entity_id):
+            villa = runtime.demo_villa()
+            kind = demo_entity_kind(villa, entity_id)
+            if kind not in _COMMAND_KINDS:
+                return _json_error(self, 403, "forbidden")
+            try:
+                item = apply_demo_command(villa or {}, entity_id, kind, action, value)
+            except ValueError:
+                return _json_error(self, 400, "bad_action")
+            if item is None:
+                return _json_error(self, 404, "missing")
+            hass.bus.async_fire(EVENT_DEMO)
+            return self.json(item)
         allowed = runtime.allowed_entity_ids(record)
         if entity_id not in allowed:
             return _json_error(self, 403, "forbidden")
