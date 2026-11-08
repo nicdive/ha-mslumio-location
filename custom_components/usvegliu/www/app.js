@@ -552,16 +552,35 @@
       .join("");
   }
 
+  function lampGlyph(on) {
+    const rays = on
+      ? `<g stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+          <path d="M12 1.8 V3.8"/>
+          <path d="M4.2 5.8 L5.8 7.4"/>
+          <path d="M19.8 5.8 L18.2 7.4"/>
+        </g>`
+      : "";
+    return `<svg class="lamp-mark" width="28" height="28" viewBox="0 0 24 24" aria-hidden="true">
+      ${rays}
+      <path d="M12 4.4 a5.2 5.2 0 0 1 3 9.4 V16.2 H9 V13.8 A5.2 5.2 0 0 1 12 4.4 Z" fill="${on ? "currentColor" : "none"}" fill-opacity="${on ? "0.2" : "0"}" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+      <path d="M9.4 18.4 H14.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+      <path d="M10.2 20.6 H13.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+    </svg>`;
+  }
+
+  function lightRow(light, act) {
+    const on = Boolean(light.on);
+    return `<button class="row" type="button" data-act="${escapeAttr(act)}" data-id="${escapeAttr(light.entity_id)}" aria-pressed="${on}">
+          <span>${escapeHtml(light.name)}</span>
+          <span class="lamp${on ? " on" : " off"}" aria-label="${on ? "Allumée" : "Éteinte"}">${lampGlyph(on)}</span>
+        </button>`;
+  }
+
   function poolLights() {
     const lights = (state && state.pool_lights) || [];
     if (!lights.length) return "";
     return `<div class="light-list pool-lights">${lights
-      .map(
-        (light) => `<button class="row" type="button" data-act="pool-light" data-id="${escapeAttr(light.entity_id)}">
-          <span>${escapeHtml(light.name)}</span>
-          <span class="${light.on ? "" : "off"}">${light.on ? "Allumée" : "Éteinte"}</span>
-        </button>`
-      )
+      .map((light) => lightRow(light, "pool-light"))
       .join("")}</div>`;
   }
 
@@ -700,12 +719,7 @@
     const scenes = (state && state.scenes) || [];
     if (!lights.length && !scenes.length) return "";
     const lightRows = `<div class="light-list">${lights
-      .map(
-        (light) => `<button class="row" type="button" data-act="light" data-id="${escapeAttr(light.entity_id)}">
-          <span>${escapeHtml(light.name)}</span>
-          <span class="${light.on ? "" : "off"}">${light.on ? "Allumée" : "Éteinte"}</span>
-        </button>`
-      )
+      .map((light) => lightRow(light, "light"))
       .join("")}</div>`;
     const sceneRow = scenes.length
       ? `<div class="scenes">${scenes

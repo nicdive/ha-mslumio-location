@@ -757,11 +757,24 @@ h1 {
 
 .room-card-temp,
 .adjust .measured,
-.row span:last-child {
+.row span:last-child:not(.lamp) {
   font-family: var(--serif);
   font-size: 20px;
   font-variant-numeric: oldstyle-nums;
   letter-spacing: -0.02em;
+}
+
+.row .lamp {
+  display: flex;
+  color: var(--bronze);
+}
+
+.row .lamp.off {
+  color: var(--muted);
+}
+
+.lamp-mark {
+  display: block;
 }
 
 .row .off,

@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.29] — 2026-11-08
+
+### Changé
+- Lumières (et lumière piscine) : icône de **lampe** à la place du texte Allumée / Éteinte.
+
+[0.6.29]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.29
+
 ## [0.6.28] — 2026-11-08
 
 ### Ajouté

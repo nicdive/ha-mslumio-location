@@ -755,7 +755,7 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert '"doorbells"' in http
     assert "GUEST_KIND_POOL_LIGHT" in http
     assert "function poolLights" in js
-    assert "data-act=\"pool-light\"" in js
+    assert 'lightRow(light, "pool-light")' in js
     assert "Quelqu'un sonne" in js
     assert "En charge" in js
     assert "Charge terminée" in js
@@ -885,6 +885,8 @@ def test_guest_stream_is_server_sent_events():
     assert "metricsView" not in js
     assert "weather" in text
     assert "Allumée" in js
+    assert "lampGlyph" in js
+    assert "lamp-mark" in js
     assert "brand-logo" in js
     assert "logo-banner.png" in js
     assert "wordmark" not in js
