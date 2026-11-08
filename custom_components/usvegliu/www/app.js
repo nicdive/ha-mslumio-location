@@ -450,6 +450,56 @@
     </svg>`;
   }
 
+  function accessGlyph(kind, item) {
+    const locked = Boolean(item && item.locked);
+    const open = Boolean(item && item.open);
+    const ringing = Boolean(item && (item.ringing || item.state === "ringing"));
+    const armed =
+      item &&
+      (item.state === "armed" || item.state === "pending" || item.state === "triggered");
+    const marks = {
+      lock: locked
+        ? `<path d="M8 11.2 V8.1 a4 4 0 0 1 8 0 v3.1" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+           <rect x="6.4" y="11" width="11.2" height="8.8" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.4"/>
+           <circle cx="12" cy="15.4" r="1.05" fill="currentColor"/>`
+        : `<path d="M8 11.2 V8.1 a4 4 0 0 1 6.8-2.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+           <rect x="6.4" y="11" width="11.2" height="8.8" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.4"/>
+           <circle cx="12" cy="15.4" r="1.05" fill="none" stroke="currentColor" stroke-width="1.4"/>`,
+      garage: open
+        ? `<path d="M4.2 11.2 L12 4.6 L19.8 11.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/>
+           <path d="M6.4 11.2 V20 H17.6 V11.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+           <path d="M6.4 13.2 H17.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>`
+        : `<path d="M4.2 11.2 L12 4.6 L19.8 11.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/>
+           <path d="M6.4 11.2 V20 H17.6 V11.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+           <path d="M6.4 14.2 H17.6 M6.4 17.2 H17.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>`,
+      gate: open
+        ? `<path d="M5 20 V8 M19 20 V8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+           <path d="M5 8 C5 4.4 19 4.4 19 8" fill="none" stroke="currentColor" stroke-width="1.4"/>
+           <path d="M5 8 L8.5 20 M19 8 L15.5 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>`
+        : `<path d="M5 20 V8 M19 20 V8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+           <path d="M5 8 C5 4.4 19 4.4 19 8" fill="none" stroke="currentColor" stroke-width="1.4"/>
+           <path d="M12 8 V20 M5 13.5 H19" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>`,
+      shutter: open
+        ? `<rect x="6" y="4.2" width="12" height="15.6" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.4"/>
+           <path d="M6 8.2 H18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+           <path d="M12 8.2 V19.8" fill="none" stroke="currentColor" stroke-width="1.4"/>`
+        : `<rect x="6" y="4.2" width="12" height="15.6" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.4"/>
+           <path d="M6 8.2 H18 M6 12 H18 M6 15.8 H18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>`,
+      alarm: armed
+        ? `<path d="M12 3.4 L19.2 6.4 V12.4 C19.2 16.6 15.8 19.6 12 20.6 C8.2 19.6 4.8 16.6 4.8 12.4 V6.4 Z" fill="currentColor" fill-opacity="0.16" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+           <path d="M9.2 12.4 L11.2 14.4 L15.2 9.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>`
+        : `<path d="M12 3.4 L19.2 6.4 V12.4 C19.2 16.6 15.8 19.6 12 20.6 C8.2 19.6 4.8 16.6 4.8 12.4 V6.4 Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>`,
+      doorbell: `<path d="M7.6 10.4 C7.6 7.2 9.5 5.2 12 5.2 C14.5 5.2 16.4 7.2 16.4 10.4 V13.6 L18 16 H6 L7.6 13.6 Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+        <path d="M10.2 16.2 C10.2 17.6 13.8 17.6 13.8 16.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        ${
+          ringing
+            ? `<path d="M18.4 8.4 C19.6 9.8 19.6 12.8 18.4 14.2 M20.2 7.2 C22 9.2 22 13.4 20.2 15.4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>`
+            : ""
+        }`,
+    };
+    return `<svg class="access-mark" width="32" height="32" viewBox="0 0 24 24" aria-hidden="true">${marks[kind] || ""}</svg>`;
+  }
+
   function chargerLevel(item) {
     const level = Number(item && item.level);
     if (!Number.isFinite(level) || level < 0 || level > 100) return "";
@@ -742,8 +792,9 @@
     return item.open ? { action: "close", label: "Fermer" } : { action: "open", label: "Ouvrir" };
   }
 
-  function accessRow(item, status, action, act, extraClass) {
+  function accessRow(item, status, action, act, extraClass, kind) {
     return `<div class="access${extraClass || ""}">
+      ${accessGlyph(kind, item)}
       <div class="access-copy">
         <div class="access-name">${escapeHtml(item.name)}</div>
         <div class="access-status">${escapeHtml(status)}</div>
@@ -783,18 +834,35 @@
         lock,
         lock.locked ? "Fermée" : "Ouverte",
         lock.locked ? { label: "Ouvrir", cmd: "unlock", filled: false } : { label: "Fermer", cmd: "lock", filled: true },
+        "lock",
+        "",
         "lock"
       )
     );
     const coverRows = [...garages, ...gates].map((item) => {
       const next = coverAction(item);
-      return accessRow(item, coverStatus(item), { label: next.label, cmd: next.action, filled: item.open }, "cover");
+      const kind = item.kind === "gate" ? "gate" : "garage";
+      return accessRow(
+        item,
+        coverStatus(item),
+        { label: next.label, cmd: next.action, filled: item.open },
+        "cover",
+        "",
+        kind
+      );
     });
     const shutterBlock = shutters.length
       ? shutters
           .map((item) => {
             const next = coverAction(item);
-            return accessRow(item, coverStatus(item), { label: next.label, cmd: next.action, filled: item.open }, "cover");
+            return accessRow(
+              item,
+              coverStatus(item),
+              { label: next.label, cmd: next.action, filled: item.open },
+              "cover",
+              "",
+              "shutter"
+            );
           })
           .join("")
       : "";
@@ -806,12 +874,14 @@
           ? { label: "Armer", cmd: "arm", filled: false }
           : { label: "Désarmer", cmd: "disarm", filled: true },
         "alarm",
-        alarm.state === "triggered" ? " triggered" : ""
+        alarm.state === "triggered" ? " triggered" : "",
+        "alarm"
       )
     );
     const doorbellRows = doorbells.map(
       (item) =>
         `<div class="access${item.ringing || item.state === "ringing" ? " ringing" : ""}">
+        ${accessGlyph("doorbell", item)}
         <div class="access-copy">
           <div class="access-name">${escapeHtml(item.name)}</div>
           <div class="access-status">${escapeHtml(doorbellStatus(item))}</div>

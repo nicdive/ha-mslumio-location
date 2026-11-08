@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.30] — 2026-11-08
+
+### Ajouté
+- Accès : pictogrammes **porte**, **garage**, **portail**, **volet**, **alarme** et **sonnette**, dans le même trait que la lampe et la voiture.
+
+[0.6.30]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.30
+
 ## [0.6.29] — 2026-11-08
 
 ### Changé

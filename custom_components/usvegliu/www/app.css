@@ -223,15 +223,22 @@ button:active:not(:disabled) {
   gap: 16px;
 }
 
-.car-mark {
+.car-mark,
+.access-mark {
   display: block;
   flex-shrink: 0;
   color: var(--bronze);
 }
 
 .status-sheet.live .car-mark,
-.access.live .car-mark {
+.access.live .car-mark,
+.access.live .access-mark {
   color: var(--cool);
+}
+
+.access.ringing .access-mark,
+.access.triggered .access-mark {
+  color: var(--danger);
 }
 
 .charger-copy {
