@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.27] — 2026-11-08
+
+### Corrigé
+- Accueil Maison : **Mode démo** ne recouvre plus les dates du séjour (iPad).
+
+[0.6.27]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.27
+
 ## [0.6.26] — 2026-11-08
 
 ### Ajouté

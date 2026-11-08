@@ -764,6 +764,7 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert "combine_charger_views" in http
     assert "overlay_demo_snapshot" in http
     assert "Mode démo" in js
+    assert "demo-flag" in js
     assert "state.demo" in js
     assert "Armer" in js
     assert "Désarmer" in js
