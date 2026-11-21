@@ -387,11 +387,24 @@ class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):
         self._base_path = ""
         self._sites: list[tuple[str, str]] = []
         self._reauth = False
+        self._connection: dict[str, Any] = {}
+        self._house_defaults: dict[str, Any] = {}
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Collect the controller address and the API key."""
+        """Choose UniFi (U Svegliu) or Cambium-only (49 Ledbury)."""
+        if self._reauth:
+            return await self.async_step_unifi()
+        return self.async_show_menu(
+            step_id="user",
+            menu_options=["unifi", "cambium"],
+        )
+
+    async def async_step_unifi(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Collect the UniFi controller address and the API key."""
         errors: dict[str, str] = {}
         if user_input is not None:
             host, port = split_host_port(
@@ -431,7 +444,7 @@ class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):
             CONF_VERIFY_SSL: False,
         }
         return self.async_show_form(
-            step_id="user",
+            step_id="unifi",
             data_schema=self.add_suggested_values_to_schema(
                 vol.Schema(
                     {
@@ -444,6 +457,71 @@ class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):
                     }
                 ),
                 suggested,
+            ),
+            errors=errors,
+        )
+
+    async def async_step_cambium(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Cambium EasyPass only — no UniFi controller required."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            client_id = str(user_input.get(CONF_CAMBIUM_CLIENT_ID) or "").strip()
+            client_secret = str(user_input.get(CONF_CAMBIUM_CLIENT_SECRET) or "").strip()
+            portal = str(user_input.get(CONF_CAMBIUM_PORTAL) or "").strip()
+            plan = str(user_input.get(CONF_CAMBIUM_VOUCHER_PLAN) or "").strip()
+            if not (client_id and client_secret and portal and plan):
+                errors["base"] = "cambium_incomplete"
+            else:
+                from .cambium import CambiumAuthError, CambiumError
+
+                try:
+                    await _async_probe_cambium(client_id, client_secret, portal, plan)
+                except CambiumAuthError:
+                    errors["base"] = "invalid_auth"
+                except CambiumError:
+                    errors["base"] = "cannot_connect"
+                else:
+                    await self.async_set_unique_id(f"cambium:{portal}:{plan}")
+                    self._abort_if_unique_id_configured()
+                    self._connection = {
+                        CONF_HOST: "",
+                        CONF_PORT: DEFAULT_PORT,
+                        CONF_API_KEY: "",
+                        CONF_VERIFY_SSL: True,
+                        CONF_BASE_PATH: "",
+                        CONF_SITE_ID: f"cambium:{portal}",
+                        CONF_SITE_NAME: portal,
+                    }
+                    self._house_defaults = {
+                        CONF_VOUCHER_PROVIDER: VOUCHER_PROVIDER_CAMBIUM,
+                        CONF_CAMBIUM_CLIENT_ID: client_id,
+                        CONF_CAMBIUM_CLIENT_SECRET: client_secret,
+                        CONF_CAMBIUM_PORTAL: portal,
+                        CONF_CAMBIUM_VOUCHER_PLAN: plan,
+                        CONF_GUEST_THEME: THEME_LEDBURY,
+                        CONF_WIFI_SSID: "49Ledbury-Guest",
+                        CONF_ENABLE_VOUCHERS: True,
+                    }
+                    return await self.async_step_house()
+        return self.async_show_form(
+            step_id="cambium",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_CAMBIUM_CLIENT_ID): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.TEXT)
+                    ),
+                    vol.Required(CONF_CAMBIUM_CLIENT_SECRET): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                    ),
+                    vol.Required(CONF_CAMBIUM_PORTAL): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.TEXT)
+                    ),
+                    vol.Required(CONF_CAMBIUM_VOUCHER_PLAN): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.TEXT)
+                    ),
+                }
             ),
             errors=errors,
         )
@@ -491,6 +569,9 @@ class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):
         """Collect the calendar, voucher limits and tenant entities."""
         if user_input is not None:
             options = _clean_options(user_input)
+            for key, value in self._house_defaults.items():
+                if not options.get(key) and value not in (None, ""):
+                    options[key] = value
             error = _house_error(
                 self.hass,
                 options,
@@ -499,23 +580,29 @@ class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):
             if error:
                 return self.async_show_form(
                     step_id="house",
-                    data_schema=_house_schema(user_input),
+                    data_schema=_house_schema({**self._house_defaults, **user_input}),
                     errors={"base": error},
                 )
-            title = f"Usvegliu ({self._connection[CONF_SITE_NAME]})"
+            site = str(self._connection.get(CONF_SITE_NAME) or "Maison")
+            title = f"Usvegliu ({site})"
             return self.async_create_entry(
                 title=title,
                 data=self._connection,
                 options=options,
             )
-        return self.async_show_form(step_id="house", data_schema=_house_schema({}))
+        return self.async_show_form(
+            step_id="house",
+            data_schema=_house_schema(self._house_defaults),
+        )
 
     async def async_step_reauth(
         self, entry_data: Mapping[str, Any]
     ) -> ConfigFlowResult:
         """Start reauthentication when the API key is rejected."""
         self._reauth = True
-        return await self.async_step_user()
+        if not str(entry_data.get(CONF_API_KEY) or "").strip():
+            return await self.async_step_cambium()
+        return await self.async_step_unifi()
 
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
@@ -523,6 +610,8 @@ class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):
         """Replace the controller connection without logging the key."""
         errors: dict[str, str] = {}
         entry = self._get_reconfigure_entry()
+        if not str(entry.data.get(CONF_API_KEY) or "").strip():
+            return self.async_abort(reason="reconfigure_not_unifi")
         if user_input is not None:
             host, port = split_host_port(
                 str(user_input[CONF_HOST]), int(user_input.get(CONF_PORT, DEFAULT_PORT))
@@ -737,3 +826,23 @@ async def _async_connect(
             len(sites),
         )
         return resolved, sites
+
+
+async def _async_probe_cambium(
+    client_id: str,
+    client_secret: str,
+    portal: str,
+    plan: str,
+) -> None:
+    """Fetch an EasyPass token so bad credentials fail during setup."""
+    from .cambium import CambiumClient
+
+    async with aiohttp.ClientSession() as session:
+        client = CambiumClient(
+            session,
+            client_id=client_id,
+            client_secret=client_secret,
+            portal_name=portal,
+            voucher_plan=plan,
+        )
+        await client.async_ensure_token()

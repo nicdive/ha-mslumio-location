@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.33] — 2026-11-21
+
+### Ajouté
+- Installation **Cambium seule** : plus besoin d’UDM. Au setup, choisir UniFi ou Cambium EasyPass ; la voie Cambium préremplit le thème 49 Ledbury.
+
+[0.6.33]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.33
+
 ## [0.6.32] — 2026-11-21
 
 ### Ajouté

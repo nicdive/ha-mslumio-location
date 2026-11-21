@@ -2,19 +2,43 @@
   "config": {
     "step": {
       "user": {
+        "title": "Usvegliu",
+        "description": "Choose Wi-Fi for this instance. U Svegliu: UniFi. 49 Ledbury: Cambium EasyPass (no UDM).",
+        "menu_options": {
+          "unifi": "UniFi (UDM hotspot)",
+          "cambium": "Cambium EasyPass Cloud"
+        }
+      },
+      "unifi": {
         "title": "UniFi controller",
-        "description": "Local API key of the UDM (Network, Integrations). It stays in the config entry and is neither logged nor included in diagnostics.",
+        "description": "Local UDM API key (Network, Integrations). Stored in the config entry; not logged or exported in diagnostics.",
         "data": {
           "host": "UDM address",
           "port": "HTTPS port",
           "api_key": "API key",
-          "verify_ssl": "Verify the TLS certificate"
+          "verify_ssl": "Verify TLS certificate"
         },
         "data_description": {
-          "host": "IP address or hostname of the UDM Pro Max, on the local network.",
+          "host": "IP or hostname of the UDM Pro Max on the LAN.",
           "port": "443 by default.",
           "api_key": "Created in UniFi Network > Settings > Control Plane > Integrations, or at unifi.ui.com. Shown only once.",
-          "verify_ssl": "Turn this off only for the factory self-signed certificate. The key is then sent without server authentication: local network only."
+          "verify_ssl": "Uncheck only for the factory self-signed certificate. The key then travels without server auth — LAN only."
+        }
+      },
+      "cambium": {
+        "title": "Cambium EasyPass",
+        "description": "No UniFi. cnMaestro Cloud API app + EasyPass portal + voucher plan. Names must match cnMaestro exactly.",
+        "data": {
+          "cambium_client_id": "Cambium client ID",
+          "cambium_client_secret": "Cambium client secret",
+          "cambium_portal": "EasyPass portal",
+          "cambium_voucher_plan": "EasyPass voucher plan"
+        },
+        "data_description": {
+          "cambium_client_id": "Account → API in cnMaestro Cloud.",
+          "cambium_client_secret": "Application secret.",
+          "cambium_portal": "Exact EasyPass portal name.",
+          "cambium_voucher_plan": "Exact plan name (duration and devices in cnMaestro)."
         }
       },
       "site": {
@@ -128,6 +152,7 @@
       "already_configured": "This controller and site are already configured.",
       "reauth_successful": "API key updated.",
       "reconfigure_successful": "UniFi connection updated.",
+      "reconfigure_not_unifi": "This entry is Cambium: change the client ID / secret in Options.",
       "wrong_account": "The site does not match this entry."
     }
   },
