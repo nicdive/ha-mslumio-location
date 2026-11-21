@@ -21,6 +21,15 @@ def test_normalize_guest_theme():
     assert normalize_guest_theme("unknown") == THEME_USVEGLIU
 
 
+def test_unifi_configured_helper():
+    from custom_components.usvegliu.branding import unifi_configured
+
+    assert unifi_configured({"host": "192.168.1.1", "api_key": "secret"})
+    assert not unifi_configured({"host": "", "api_key": ""})
+    assert not unifi_configured({"host": "192.168.1.1", "api_key": ""})
+    assert not unifi_configured(None)
+
+
 def test_ledbury_brand_payload():
     brand = guest_brand(THEME_LEDBURY)
     assert brand["name"] == "49 Ledbury"
@@ -71,9 +80,13 @@ def test_ledbury_logo_assets_ship():
     assert "body[data-theme=\"ledbury\"]" in css
     assert "applyBrandChrome" in js
     assert "logo-banner-ledbury.png" in js or "brand.banner" in js
-    assert "guest_theme" in (
+    flow = (
         Path(__file__).resolve().parents[1]
         / "custom_components"
         / "usvegliu"
         / "config_flow.py"
     ).read_text(encoding="utf-8")
+    assert "guest_theme" in flow
+    assert "async_step_cambium" in flow
+    assert 'menu_options=["unifi", "cambium"]' in flow
+    assert "_async_probe_cambium" in flow

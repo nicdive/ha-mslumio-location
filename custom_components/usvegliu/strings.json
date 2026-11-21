@@ -2,6 +2,14 @@
   "config": {
     "step": {
       "user": {
+        "title": "Usvegliu",
+        "description": "Choisissez le Wi-Fi de cette instance. U Svegliu : UniFi. 49 Ledbury : Cambium EasyPass (sans UDM).",
+        "menu_options": {
+          "unifi": "UniFi (hotspot UDM)",
+          "cambium": "Cambium EasyPass Cloud"
+        }
+      },
+      "unifi": {
         "title": "Contrôleur UniFi",
         "description": "Clé API locale de l'UDM (Network, Integrations). Elle reste dans l'entrée de configuration et n'est ni journalisée ni exportée dans les diagnostics.",
         "data": {
@@ -15,6 +23,22 @@
           "port": "443 par défaut.",
           "api_key": "Créée dans UniFi Network > Settings > Control Plane > Integrations, ou sur unifi.ui.com. Affichée une seule fois.",
           "verify_ssl": "Décochez uniquement pour le certificat auto-signé d'usine. La clé circule alors sans authentification du serveur : à réserver au LAN."
+        }
+      },
+      "cambium": {
+        "title": "Cambium EasyPass",
+        "description": "Sans UniFi. Application API cnMaestro Cloud + portail EasyPass + plan voucher. Les noms doivent correspondre exactement à cnMaestro.",
+        "data": {
+          "cambium_client_id": "Cambium client ID",
+          "cambium_client_secret": "Cambium client secret",
+          "cambium_portal": "Portail EasyPass",
+          "cambium_voucher_plan": "Plan voucher EasyPass"
+        },
+        "data_description": {
+          "cambium_client_id": "Account → API dans cnMaestro Cloud.",
+          "cambium_client_secret": "Secret de l'application.",
+          "cambium_portal": "Nom exact du portail EasyPass.",
+          "cambium_voucher_plan": "Nom exact du plan (durée et appareils dans cnMaestro)."
         }
       },
       "site": {
@@ -128,6 +152,7 @@
       "already_configured": "Ce contrôleur et ce site sont déjà configurés.",
       "reauth_successful": "Clé API mise à jour.",
       "reconfigure_successful": "Connexion UniFi mise à jour.",
+      "reconfigure_not_unifi": "Cette entrée est Cambium : changez le client ID / secret dans Options.",
       "wrong_account": "Le site ne correspond pas à cette entrée."
     }
   },

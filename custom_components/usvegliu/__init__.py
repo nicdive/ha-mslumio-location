@@ -46,38 +46,69 @@ async def async_setup_entry(hass: Any, entry: Any) -> bool:
     from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
     from .const import UPDATE_INTERVAL
+    from .branding import unifi_configured
     from .coordinator import UsvegliuRuntime, build_client, build_journal, store_key
     from .unifi import UnifiAuthError, UnifiError
     _install_log_filter()
     _LOG_FILTER.update([str(entry.data.get(CONF_API_KEY) or "")], owner=entry.entry_id)
-    if not entry.data.get(CONF_VERIFY_SSL, False):
-        _LOGGER.warning(
-            "Vérification TLS désactivée pour %s. Réservé au certificat "
-            "auto-signé de l'UDM, sur le réseau local uniquement.",
-            entry.data.get("host"),
-        )
-
     session = aiohttp.ClientSession()
     client = build_client(hass, entry, session)
-    try:
-        if not client.base_path:
-            await client.async_probe_base_path()
-        else:
-            await client.async_get_info()
-    except UnifiAuthError as err:
-        await session.close()
-        raise ConfigEntryAuthFailed from err
-    except UnifiError as err:
-        if client.base_path:
-            client.base_path = ""
-            try:
+    if client is not None:
+        if not entry.data.get(CONF_VERIFY_SSL, False):
+            _LOGGER.warning(
+                "Vérification TLS désactivée pour %s. Réservé au certificat "
+                "auto-signé de l'UDM, sur le réseau local uniquement.",
+                entry.data.get("host"),
+            )
+        try:
+            if not client.base_path:
                 await client.async_probe_base_path()
-            except UnifiError as probe_err:
-                await session.close()
-                raise ConfigEntryNotReady from probe_err
-        else:
+            else:
+                await client.async_get_info()
+        except UnifiAuthError as err:
             await session.close()
-            raise ConfigEntryNotReady from err
+            raise ConfigEntryAuthFailed from err
+        except UnifiError as err:
+            if client.base_path:
+                client.base_path = ""
+                try:
+                    await client.async_probe_base_path()
+                except UnifiError as probe_err:
+                    await session.close()
+                    raise ConfigEntryNotReady from probe_err
+            else:
+                await session.close()
+                raise ConfigEntryNotReady from err
+    elif not unifi_configured(entry.data):
+        # Cambium-only: validate OAuth before the first sync when possible.
+        from .const import (
+            CONF_CAMBIUM_CLIENT_ID,
+            CONF_CAMBIUM_CLIENT_SECRET,
+            CONF_CAMBIUM_PORTAL,
+            CONF_CAMBIUM_VOUCHER_PLAN,
+        )
+        from .cambium import CambiumAuthError, CambiumClient, CambiumError
+
+        cid = str(entry.options.get(CONF_CAMBIUM_CLIENT_ID) or "").strip()
+        secret = str(entry.options.get(CONF_CAMBIUM_CLIENT_SECRET) or "").strip()
+        portal = str(entry.options.get(CONF_CAMBIUM_PORTAL) or "").strip()
+        plan = str(entry.options.get(CONF_CAMBIUM_VOUCHER_PLAN) or "").strip()
+        if cid and secret and portal and plan:
+            probe = CambiumClient(
+                session,
+                client_id=cid,
+                client_secret=secret,
+                portal_name=portal,
+                voucher_plan=plan,
+            )
+            try:
+                await probe.async_ensure_token()
+            except CambiumAuthError as err:
+                await session.close()
+                raise ConfigEntryAuthFailed from err
+            except CambiumError as err:
+                await session.close()
+                raise ConfigEntryNotReady from err
 
     journal = build_journal(hass, entry)
     store: Store = Store(hass, STORAGE_VERSION, store_key(entry.entry_id), private=True)
@@ -168,11 +199,11 @@ async def async_remove_entry(hass: Any, entry: Any) -> None:
     session = aiohttp.ClientSession()
     try:
         client = build_client(hass, entry, session)
-        if not client.base_path:
+        if client is not None and not client.base_path:
             try:
                 await client.async_probe_base_path()
             except UnifiError:
-                client = None  # type: ignore[assignment]
+                client = None
                 _LOGGER.warning(
                     "UniFi injoignable : les vouchers restent sur le contrôleur"
                 )

@@ -62,6 +62,17 @@ def brand_from_options(options: Mapping[str, Any] | None) -> dict[str, str]:
     options = options or {}
     return guest_brand(options.get(CONF_GUEST_THEME) or DEFAULT_GUEST_THEME)
 
+
+def unifi_configured(data: Mapping[str, Any] | None) -> bool:
+    """True when this entry has a UniFi host and API key."""
+    from .const import CONF_API_KEY, CONF_HOST
+
+    data = data or {}
+    return bool(
+        str(data.get(CONF_HOST) or "").strip()
+        and str(data.get(CONF_API_KEY) or "").strip()
+    )
+
 # Re-export for callers that import theme ids from this module.
 __all__ = (
     "CONF_GUEST_THEME",
@@ -71,4 +82,5 @@ __all__ = (
     "brand_from_options",
     "guest_brand",
     "normalize_guest_theme",
+    "unifi_configured",
 )

@@ -147,7 +147,7 @@ class UsvegliuRuntime:
         self,
         hass: HomeAssistant,
         entry: ConfigEntry,
-        client: UnifiClient,
+        client: UnifiClient | None,
         journal: Journal,
         store: Store,
         log_filter: SecretLogFilter,
@@ -267,6 +267,9 @@ class UsvegliuRuntime:
             self.entry.options.get(CONF_VOUCHER_PROVIDER) or DEFAULT_VOUCHER_PROVIDER
         ).strip()
         if raw == VOUCHER_PROVIDER_CAMBIUM:
+            return VOUCHER_PROVIDER_CAMBIUM
+        # Cambium-only installs have no UniFi key: force EasyPass.
+        if self.client is None:
             return VOUCHER_PROVIDER_CAMBIUM
         return VOUCHER_PROVIDER_UNIFI
 
@@ -1309,9 +1312,15 @@ async def _async_calendar_events(
         raise UpdateFailed("calendar_unavailable") from err
 
 
-def build_client(hass: HomeAssistant, entry: ConfigEntry, session: object) -> UnifiClient:
-    """Build the UniFi client from a config entry. The key is not logged."""
+def build_client(
+    hass: HomeAssistant, entry: ConfigEntry, session: object
+) -> UnifiClient | None:
+    """Build the UniFi client, or None for a Cambium-only entry."""
+    from .branding import unifi_configured
+
     data = entry.data
+    if not unifi_configured(data):
+        return None
     return UnifiClient(
         session,  # type: ignore[arg-type]
         host=str(data[CONF_HOST]),
