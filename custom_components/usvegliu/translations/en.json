@@ -2,11 +2,13 @@
   "config": {
     "step": {
       "user": {
-        "title": "Usvegliu",
-        "description": "Choose Wi-Fi for this instance. U Svegliu: UniFi. 49 Ledbury: Cambium EasyPass (no UDM).",
-        "menu_options": {
-          "unifi": "UniFi (UDM hotspot)",
-          "cambium": "Cambium EasyPass Cloud"
+        "title": "House Wi-Fi",
+        "description": "U Svegliu uses a UniFi UDM. 49 Ledbury uses Cambium EasyPass (no UDM needed).",
+        "data": {
+          "voucher_provider": "Wi-Fi provider"
+        },
+        "data_description": {
+          "voucher_provider": "UniFi = local controller. Cambium = cnMaestro Cloud only."
         }
       },
       "unifi": {

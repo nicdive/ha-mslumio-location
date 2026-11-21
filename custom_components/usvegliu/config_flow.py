@@ -395,10 +395,38 @@ class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Choose UniFi (U Svegliu) or Cambium-only (49 Ledbury)."""
         if self._reauth:
+            if not str(self._get_reauth_entry().data.get(CONF_API_KEY) or "").strip():
+                return await self.async_step_cambium()
             return await self.async_step_unifi()
-        return self.async_show_menu(
+        if user_input is not None:
+            choice = str(user_input.get(CONF_VOUCHER_PROVIDER) or "").strip()
+            if choice == VOUCHER_PROVIDER_CAMBIUM:
+                return await self.async_step_cambium()
+            return await self.async_step_unifi()
+        return self.async_show_form(
             step_id="user",
-            menu_options=["unifi", "cambium"],
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_VOUCHER_PROVIDER,
+                        default=DEFAULT_VOUCHER_PROVIDER,
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=[
+                                {
+                                    "label": "UniFi — hotspot UDM (U Svegliu)",
+                                    "value": VOUCHER_PROVIDER_UNIFI,
+                                },
+                                {
+                                    "label": "Cambium EasyPass — sans UDM (49 Ledbury)",
+                                    "value": VOUCHER_PROVIDER_CAMBIUM,
+                                },
+                            ],
+                            mode=SelectSelectorMode.LIST,
+                        )
+                    ),
+                }
+            ),
         )
 
     async def async_step_unifi(

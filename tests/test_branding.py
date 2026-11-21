@@ -88,5 +88,7 @@ def test_ledbury_logo_assets_ship():
     ).read_text(encoding="utf-8")
     assert "guest_theme" in flow
     assert "async_step_cambium" in flow
-    assert 'menu_options=["unifi", "cambium"]' in flow
+    assert "async_show_menu" not in flow
+    assert "Cambium EasyPass — sans UDM" in flow
     assert "_async_probe_cambium" in flow
+    assert "SelectSelectorMode.LIST" in flow

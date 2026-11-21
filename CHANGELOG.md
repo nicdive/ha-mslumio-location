@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.34] — 2026-11-21
+
+### Corrigé
+- Setup : liste claire **UniFi / Cambium** à la place du menu à flèches sans libellés ; titre « Wi-Fi de la maison ».
+
+[0.6.34]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.34
+
 ## [0.6.33] — 2026-11-21
 
 ### Ajouté
