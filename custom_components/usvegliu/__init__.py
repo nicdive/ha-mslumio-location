@@ -176,7 +176,19 @@ async def async_remove_entry(hass: Any, entry: Any) -> None:
                 _LOGGER.warning(
                     "UniFi injoignable : les vouchers restent sur le contrôleur"
                 )
-        from .const import CONF_NUKI_SMARTLOCK_ID, CONF_NUKI_TOKEN
+        from .const import (
+            CONF_CAMBIUM_CLIENT_ID,
+            CONF_CAMBIUM_CLIENT_SECRET,
+            CONF_CAMBIUM_PORTAL,
+            CONF_CAMBIUM_VOUCHER_PLAN,
+            CONF_ENABLE_VOUCHERS,
+            CONF_NUKI_SMARTLOCK_ID,
+            CONF_NUKI_TOKEN,
+            CONF_VOUCHER_PROVIDER,
+            DEFAULT_VOUCHER_PROVIDER,
+            VOUCHER_PROVIDER_CAMBIUM,
+        )
+        from .cambium import CambiumClient, CambiumError
         from .nuki import NukiClient, NukiError
 
         token = str(entry.options.get(CONF_NUKI_TOKEN) or "").strip()
@@ -190,13 +202,34 @@ async def async_remove_entry(hass: Any, entry: Any) -> None:
                 except ValueError:
                     lock_id = None
             nuki = NukiClient(session, token, smartlock_id=lock_id)
+        voucher_dir = client
+        provider = str(
+            entry.options.get(CONF_VOUCHER_PROVIDER) or DEFAULT_VOUCHER_PROVIDER
+        ).strip()
+        if provider == VOUCHER_PROVIDER_CAMBIUM:
+            cid = str(entry.options.get(CONF_CAMBIUM_CLIENT_ID) or "").strip()
+            secret = str(entry.options.get(CONF_CAMBIUM_CLIENT_SECRET) or "").strip()
+            portal = str(entry.options.get(CONF_CAMBIUM_PORTAL) or "").strip()
+            plan = str(entry.options.get(CONF_CAMBIUM_VOUCHER_PLAN) or "").strip()
+            if cid and secret and portal and plan:
+                voucher_dir = CambiumClient(
+                    session,
+                    client_id=cid,
+                    client_secret=secret,
+                    portal_name=portal,
+                    voucher_plan=plan,
+                )
+            else:
+                voucher_dir = None
+        elif not bool(entry.options.get(CONF_ENABLE_VOUCHERS, True)):
+            voucher_dir = None
         stays = raw.get("stays") if isinstance(raw.get("stays"), dict) else {}
         for record in stays.values():
             voucher_id = record.get("voucher_id")
-            if client is not None and voucher_id:
+            if voucher_dir is not None and voucher_id:
                 try:
-                    await client.async_delete_voucher(str(voucher_id))
-                except UnifiError:
+                    await voucher_dir.async_delete_voucher(str(voucher_id))
+                except (UnifiError, CambiumError):
                     _LOGGER.warning("Voucher non supprimé à la désinstallation")
             auth_id = record.get("nuki_auth_id")
             if nuki is not None and auth_id:

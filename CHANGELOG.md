@@ -4,6 +4,20 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.32] — 2026-11-21
+
+### Ajouté
+- Thème Maison **49 Ledbury** (Notting Hill) : logos Portobello, charte vert / blush, mails et titres. Option `guest_theme` (`usvegliu` par défaut, `ledbury` sur l’instance dédiée).
+
+[0.6.32]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.32
+
+## [0.6.31] — 2026-11-21
+
+### Ajouté
+- Vouchers Wi-Fi via **Cambium EasyPass Cloud** (cnMaestro), en plus d’UniFi. Options : fournisseur `unifi` (défaut) ou `cambium`, avec client ID/secret, portail et plan voucher. U Svegliu reste sur UniFi ; un second site peut basculer sur Cambium sans fork.
+
+[0.6.31]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.31
+
 ## [0.6.30] — 2026-11-08
 
 ### Ajouté

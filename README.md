@@ -50,13 +50,13 @@ Le dépôt doit être **public**. HACS n'installe pas un dépôt privé.
 
 1. HACS → ⋮ → *Dépôts personnalisés*.
 2. URL `https://github.com/nicdive/ha-mslumio-location`, catégorie **Intégration**.
-3. Télécharger **Usvegliu** en choisissant une **release GitHub** (dernière : [0.6.30](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.30)), pas le commit d'une branche.
+3. Télécharger **Usvegliu** en choisissant une **release GitHub** (dernière : [0.6.32](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.32)), pas le commit d'une branche.
 4. Redémarrer Home Assistant.
 5. Paramètres → Appareils et services → Ajouter une intégration → **Usvegliu**.
 
-Pour **mettre à jour** (ex. 0.6.29 → 0.6.30) : HACS → Usvegliu → ⋮ → **Redownload** → **0.6.30**, puis redémarrer. Le numéro dans Paramètres → Intégrations ne change qu'après ce redémarrage.
+Pour **mettre à jour** (ex. 0.6.31 → 0.6.32) : HACS → Usvegliu → ⋮ → **Redownload** → **0.6.32**, puis redémarrer. Le numéro dans Paramètres → Intégrations ne change qu'après ce redémarrage.
 
-HACS ne liste une version **que** si la [release GitHub](https://github.com/nicdive/ha-mslumio-location/releases) existe. Un numéro dans le `manifest.json` ou une pull request ne suffit pas : sans tag `v0.6.30` poussé, 0.6.30 n'apparaît pas.
+HACS ne liste une version **que** si la [release GitHub](https://github.com/nicdive/ha-mslumio-location/releases) existe. Un numéro dans le `manifest.json` ou une pull request ne suffit pas : sans tag `v0.6.32` poussé, 0.6.32 n'apparaît pas.
 
 ## Versions
 
@@ -108,7 +108,15 @@ L'intégration essaie `https://<udm>/proxy/network/integration/v1/info`, puis `h
 
 Il n'y a **pas** de repli vers l'ancienne API privée (`/proxy/network/api/...`, cookie d'admin). Elle n'est pas l'API à clé demandée, et elle demanderait un mot de passe administrateur UniFi.
 
-Repli opérationnel : décocher *Créer les vouchers UniFi*. Les séjours peuvent continuer d'alimenter le journal et les comptes HA ; les vouchers se créent à la main dans UniFi. Les identifiants déjà créés ici ne sont pas oubliés : la suppression reprend quand la case est recochée.
+Repli opérationnel : décocher *Créer les vouchers Wi-Fi*. Les séjours peuvent continuer d'alimenter le journal et les comptes HA ; les vouchers se créent à la main dans UniFi ou cnMaestro. Les identifiants déjà créés ici ne sont pas oubliés : la suppression reprend quand la case est recochée.
+
+## Cambium EasyPass (optionnel)
+
+Par défaut le fournisseur Wi-Fi est **UniFi**. Pour un site Cambium (ex. 49ledbury) : Options → **Fournisseur Wi-Fi** → **Cambium EasyPass Cloud**, puis client ID / secret (cnMaestro Cloud → Account → API), nom du **portail EasyPass** et du **plan voucher**. La durée et le nombre d’appareils se règlent dans le plan cnMaestro, pas dans le formulaire Usvegliu. L’entrée UniFi reste requise pour l’instant (calendrier / comptes HA) ; seuls les vouchers passent par Cambium.
+
+## Thème Maison (U Svegliu / 49 Ledbury)
+
+Sur l’instance HA de **49 Ledbury Road** : Options → **Thème Maison** → **49 Ledbury (Notting Hill)**. Logos, couleurs Portobello, mails et titres suivent. U Svegliu reste sur le thème par défaut. Une instance = un thème.
 
 Exemple à lancer **sur le LAN**, une fois, pour voir la réponse réelle (remplacer les valeurs, ne pas commiter la clé) :
 
@@ -249,7 +257,7 @@ L'intégration crée les deux tableaux si la collection Lovelace est joignable. 
 
 Ce n'est **pas** le tableau **Séjour** (locataire) ni un tableau créé à la main sous un autre nom. Dans Home Assistant 2026, le bouton **+** des tableaux de bord ne reprend pas le titre comme URL : « Location » devient `dashboard-location`, donc l'intégration n'y écrit rien.
 
-1. Mettre à jour Usvegliu ([0.6.30](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.30)+), redémarrer Home Assistant.
+1. Mettre à jour Usvegliu ([0.6.32](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.32)+), redémarrer Home Assistant.
 2. Outils de développement → Actions → `usvegliu.appliquer_tableau` → Exécuter.
 3. Dans la barre latérale, ouvrir **Console**, ou l'URL `/usvegliu-proprietaire`.
 

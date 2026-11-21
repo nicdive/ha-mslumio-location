@@ -489,11 +489,21 @@ def _snapshot(
     nuki_revoked = bool(record.get("nuki_revoked"))
     nuki_code = "" if nuki_revoked else str(record.get("nuki_code") or "")
     share = _guest_share_url(request, record)
+    brand = runtime.guest_brand()
     payload = {
         "guest": record.get("guest") or "",
         "check_in": record.get("check_in") or "",
         "check_out": record.get("check_out") or "",
         "preview": bool(record.get("preview")),
+        "brand": {
+            "id": brand["id"],
+            "name": brand["name"],
+            "tagline": brand["tagline"],
+            "place": brand["place"],
+            "logo": brand["logo"],
+            "banner": brand["banner"],
+            "theme_color": brand["theme_color"],
+        },
         "informations": {
             "wifi_ssid": runtime.wifi_ssid(),
             "voucher_code": voucher or None,

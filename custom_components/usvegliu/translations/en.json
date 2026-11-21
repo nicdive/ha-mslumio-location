@@ -46,13 +46,19 @@
           "title_blocklist": "Ignored titles",
           "max_stay_days": "Maximum stay length (days)",
           "lookahead_days": "Calendar lookahead (days)",
-          "enable_vouchers": "Create UniFi vouchers",
+          "enable_vouchers": "Create Wi-Fi vouchers",
+          "voucher_provider": "Wi-Fi provider",
+          "cambium_client_id": "Cambium client ID",
+          "cambium_client_secret": "Cambium client secret",
+          "cambium_portal": "EasyPass portal",
+          "cambium_voucher_plan": "EasyPass voucher plan",
           "enable_nuki": "Nuki Keypad PIN",
           "nuki_token": "Nuki Web API token",
           "nuki_smartlock_id": "Smartlock id (optional)",
           "enable_access": "Create guest accounts",
           "print_event": "Print event on creation",
           "guest_base_url": "Public web app URL",
+          "guest_theme": "Maison theme",
           "wifi_ssid": "Wi-Fi network name",
           "house_mode_entity": "Heating / cooling switch",
           "outdoor_temperature": "Outdoor temperature",
@@ -79,12 +85,18 @@
           "title_blocklist": "Comma-separated substrings that are not guests (blocked dates).",
           "print_event": "When enabled, the cleartext code is published on usvegliu_print_voucher and may end up in traces. Leave off unless you print.",
           "guest_base_url": "Public origin, no path. e.g. https://www.usvegliu.fr — guest links become /s/<token>. Empty = Home Assistant internal URL.",
-          "wifi_ssid": "SSID shown to the guest under Informations. Empty = the name is omitted.",
+          "guest_theme": "U Svegliu (Corsica) or 49 Ledbury (Notting Hill). One HA instance, one theme.",
+          "wifi_ssid": "SSID shown under Informations. Empty = theme default.",
           "house_mode_entity": "Owner switch. On = cooling, off = heating. Guests can read it, they cannot toggle it.",
           "outdoor_temperature": "Shown in the corner of the climate page. Read-only.",
           "pool_temperature": "Shown on the Pool tab. Read-only.",
           "pool_ph": "Optional. Read-only.",
           "alarm_code": "Used server-side to arm/disarm. Never sent to the browser. Empty = keep the stored code.",
+          "voucher_provider": "UniFi (UDM hotspot) or Cambium EasyPass Cloud. U Svegliu stays on UniFi.",
+          "cambium_client_id": "API application created in cnMaestro Cloud (Account → API).",
+          "cambium_client_secret": "Application secret. Empty = keep the stored secret.",
+          "cambium_portal": "Exact EasyPass portal name in cnMaestro.",
+          "cambium_voucher_plan": "Exact voucher plan name (duration and devices are set in cnMaestro).",
           "enable_nuki": "Per-stay Keypad PIN (mail, Infos, Console). Independent of unlocking the Nuki lock in Maison. Unchecked: the welcome mail still goes out without a door code.",
           "nuki_token": "Created at https://web.nuki.io (API). Empty = keep the stored token.",
           "nuki_smartlock_id": "Leave empty if there is only one lock. Otherwise the numeric Nuki id of the front door."
@@ -109,6 +121,7 @@
       "calendar_missing": "Select a calendar entity.",
       "sensitive_entities": "The selection contains a camera, lock or alarm. Check the confirmation to allow it, or remove those devices.",
       "invalid_path": "The journal file must stay inside the config directory or a media directory (mounted Synology share).",
+      "cambium_incomplete": "With Cambium, fill in client ID, secret, EasyPass portal and voucher plan.",
       "unknown": "Unexpected error. Check the log: the API key is not written there."
     },
     "abort": {
@@ -142,13 +155,19 @@
           "title_blocklist": "Ignored titles",
           "max_stay_days": "Maximum stay length (days)",
           "lookahead_days": "Calendar lookahead (days)",
-          "enable_vouchers": "Create UniFi vouchers",
+          "enable_vouchers": "Create Wi-Fi vouchers",
+          "voucher_provider": "Wi-Fi provider",
+          "cambium_client_id": "Cambium client ID",
+          "cambium_client_secret": "Cambium client secret",
+          "cambium_portal": "EasyPass portal",
+          "cambium_voucher_plan": "EasyPass voucher plan",
           "enable_nuki": "Nuki Keypad PIN",
           "nuki_token": "Nuki Web API token",
           "nuki_smartlock_id": "Smartlock id (optional)",
           "enable_access": "Create guest accounts",
           "print_event": "Print event on creation",
           "guest_base_url": "Public web app URL",
+          "guest_theme": "Maison theme",
           "wifi_ssid": "Wi-Fi network name",
           "house_mode_entity": "Heating / cooling switch",
           "outdoor_temperature": "Outdoor temperature",
@@ -163,12 +182,18 @@
           "allow_remote": "Turn this on to try the HA account over Tailscale: a 100.x address is not local, so the frontend stays on Loading data.",
           "print_event": "Publishes the cleartext code on the bus. Enable only for printing.",
           "guest_base_url": "e.g. https://www.usvegliu.fr. Empty = Home Assistant internal URL.",
-          "wifi_ssid": "SSID shown to the guest under Informations. Empty = the name is omitted.",
+          "guest_theme": "U Svegliu or 49 Ledbury. One HA instance = one theme.",
+          "wifi_ssid": "SSID shown to the guest. Empty = theme default.",
           "house_mode_entity": "On = cooling, off = heating. Guests can read it, they cannot toggle it.",
           "outdoor_temperature": "Read-only, in the corner of the climate page.",
           "pool_temperature": "Read-only, on the Pool tab.",
           "pool_ph": "Optional, read-only.",
           "alarm_code": "Never sent to the browser. Empty = keep the stored code.",
+          "voucher_provider": "UniFi (UDM hotspot) or Cambium EasyPass Cloud.",
+          "cambium_client_id": "API application created in cnMaestro Cloud.",
+          "cambium_client_secret": "Application secret. Empty = keep unchanged.",
+          "cambium_portal": "Exact EasyPass portal name.",
+          "cambium_voucher_plan": "Exact voucher plan name (duration/devices in cnMaestro).",
           "enable_nuki": "Per-stay Keypad PIN. Unchecked: the mail goes without a door code. Maison lock/unlock does not depend on this.",
           "nuki_token": "Nuki Web API token. Empty = keep the stored token.",
           "nuki_smartlock_id": "Empty = first lock with a Keypad."
@@ -178,7 +203,8 @@
     "error": {
       "calendar_missing": "Select a calendar entity.",
       "sensitive_entities": "The selection contains a camera, lock or alarm. Check the confirmation to allow it, or remove those devices.",
-      "invalid_path": "The journal file must stay inside the config directory or a media directory."
+      "invalid_path": "The journal file must stay inside the config directory or a media directory.",
+      "cambium_incomplete": "With Cambium, fill in client ID, secret, EasyPass portal and voucher plan."
     }
   },
   "selector": {
@@ -186,6 +212,18 @@
       "options": {
         "per_stay": "One account per stay",
         "shared": "Single guest account (rotating password)"
+      }
+    },
+    "voucher_provider": {
+      "options": {
+        "unifi": "UniFi (UDM hotspot)",
+        "cambium": "Cambium EasyPass Cloud"
+      }
+    },
+    "guest_theme": {
+      "options": {
+        "usvegliu": "U Svegliu (Lumio)",
+        "ledbury": "49 Ledbury (Notting Hill)"
       }
     }
   },
@@ -306,14 +344,24 @@
           "name": "Reservation",
           "description": "reservation_id attribute of the sensor, or the calendar UID."
         },
-        "entity_ids": {"name": "Entities"},
-        "device_ids": {"name": "Devices"},
+        "entity_ids": {
+          "name": "Entities",
+          "description": "Remplace la liste globale pour ce séjour."
+        },
+        "device_ids": {
+          "name": "Devices",
+          "description": "Remplace les appareils globaux pour ce séjour."
+        },
         "allow_remote": {
           "name": "Internet access",
           "description": "inherit = global setting, local = LAN only, remote = internet during this stay."
         },
-        "confirm_sensitive": {"name": "Confirm camera, lock or alarm"},
-        "reset": {"name": "Use the global setting again"}
+        "confirm_sensitive": {
+          "name": "Confirm camera, lock or alarm"
+        },
+        "reset": {
+          "name": "Use the global setting again"
+        }
       }
     },
     "lien_maison": {
