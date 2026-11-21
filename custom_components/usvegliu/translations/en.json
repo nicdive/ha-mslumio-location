@@ -46,7 +46,12 @@
           "title_blocklist": "Ignored titles",
           "max_stay_days": "Maximum stay length (days)",
           "lookahead_days": "Calendar lookahead (days)",
-          "enable_vouchers": "Create UniFi vouchers",
+          "enable_vouchers": "Create Wi-Fi vouchers",
+          "voucher_provider": "Wi-Fi provider",
+          "cambium_client_id": "Cambium client ID",
+          "cambium_client_secret": "Cambium client secret",
+          "cambium_portal": "EasyPass portal",
+          "cambium_voucher_plan": "EasyPass voucher plan",
           "enable_nuki": "Nuki Keypad PIN",
           "nuki_token": "Nuki Web API token",
           "nuki_smartlock_id": "Smartlock id (optional)",
@@ -85,6 +90,11 @@
           "pool_temperature": "Shown on the Pool tab. Read-only.",
           "pool_ph": "Optional. Read-only.",
           "alarm_code": "Used server-side to arm/disarm. Never sent to the browser. Empty = keep the stored code.",
+          "voucher_provider": "UniFi (UDM hotspot) or Cambium EasyPass Cloud. U Svegliu stays on UniFi.",
+          "cambium_client_id": "API application created in cnMaestro Cloud (Account → API).",
+          "cambium_client_secret": "Application secret. Empty = keep the stored secret.",
+          "cambium_portal": "Exact EasyPass portal name in cnMaestro.",
+          "cambium_voucher_plan": "Exact voucher plan name (duration and devices are set in cnMaestro).",
           "enable_nuki": "Per-stay Keypad PIN (mail, Infos, Console). Independent of unlocking the Nuki lock in Maison. Unchecked: the welcome mail still goes out without a door code.",
           "nuki_token": "Created at https://web.nuki.io (API). Empty = keep the stored token.",
           "nuki_smartlock_id": "Leave empty if there is only one lock. Otherwise the numeric Nuki id of the front door."
@@ -109,6 +119,7 @@
       "calendar_missing": "Select a calendar entity.",
       "sensitive_entities": "The selection contains a camera, lock or alarm. Check the confirmation to allow it, or remove those devices.",
       "invalid_path": "The journal file must stay inside the config directory or a media directory (mounted Synology share).",
+      "cambium_incomplete": "With Cambium, fill in client ID, secret, EasyPass portal and voucher plan.",
       "unknown": "Unexpected error. Check the log: the API key is not written there."
     },
     "abort": {
@@ -142,7 +153,12 @@
           "title_blocklist": "Ignored titles",
           "max_stay_days": "Maximum stay length (days)",
           "lookahead_days": "Calendar lookahead (days)",
-          "enable_vouchers": "Create UniFi vouchers",
+          "enable_vouchers": "Create Wi-Fi vouchers",
+          "voucher_provider": "Wi-Fi provider",
+          "cambium_client_id": "Cambium client ID",
+          "cambium_client_secret": "Cambium client secret",
+          "cambium_portal": "EasyPass portal",
+          "cambium_voucher_plan": "EasyPass voucher plan",
           "enable_nuki": "Nuki Keypad PIN",
           "nuki_token": "Nuki Web API token",
           "nuki_smartlock_id": "Smartlock id (optional)",
@@ -169,6 +185,11 @@
           "pool_temperature": "Read-only, on the Pool tab.",
           "pool_ph": "Optional, read-only.",
           "alarm_code": "Never sent to the browser. Empty = keep the stored code.",
+          "voucher_provider": "UniFi (UDM hotspot) or Cambium EasyPass Cloud.",
+          "cambium_client_id": "API application created in cnMaestro Cloud.",
+          "cambium_client_secret": "Application secret. Empty = keep unchanged.",
+          "cambium_portal": "Exact EasyPass portal name.",
+          "cambium_voucher_plan": "Exact voucher plan name (duration/devices in cnMaestro).",
           "enable_nuki": "Per-stay Keypad PIN. Unchecked: the mail goes without a door code. Maison lock/unlock does not depend on this.",
           "nuki_token": "Nuki Web API token. Empty = keep the stored token.",
           "nuki_smartlock_id": "Empty = first lock with a Keypad."
@@ -178,7 +199,8 @@
     "error": {
       "calendar_missing": "Select a calendar entity.",
       "sensitive_entities": "The selection contains a camera, lock or alarm. Check the confirmation to allow it, or remove those devices.",
-      "invalid_path": "The journal file must stay inside the config directory or a media directory."
+      "invalid_path": "The journal file must stay inside the config directory or a media directory.",
+      "cambium_incomplete": "With Cambium, fill in client ID, secret, EasyPass portal and voucher plan."
     }
   },
   "selector": {
@@ -186,6 +208,12 @@
       "options": {
         "per_stay": "One account per stay",
         "shared": "Single guest account (rotating password)"
+      }
+    },
+    "voucher_provider": {
+      "options": {
+        "unifi": "UniFi (UDM hotspot)",
+        "cambium": "Cambium EasyPass Cloud"
       }
     }
   },
@@ -306,14 +334,24 @@
           "name": "Reservation",
           "description": "reservation_id attribute of the sensor, or the calendar UID."
         },
-        "entity_ids": {"name": "Entities"},
-        "device_ids": {"name": "Devices"},
+        "entity_ids": {
+          "name": "Entities",
+          "description": "Remplace la liste globale pour ce séjour."
+        },
+        "device_ids": {
+          "name": "Devices",
+          "description": "Remplace les appareils globaux pour ce séjour."
+        },
         "allow_remote": {
           "name": "Internet access",
           "description": "inherit = global setting, local = LAN only, remote = internet during this stay."
         },
-        "confirm_sensitive": {"name": "Confirm camera, lock or alarm"},
-        "reset": {"name": "Use the global setting again"}
+        "confirm_sensitive": {
+          "name": "Confirm camera, lock or alarm"
+        },
+        "reset": {
+          "name": "Use the global setting again"
+        }
       }
     },
     "lien_maison": {

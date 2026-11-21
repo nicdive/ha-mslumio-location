@@ -27,9 +27,14 @@ from .const import (
     CONF_COVER_ENTITIES,
     CONF_DEVICE_LIMIT,
     CONF_DOWNLOAD_MBPS,
+    CONF_CAMBIUM_CLIENT_ID,
+    CONF_CAMBIUM_CLIENT_SECRET,
+    CONF_CAMBIUM_PORTAL,
+    CONF_CAMBIUM_VOUCHER_PLAN,
     CONF_ENABLE_ACCESS,
     CONF_ENABLE_NUKI,
     CONF_ENABLE_VOUCHERS,
+    CONF_VOUCHER_PROVIDER,
     CONF_NUKI_SMARTLOCK_ID,
     CONF_NUKI_TOKEN,
     CONF_EXTRA_DAYS,
@@ -70,8 +75,11 @@ from .const import (
     DEFAULT_MAX_STAY_DAYS,
     DEFAULT_TITLE_BLOCKLIST,
     DEFAULT_UPLOAD_MBPS,
+    DEFAULT_VOUCHER_PROVIDER,
     DASHBOARD_URL,
     DOMAIN,
+    VOUCHER_PROVIDER_CAMBIUM,
+    VOUCHER_PROVIDER_UNIFI,
     OWNER_DASHBOARD_URL,
     EVENT_DEMO,
     EVENT_JOURNAL,
@@ -103,6 +111,7 @@ from .planning import (
     select_current,
     stored_keys_in_window,
 )
+from .cambium import CambiumAuthError, CambiumClient, CambiumError
 from .redact import SecretLogFilter, redact
 from .unifi import UnifiAuthError, UnifiClient, UnifiError
 
@@ -243,6 +252,38 @@ class UsvegliuRuntime:
                 smartlock_id = None
         return NukiClient(self.session, token, smartlock_id=smartlock_id)
 
+    def voucher_provider(self) -> str:
+        """Which Wi-Fi voucher backend is selected (unifi or cambium)."""
+        raw = str(
+            self.entry.options.get(CONF_VOUCHER_PROVIDER) or DEFAULT_VOUCHER_PROVIDER
+        ).strip()
+        if raw == VOUCHER_PROVIDER_CAMBIUM:
+            return VOUCHER_PROVIDER_CAMBIUM
+        return VOUCHER_PROVIDER_UNIFI
+
+    def cambium_client(self) -> CambiumClient | None:
+        """EasyPass client when Cambium credentials are complete."""
+        options = self.entry.options
+        client_id = str(options.get(CONF_CAMBIUM_CLIENT_ID) or "").strip()
+        client_secret = str(options.get(CONF_CAMBIUM_CLIENT_SECRET) or "").strip()
+        portal = str(options.get(CONF_CAMBIUM_PORTAL) or "").strip()
+        plan = str(options.get(CONF_CAMBIUM_VOUCHER_PLAN) or "").strip()
+        if not (client_id and client_secret and portal and plan):
+            return None
+        return CambiumClient(
+            self.session,
+            client_id=client_id,
+            client_secret=client_secret,
+            portal_name=portal,
+            voucher_plan=plan,
+        )
+
+    def voucher_client(self) -> UnifiClient | CambiumClient | None:
+        """Directory used by the stay engine for hotspot codes."""
+        if self.voucher_provider() == VOUCHER_PROVIDER_CAMBIUM:
+            return self.cambium_client()
+        return self.client
+
     def nuki_pin_option(self) -> bool:
         """True when the owner asked for per-stay Keypad PINs.
 
@@ -364,6 +405,7 @@ class UsvegliuRuntime:
             secrets.append(str(self._preview.get("guest_token") or ""))
         secrets.append(str(self.entry.options.get(CONF_ALARM_CODE) or ""))
         secrets.append(str(self.entry.options.get(CONF_NUKI_TOKEN) or ""))
+        secrets.append(str(self.entry.options.get(CONF_CAMBIUM_CLIENT_SECRET) or ""))
         self.log_filter.update(secrets, owner=self.entry.entry_id)
 
     def _option_int(self, key: str, default: int) -> int:
@@ -431,6 +473,9 @@ class UsvegliuRuntime:
         )
         enable_vouchers = bool(options.get(CONF_ENABLE_VOUCHERS, True))
         enable_access = bool(options.get(CONF_ENABLE_ACCESS, True))
+        voucher_dir = self.voucher_client() if enable_vouchers else None
+        if enable_vouchers and voucher_dir is None:
+            raise UpdateFailed("cambium_incomplete")
         keypad = self.nuki_client()
         enable_nuki = self.nuki_enabled()
         resend_keys = set(self._resend)
@@ -441,7 +486,7 @@ class UsvegliuRuntime:
                 self._stays,
                 self._shared,
                 now=now,
-                vouchers=self.client if enable_vouchers else None,
+                vouchers=voucher_dir,
                 accounts=self._accounts if enable_access else None,
                 keypad=keypad,
                 enable_vouchers=enable_vouchers,
@@ -462,9 +507,9 @@ class UsvegliuRuntime:
                 device_ids=self.tenant_device_ids(),
                 overrides=self._overrides,
             )
-        except UnifiAuthError as err:
+        except (UnifiAuthError, CambiumAuthError) as err:
             raise ConfigEntryAuthFailed from err
-        except UnifiError as err:
+        except (UnifiError, CambiumError) as err:
             raise UpdateFailed(str(err)) from err
         finally:
             self._force_access.clear()
@@ -618,6 +663,8 @@ class UsvegliuRuntime:
             ),
             "enable_access": bool(options.get(CONF_ENABLE_ACCESS, True)),
             "enable_vouchers": bool(options.get(CONF_ENABLE_VOUCHERS, True)),
+            "voucher_provider": self.voucher_provider(),
+            "cambium_configured": self.cambium_client() is not None,
             "enable_nuki": self.nuki_pin_option(),
             "nuki_configured": self.nuki_client() is not None,
             "access_mode": mode,

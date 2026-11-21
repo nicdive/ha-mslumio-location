@@ -40,9 +40,14 @@ from .const import (
     CONF_COVER_ENTITIES,
     CONF_DEVICE_LIMIT,
     CONF_DOWNLOAD_MBPS,
+    CONF_CAMBIUM_CLIENT_ID,
+    CONF_CAMBIUM_CLIENT_SECRET,
+    CONF_CAMBIUM_PORTAL,
+    CONF_CAMBIUM_VOUCHER_PLAN,
     CONF_ENABLE_ACCESS,
     CONF_ENABLE_NUKI,
     CONF_ENABLE_VOUCHERS,
+    CONF_VOUCHER_PROVIDER,
     CONF_NUKI_SMARTLOCK_ID,
     CONF_NUKI_TOKEN,
     CONF_EXTRA_DAYS,
@@ -80,9 +85,12 @@ from .const import (
     DEFAULT_PORT,
     DEFAULT_TITLE_BLOCKLIST,
     DEFAULT_UPLOAD_MBPS,
+    DEFAULT_VOUCHER_PROVIDER,
     DEFAULT_WIFI_SSID,
     DOMAIN,
     ACCESS_PER_STAY,
+    VOUCHER_PROVIDER_CAMBIUM,
+    VOUCHER_PROVIDER_UNIFI,
 )
 from .access import sensitive_entity_ids
 from .journal import JournalPathError, resolve_journal_path
@@ -231,6 +239,31 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
                 CONF_ENABLE_VOUCHERS, default=defaults.get(CONF_ENABLE_VOUCHERS, True)
             ): BooleanSelector(),
             vol.Required(
+                CONF_VOUCHER_PROVIDER,
+                default=defaults.get(CONF_VOUCHER_PROVIDER, DEFAULT_VOUCHER_PROVIDER),
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=[VOUCHER_PROVIDER_UNIFI, VOUCHER_PROVIDER_CAMBIUM],
+                    translation_key="voucher_provider",
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Optional(
+                CONF_CAMBIUM_CLIENT_ID,
+                default=defaults.get(CONF_CAMBIUM_CLIENT_ID, ""),
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            vol.Optional(
+                CONF_CAMBIUM_CLIENT_SECRET, default=""
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
+            vol.Optional(
+                CONF_CAMBIUM_PORTAL,
+                default=defaults.get(CONF_CAMBIUM_PORTAL, ""),
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            vol.Optional(
+                CONF_CAMBIUM_VOUCHER_PLAN,
+                default=defaults.get(CONF_CAMBIUM_VOUCHER_PLAN, ""),
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            vol.Required(
                 CONF_ENABLE_ACCESS, default=defaults.get(CONF_ENABLE_ACCESS, True)
             ): BooleanSelector(),
             vol.Required(
@@ -294,6 +327,19 @@ def _clean_options(user_input: Mapping[str, Any]) -> dict[str, Any]:
     ):
         cleaned[key] = str(cleaned.get(key) or "").strip()
     cleaned[CONF_ALARM_CODE] = str(cleaned.get(CONF_ALARM_CODE) or "").strip()
+    cleaned[CONF_VOUCHER_PROVIDER] = str(
+        cleaned.get(CONF_VOUCHER_PROVIDER) or DEFAULT_VOUCHER_PROVIDER
+    ).strip() or DEFAULT_VOUCHER_PROVIDER
+    cleaned[CONF_CAMBIUM_CLIENT_ID] = str(
+        cleaned.get(CONF_CAMBIUM_CLIENT_ID) or ""
+    ).strip()
+    cleaned[CONF_CAMBIUM_CLIENT_SECRET] = str(
+        cleaned.get(CONF_CAMBIUM_CLIENT_SECRET) or ""
+    ).strip()
+    cleaned[CONF_CAMBIUM_PORTAL] = str(cleaned.get(CONF_CAMBIUM_PORTAL) or "").strip()
+    cleaned[CONF_CAMBIUM_VOUCHER_PLAN] = str(
+        cleaned.get(CONF_CAMBIUM_VOUCHER_PLAN) or ""
+    ).strip()
     return {key: value for key, value in cleaned.items() if key not in _CONNECTION_KEYS}
 
 
@@ -556,6 +602,10 @@ class UsvegliuOptionsFlow(OptionsFlow):
                 options[CONF_NUKI_TOKEN] = str(
                     self.config_entry.options.get(CONF_NUKI_TOKEN) or ""
                 )
+            if not options.get(CONF_CAMBIUM_CLIENT_SECRET):
+                options[CONF_CAMBIUM_CLIENT_SECRET] = str(
+                    self.config_entry.options.get(CONF_CAMBIUM_CLIENT_SECRET) or ""
+                )
             error = _house_error(
                 self.hass,
                 options,
@@ -602,6 +652,24 @@ def _house_error(
 
     if not options.get(CONF_CALENDAR):
         return "calendar_missing"
+    provider = str(
+        options.get(CONF_VOUCHER_PROVIDER) or DEFAULT_VOUCHER_PROVIDER
+    ).strip()
+    if (
+        bool(options.get(CONF_ENABLE_VOUCHERS, True))
+        and provider == VOUCHER_PROVIDER_CAMBIUM
+    ):
+        missing = not all(
+            str(options.get(key) or "").strip()
+            for key in (
+                CONF_CAMBIUM_CLIENT_ID,
+                CONF_CAMBIUM_CLIENT_SECRET,
+                CONF_CAMBIUM_PORTAL,
+                CONF_CAMBIUM_VOUCHER_PLAN,
+            )
+        )
+        if missing:
+            return "cambium_incomplete"
     sensitive = sensitive_entity_ids(list(options.get(CONF_TENANT_ENTITIES) or []))
     sensitive.extend(
         _sensitive_device_entities(hass, list(options.get(CONF_TENANT_DEVICES) or []))

@@ -23,6 +23,8 @@ SECRET_KEYS: frozenset[str] = frozenset(
         "voucher_code",
         "nuki_code",
         "nuki_token",
+        "cambium_client_secret",
+        "client_secret",
         "code",
         "alarm_code",
         "token",

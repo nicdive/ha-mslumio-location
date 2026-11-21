@@ -46,7 +46,12 @@
           "title_blocklist": "Titres ignorés",
           "max_stay_days": "Durée max d'un séjour (jours)",
           "lookahead_days": "Horizon du calendrier (jours)",
-          "enable_vouchers": "Créer les vouchers UniFi",
+          "enable_vouchers": "Créer les vouchers Wi-Fi",
+          "voucher_provider": "Fournisseur Wi-Fi",
+          "cambium_client_id": "Cambium client ID",
+          "cambium_client_secret": "Cambium client secret",
+          "cambium_portal": "Portail EasyPass",
+          "cambium_voucher_plan": "Plan voucher EasyPass",
           "enable_nuki": "Code PIN Nuki (Keypad)",
           "nuki_token": "Jeton Nuki Web API",
           "nuki_smartlock_id": "Identifiant du smartlock (optionnel)",
@@ -85,6 +90,11 @@
           "pool_temperature": "Affichée dans l'onglet Pool. Lecture seule.",
           "pool_ph": "Optionnel. Lecture seule.",
           "alarm_code": "Utilisé côté serveur pour armer/désarmer. Jamais envoyé au navigateur. Vide = conserver le code déjà enregistré.",
+          "voucher_provider": "UniFi (UDM hotspot) ou Cambium EasyPass Cloud. U Svegliu reste sur UniFi.",
+          "cambium_client_id": "Application API créée dans cnMaestro Cloud (Account → API).",
+          "cambium_client_secret": "Secret de l'application. Vide = conserver le secret déjà enregistré.",
+          "cambium_portal": "Nom exact du portail EasyPass dans cnMaestro.",
+          "cambium_voucher_plan": "Nom exact du plan voucher (durée et appareils se règlent dans cnMaestro).",
           "enable_nuki": "PIN Keypad par séjour (mail, Infos, Console). Indépendant du déverrouillage Nuki dans Maison (entité lock). Décochez : le mail d'accueil part sans code porte.",
           "nuki_token": "Créé sur https://web.nuki.io (API). Vide = conserver le jeton déjà enregistré.",
           "nuki_smartlock_id": "Laissez vide s'il n'y a qu'une serrure. Sinon l'identifiant numérique Nuki de la porte d'entrée."
@@ -109,6 +119,7 @@
       "calendar_missing": "Choisissez une entité calendrier.",
       "sensitive_entities": "La sélection contient une caméra, une serrure ou une alarme. Cochez la confirmation pour l'autoriser vraiment, ou retirez ces équipements.",
       "invalid_path": "Le fichier journal doit rester dans le dossier de configuration ou un dossier média (partage Synology monté).",
+      "cambium_incomplete": "Avec Cambium, renseignez client ID, secret, portail EasyPass et plan voucher.",
       "unknown": "Erreur inattendue. Consultez le journal, sans y chercher la clé : elle n'y est pas écrite."
     },
     "abort": {
@@ -142,7 +153,12 @@
           "title_blocklist": "Titres ignorés",
           "max_stay_days": "Durée max d'un séjour (jours)",
           "lookahead_days": "Horizon du calendrier (jours)",
-          "enable_vouchers": "Créer les vouchers UniFi",
+          "enable_vouchers": "Créer les vouchers Wi-Fi",
+          "voucher_provider": "Fournisseur Wi-Fi",
+          "cambium_client_id": "Cambium client ID",
+          "cambium_client_secret": "Cambium client secret",
+          "cambium_portal": "Portail EasyPass",
+          "cambium_voucher_plan": "Plan voucher EasyPass",
           "enable_nuki": "Code PIN Nuki (Keypad)",
           "nuki_token": "Jeton Nuki Web API",
           "nuki_smartlock_id": "Identifiant du smartlock (optionnel)",
@@ -169,6 +185,11 @@
           "pool_temperature": "Lecture seule, dans l'onglet Pool.",
           "pool_ph": "Optionnel, lecture seule.",
           "alarm_code": "Jamais envoyé au navigateur. Vide = ne pas changer.",
+          "voucher_provider": "UniFi (UDM hotspot) ou Cambium EasyPass Cloud.",
+          "cambium_client_id": "Application API créée dans cnMaestro Cloud.",
+          "cambium_client_secret": "Secret de l'application. Vide = ne pas changer.",
+          "cambium_portal": "Nom exact du portail EasyPass.",
+          "cambium_voucher_plan": "Nom exact du plan voucher (durée/appareils dans cnMaestro).",
           "enable_nuki": "PIN Keypad par séjour. Décochez : le mail part sans code porte. Le bouton ouvrir/fermer de Maison n'en dépend pas.",
           "nuki_token": "Jeton Nuki Web API. Vide = ne pas changer.",
           "nuki_smartlock_id": "Vide = première serrure avec Keypad."
@@ -178,7 +199,8 @@
     "error": {
       "calendar_missing": "Choisissez une entité calendrier.",
       "sensitive_entities": "La sélection contient une caméra, une serrure ou une alarme. Cochez la confirmation pour l'autoriser vraiment, ou retirez ces équipements.",
-      "invalid_path": "Le fichier journal doit rester dans le dossier de configuration ou un dossier média."
+      "invalid_path": "Le fichier journal doit rester dans le dossier de configuration ou un dossier média.",
+      "cambium_incomplete": "Avec Cambium, renseignez client ID, secret, portail EasyPass et plan voucher."
     }
   },
   "selector": {
@@ -186,6 +208,12 @@
       "options": {
         "per_stay": "Un compte par séjour",
         "shared": "Compte locataire unique (mot de passe tournant)"
+      }
+    },
+    "voucher_provider": {
+      "options": {
+        "unifi": "UniFi (hotspot UDM)",
+        "cambium": "Cambium EasyPass Cloud"
       }
     }
   },
