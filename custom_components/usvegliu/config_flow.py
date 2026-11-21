@@ -54,7 +54,11 @@ from .const import (
     CONF_GUEST_BASE_URL,
     CONF_GUEST_MAIL_DAYS,
     CONF_GUEST_MAIL_SERVICE,
+    CONF_GUEST_THEME,
     CONF_WIFI_SSID,
+    DEFAULT_GUEST_THEME,
+    THEME_LEDBURY,
+    THEME_USVEGLIU,
     CONF_ALARM_CODE,
     CONF_HOUSE_MODE_ENTITY,
     CONF_OUTDOOR_TEMPERATURE,
@@ -202,6 +206,16 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
                 CONF_GUEST_BASE_URL,
                 default=defaults.get(CONF_GUEST_BASE_URL, ""),
             ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            vol.Required(
+                CONF_GUEST_THEME,
+                default=defaults.get(CONF_GUEST_THEME, DEFAULT_GUEST_THEME),
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=[THEME_USVEGLIU, THEME_LEDBURY],
+                    translation_key="guest_theme",
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
             vol.Optional(
                 CONF_WIFI_SSID,
                 default=defaults.get(CONF_WIFI_SSID, DEFAULT_WIFI_SSID),
@@ -316,6 +330,11 @@ def _clean_options(user_input: Mapping[str, Any]) -> dict[str, Any]:
         cleaned.get(CONF_GUEST_MAIL_SERVICE) or ""
     ).strip()
     cleaned[CONF_GUEST_BASE_URL] = str(cleaned.get(CONF_GUEST_BASE_URL) or "").strip()
+    from .branding import normalize_guest_theme
+
+    cleaned[CONF_GUEST_THEME] = normalize_guest_theme(
+        cleaned.get(CONF_GUEST_THEME) or DEFAULT_GUEST_THEME
+    )
     cleaned[CONF_WIFI_SSID] = str(cleaned.get(CONF_WIFI_SSID) or "").strip()
     cleaned[CONF_HOUSE_MODE_ENTITY] = str(
         cleaned.get(CONF_HOUSE_MODE_ENTITY) or ""

@@ -252,10 +252,39 @@
     </nav>`;
   }
 
+  function brandInfo() {
+    const brand = (state && state.brand) || {};
+    return {
+      id: brand.id || "usvegliu",
+      name: brand.name || "U Svegliu",
+      tagline: brand.tagline || "Villa Lumio, Corse",
+      place: brand.place || "Lumio",
+      banner: brand.banner || "/usvegliu/static/logo-banner.png",
+      logo: brand.logo || "/usvegliu/static/logo.png",
+      themeColor: brand.theme_color || "#F1EBE2",
+    };
+  }
+
+  function applyBrandChrome() {
+    const brand = brandInfo();
+    document.body.dataset.theme = brand.id;
+    document.title = brand.name;
+    const themeMeta = document.querySelector('meta[name="theme-color"]');
+    if (themeMeta) themeMeta.setAttribute("content", brand.themeColor);
+    const appTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+    if (appTitle) appTitle.setAttribute("content", brand.name);
+    const icon = document.querySelector('link[rel="icon"]');
+    if (icon) icon.setAttribute("href", brand.logo);
+    const touch = document.querySelector('link[rel="apple-touch-icon"]');
+    if (touch) touch.setAttribute("href", brand.logo);
+  }
+
   function brandBar(withBack) {
+    const brand = brandInfo();
+    const alt = `${brand.name}${brand.tagline ? `, ${brand.tagline}` : ""}`;
     return `<header class="brand${withBack ? " brand-room" : ""}">
       ${withBack ? backArrow() : ""}
-      <img class="brand-logo" src="/usvegliu/static/logo-banner.png" width="1490" height="400" alt="U Svegliu, villa Lumio Corsica" />
+      <img class="brand-logo" src="${escapeHtml(brand.banner)}" width="1490" height="400" alt="${escapeHtml(alt)}" />
     </header>`;
   }
 
@@ -405,10 +434,11 @@
     const wind =
       weather.wind === null || weather.wind === undefined ? "" : `vent ${weather.wind} km/h`;
     const meta = [range, wind].filter(Boolean).join(" · ");
-    return `<section class="weather" aria-label="Météo à Lumio">
+    const place = brandInfo().place;
+    return `<section class="weather" aria-label="Météo à ${escapeHtml(place)}">
       <div class="weather-icon">${weatherGlyph(weather.icon || "cloud")}</div>
       <div class="weather-copy">
-        <p class="weather-place">${escapeHtml(weather.place || "Lumio")}</p>
+        <p class="weather-place">${escapeHtml(weather.place || place)}</p>
         <p class="weather-label">${escapeHtml(weather.label || "")}</p>
         <p class="weather-temp">${escapeHtml(String(weather.temperature))}°</p>
         ${meta ? `<p class="weather-range">${escapeHtml(meta)}</p>` : ""}
@@ -1002,6 +1032,7 @@
   }
 
   function render() {
+    applyBrandChrome();
     if (!token) {
       root.innerHTML = statusPage("Ce lien est incomplet. Demandez-en un à l’accueil.");
       return;

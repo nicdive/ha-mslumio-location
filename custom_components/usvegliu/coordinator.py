@@ -230,13 +230,22 @@ class UsvegliuRuntime:
         code = str(self.entry.options.get(CONF_ALARM_CODE) or "").strip()
         return code or None
 
+    def guest_brand(self) -> dict[str, str]:
+        """Resolved Maison brand (U Svegliu or 49 Ledbury)."""
+        from .branding import brand_from_options
+
+        return brand_from_options(self.entry.options)
+
     def wifi_ssid(self) -> str:
-        """Hotspot name shown to the guest. Defaults to Usvegliu-Guest."""
-        return str(
+        """Hotspot name shown to the guest. Theme supplies the default SSID."""
+        configured = str(
             self.entry.options.get(CONF_WIFI_SSID)
             or self.entry.data.get(CONF_WIFI_SSID)
-            or DEFAULT_WIFI_SSID
+            or ""
         ).strip()
+        if configured:
+            return configured
+        return self.guest_brand().get("wifi_ssid_default") or DEFAULT_WIFI_SSID
 
     def nuki_client(self) -> NukiClient | None:
         """Nuki Web API client when a token is stored. None otherwise."""
@@ -692,6 +701,8 @@ class UsvegliuRuntime:
             ),
             "print_event": bool(options.get(CONF_PRINT_EVENT, False)),
             "guest_base_url": str(options.get(CONF_GUEST_BASE_URL) or ""),
+            "guest_theme": self.guest_brand()["id"],
+            "brand_name": self.guest_brand()["name"],
             "wifi_ssid": self.wifi_ssid(),
             "demo_mode": self.demo_mode(),
         }
@@ -920,6 +931,7 @@ class UsvegliuRuntime:
                 continue
             link = self.guest_link(record)["url"]
             include_pin = self.nuki_pin_option()
+            brand = self.guest_brand()
             body = guest_welcome_message(
                 guest=str(record.get("guest") or ""),
                 check_in=str(record.get("check_in") or ""),
@@ -933,13 +945,15 @@ class UsvegliuRuntime:
                 ),
                 nuki_revoked=bool(record.get("nuki_revoked")) if include_pin else False,
                 preview=False,
+                house_name=brand["welcome_house"],
+                team_name=brand["team"],
             )
             try:
                 await self.hass.services.async_call(
                     "notify",
                     _notify_service_name(service),
                     {
-                        "title": "Usvegliu",
+                        "title": brand["name"],
                         "message": body,
                         "target": [email],
                     },
@@ -1176,6 +1190,7 @@ def _issued_rows(
         if shared and shared.get("access_revoked"):
             view_record["access_revoked"] = True
             password = None
+        brand = runtime.guest_brand()
         rows.append(
             issued_account_view(
                 view_record,
@@ -1187,6 +1202,8 @@ def _issued_rows(
                 wifi_ssid=runtime.wifi_ssid(),
                 nuki_pins=runtime.nuki_pin_option(),
                 now=now,  # type: ignore[arg-type]
+                house_name=brand["welcome_house"],
+                team_name=brand["team"],
             )
         )
     return rows

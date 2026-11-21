@@ -298,8 +298,15 @@ def guest_welcome_message(
     preview: bool,
     nuki_code: str | None = None,
     nuki_revoked: bool = False,
+    house_name: str | None = None,
+    team_name: str | None = None,
 ) -> str:
     """Copy-ready note for the guest. No Home Assistant login."""
+    from .branding import guest_brand
+
+    brand = guest_brand()
+    house = str(house_name or brand["welcome_house"]).strip() or brand["welcome_house"]
+    team = str(team_name or brand["team"]).strip() or brand["team"]
     name = guest_first_name(guest)
     hello = f"Bonjour {name}," if name else "Bonjour,"
     span = format_stay_span(check_in, check_out)
@@ -318,13 +325,13 @@ def guest_welcome_message(
             "",
             "Nous vous souhaitons une belle visite.",
             "",
-            "L'équipe Usvegliu",
+            team,
         ]
         return "\n".join(lines)
     lines = [
         hello,
         "",
-        f"Nous avons le plaisir de vous accueillir à Usvegliu{stay}.",
+        f"Nous avons le plaisir de vous accueillir à {house}{stay}.",
         "",
         "Votre maison s'ouvre ici, sur votre lien personnel :",
         "",
@@ -364,7 +371,7 @@ def guest_welcome_message(
             "",
             "Nous vous souhaitons un séjour d'exception.",
             "",
-            "L'équipe Usvegliu",
+            team,
         ]
     )
     return "\n".join(lines)
@@ -381,6 +388,8 @@ def issued_account_view(
     wifi_ssid: str = "",
     now: datetime | None = None,
     nuki_pins: bool = False,
+    house_name: str | None = None,
+    team_name: str | None = None,
 ) -> dict[str, Any]:
     """Admin row for one issued stay, including the HA password.
 
@@ -433,6 +442,8 @@ def issued_account_view(
             nuki_code=door if nuki_pins else None,
             nuki_revoked=nuki_revoked if nuki_pins else False,
             preview=preview,
+            house_name=house_name,
+            team_name=team_name,
         ),
         "path": path,
         "reservation_id": key,
