@@ -19,6 +19,50 @@
   --shadow: 0 1px 0 rgba(43, 36, 28, 0.04), 0 18px 40px rgba(43, 36, 28, 0.07);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --app: min(440px, 100%);
+  --atmosphere: radial-gradient(rgba(43, 36, 28, 0.055) 0.6px, transparent 0.7px);
+}
+
+/* 49 Ledbury — Notting Hill / Portobello (green + blush, not Corsican bronze) */
+body[data-theme="ledbury"] {
+  --bg: #e8eee6;
+  --bg-deep: #dce5da;
+  --paper: #f4f7f2;
+  --ink: #142019;
+  --ink-soft: #3d4f44;
+  --muted: #6d7f74;
+  --faint: #a8b5ac;
+  --line: rgba(20, 32, 25, 0.1);
+  --line-strong: rgba(20, 32, 25, 0.18);
+  --bronze: #1f3d2a;
+  --bronze-soft: rgba(31, 61, 42, 0.14);
+  --heat: #c45c6a;
+  --cool: #4f6d78;
+  --danger: #8e3a32;
+  --serif: "Didot", "Bodoni MT", "Playfair Display", Georgia, serif;
+  --sans: "Gill Sans", "Gill Sans MT", "Trebuchet MS", "Segoe UI", sans-serif;
+  --shadow: 0 1px 0 rgba(20, 32, 25, 0.04), 0 18px 40px rgba(20, 32, 25, 0.08);
+  --atmosphere:
+    radial-gradient(ellipse 120% 80% at 10% -10%, rgba(232, 164, 184, 0.22), transparent 55%),
+    radial-gradient(ellipse 90% 70% at 100% 0%, rgba(31, 61, 42, 0.12), transparent 50%),
+    radial-gradient(rgba(20, 32, 25, 0.04) 0.6px, transparent 0.7px);
+}
+
+body[data-theme="ledbury"]::before {
+  opacity: 1;
+  background-image: var(--atmosphere);
+  background-size: auto, auto, 3px 3px;
+}
+
+body[data-theme="ledbury"] .welcome {
+  letter-spacing: -0.02em;
+}
+
+body[data-theme="ledbury"] .kicker {
+  color: var(--bronze);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 11px;
+  font-family: var(--sans);
 }
 
 * {
@@ -46,7 +90,7 @@ body::before {
   inset: 0;
   pointer-events: none;
   opacity: 0.35;
-  background-image: radial-gradient(rgba(43, 36, 28, 0.055) 0.6px, transparent 0.7px);
+  background-image: var(--atmosphere);
   background-size: 3px 3px;
 }
 

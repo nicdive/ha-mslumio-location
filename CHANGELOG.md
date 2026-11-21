@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.32] — 2026-11-21
+
+### Ajouté
+- Thème Maison **49 Ledbury** (Notting Hill) : logos Portobello, charte vert / blush, mails et titres. Option `guest_theme` (`usvegliu` par défaut, `ledbury` sur l’instance dédiée).
+
+[0.6.32]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.32
+
 ## [0.6.31] — 2026-11-21
 
 ### Ajouté
