@@ -41,7 +41,7 @@ body[data-theme="ledbury"] .fan-line {
 
 /* Ledbury horizontal banner — door left, wordmark right (compact height) */
 body[data-theme="ledbury"] .brand-logo {
-  width: min(100%, 380px);
+  width: min(100%, 400px);
 }
 
 body[data-theme="ledbury"] .brand-room .brand-logo {
@@ -1232,7 +1232,7 @@ h1 {
   }
 
   body[data-theme="ledbury"] .brand-logo {
-    width: min(100%, 480px);
+    width: min(100%, 500px);
   }
 
   body[data-theme="ledbury"] .brand-room .brand-logo {
