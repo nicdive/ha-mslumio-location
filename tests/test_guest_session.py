@@ -366,6 +366,20 @@ def test_fan_mapping_numeric_and_partial():
 def test_hvac_helpers():
     assert climate_is_on("heat") is True
     assert climate_is_on("off") is False
+    # Heatmiser Neo: HVAC stays "heat", Standby preset means off for guests.
+    assert climate_is_on("heat", "Standby") is False
+    assert climate_is_on("heat", "Home") is True
+    assert climate_is_on("heat", "Away") is False
+    from custom_components.usvegliu.guest_session import (
+        climate_power_via,
+        pick_preset_off,
+        pick_preset_on,
+    )
+
+    assert pick_preset_off(["Home", "Standby", "Boost"]) == "Standby"
+    assert pick_preset_on(["Home", "Standby", "Boost"]) == "Home"
+    assert climate_power_via(["heat"], ["Home", "Standby"]) == "preset"
+    assert climate_power_via(["off", "heat"], ["Home", "Standby"]) == "hvac"
     assert pick_hvac_on(["off", "cool", "heat"], None) == "heat"
     assert pick_hvac_on(["off", "cool", "heat"], "cool") == "cool"
     assert pick_hvac_on(["off", "fan_only"], "fan_only") == "fan_only"

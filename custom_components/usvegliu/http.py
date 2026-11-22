@@ -52,6 +52,7 @@ from .guest_session import (
     combine_charger_views,
     climate_activity,
     climate_is_on,
+    climate_power_via,
     cover_is_moving,
     cover_is_open,
     doorbell_is_ringing,
@@ -63,6 +64,8 @@ from .guest_session import (
     infer_fan_speed,
     map_fan_modes,
     pick_hvac_on,
+    pick_preset_off,
+    pick_preset_on,
     resolve_house_mode,
 )
 from .qr import guest_share_url, make_share_qr_svg
@@ -206,6 +209,10 @@ def _serialize_climate(
     fan_modes = [str(mode) for mode in (attrs.get("fan_modes") or [])]
     mapping = map_fan_modes(fan_modes)
     supports_fan = bool(allow_fans and mapping)
+    hvac_modes = [str(mode) for mode in (attrs.get("hvac_modes") or [])]
+    preset_modes = [str(mode) for mode in (attrs.get("preset_modes") or [])]
+    preset = attrs.get("preset_mode")
+    preset_s = str(preset).strip() if preset is not None else ""
     measured = attrs.get("current_temperature")
     setpoint = attrs.get("temperature")
     try:
@@ -216,7 +223,8 @@ def _serialize_climate(
         setpoint_f = float(setpoint) if setpoint is not None else None
     except (TypeError, ValueError):
         setpoint_f = None
-    on = climate_is_on(str(state.state))
+    on = climate_is_on(str(state.state), preset_s or None)
+    power_via = climate_power_via(hvac_modes, preset_modes)
     return {
         "entity_id": entity_id,
         "name": str(attrs.get("friendly_name") or entity_id),
@@ -225,6 +233,8 @@ def _serialize_climate(
         "setpoint": setpoint_f,
         "on": on,
         "hvac_mode": state.state,
+        "preset_mode": preset_s or None,
+        "power_via": power_via,
         "activity": climate_activity(
             on=on,
             house_mode=house_mode,
@@ -840,17 +850,52 @@ class GuestClimateView(HomeAssistantView):
         fan_modes = [str(mode) for mode in (attrs.get("fan_modes") or [])]
         mapping = map_fan_modes(fan_modes)
         hvac_modes = [str(mode) for mode in (attrs.get("hvac_modes") or [])]
+        preset_modes = [str(mode) for mode in (attrs.get("preset_modes") or [])]
         house_mode = HOUSE_HEAT if heat_only else _house_mode(hass, runtime, climates)
+        power_via = climate_power_via(hvac_modes, preset_modes)
         try:
             if "on" in body:
                 if body["on"]:
-                    mode = pick_hvac_on(hvac_modes, house_mode)
-                    await hass.services.async_call(
-                        "climate",
-                        "set_hvac_mode",
-                        {"entity_id": entity_id, "hvac_mode": mode},
-                        blocking=True,
-                    )
+                    if power_via == "preset":
+                        preset = pick_preset_on(preset_modes)
+                        if preset:
+                            await hass.services.async_call(
+                                "climate",
+                                "set_preset_mode",
+                                {
+                                    "entity_id": entity_id,
+                                    "preset_mode": preset,
+                                },
+                                blocking=True,
+                            )
+                        if hvac_modes:
+                            mode = pick_hvac_on(hvac_modes, house_mode)
+                            await hass.services.async_call(
+                                "climate",
+                                "set_hvac_mode",
+                                {"entity_id": entity_id, "hvac_mode": mode},
+                                blocking=True,
+                            )
+                    else:
+                        mode = pick_hvac_on(hvac_modes, house_mode)
+                        await hass.services.async_call(
+                            "climate",
+                            "set_hvac_mode",
+                            {"entity_id": entity_id, "hvac_mode": mode},
+                            blocking=True,
+                        )
+                elif power_via == "preset":
+                    preset = pick_preset_off(preset_modes)
+                    if preset:
+                        await hass.services.async_call(
+                            "climate",
+                            "set_preset_mode",
+                            {
+                                "entity_id": entity_id,
+                                "preset_mode": preset,
+                            },
+                            blocking=True,
+                        )
                 else:
                     await hass.services.async_call(
                         "climate",

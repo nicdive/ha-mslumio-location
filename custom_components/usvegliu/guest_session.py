@@ -35,6 +35,9 @@ _MONTHS_FR = (
 
 _OFF_HVAC = frozenset({"off", "idle"})
 _HVAC_ON_ORDER = ("heat", "cool", "heat_cool", "fan_only", "dry", "auto")
+# Heatmiser Neo: no HVAC off — Standby/Away presets are frost protection.
+_OFF_PRESETS = frozenset({"standby", "away"})
+_ON_PRESET_ORDER = ("home", "none", "schedule", "boost")
 HOUSE_HEAT = "heat"
 HOUSE_COOL = "cool"
 _COOL_STATES = frozenset(
@@ -544,11 +547,48 @@ def infer_fan_speed(current: str | None, mapping: dict[int, str]) -> int:
     return 2 if 2 in mapping else next(iter(mapping), 2)
 
 
-def climate_is_on(hvac_mode: str | None) -> bool:
-    """Treat off/idle as stopped."""
+def climate_is_on(
+    hvac_mode: str | None, preset_mode: str | None = None
+) -> bool:
+    """Treat HVAC off/idle or Heatmiser Standby/Away as stopped."""
+    preset = str(preset_mode or "").strip().casefold()
+    if preset in _OFF_PRESETS:
+        return False
     if not hvac_mode:
         return False
     return hvac_mode.casefold() not in _OFF_HVAC
+
+
+def pick_preset_off(available: list[str]) -> str | None:
+    """Standby (zone) preferred over Away (whole Neo hub)."""
+    by_fold = {str(mode).casefold(): str(mode) for mode in available if mode}
+    for key in ("standby", "away"):
+        if key in by_fold:
+            return by_fold[key]
+    return None
+
+
+def pick_preset_on(available: list[str]) -> str | None:
+    """Leave frost standby for a comfort/schedule preset."""
+    by_fold = {str(mode).casefold(): str(mode) for mode in available if mode}
+    for key in _ON_PRESET_ORDER:
+        if key in by_fold:
+            return by_fold[key]
+    for mode in available:
+        fold = str(mode).casefold()
+        if fold and fold not in _OFF_PRESETS:
+            return str(mode)
+    return None
+
+
+def climate_power_via(hvac_modes: list[str], preset_modes: list[str]) -> str:
+    """How guests turn a thermostat off: classic HVAC off, or Heatmiser preset."""
+    folds = {str(mode).casefold() for mode in hvac_modes if mode}
+    if "off" in folds:
+        return "hvac"
+    if pick_preset_off(preset_modes):
+        return "preset"
+    return "hvac"
 
 
 def house_mode_from_state(state: str | None) -> str | None:

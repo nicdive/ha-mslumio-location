@@ -278,6 +278,7 @@
     return true;
   }
 
+
   function locale() {
     const brand = brandInfo();
     if (brand.locale === "en" || brand.id === "ledbury") return "en";

@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.38] — 2026-11-22
+
+### Corrigé
+- Heatmiser (Ledbury) : le bouton On/Off Maison marche sans mode HVAC « off » — Off → preset **Standby**, On → **Home** (l’UI reste simple On/Off).
+
+[0.6.38]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.38
+
 ## [0.6.37] — 2026-11-22
 
 ### Amélioré
