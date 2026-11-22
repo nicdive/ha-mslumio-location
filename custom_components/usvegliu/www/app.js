@@ -365,6 +365,8 @@
       unmute: "Son",
       empty_climate: "Aucun thermostat pour ce séjour.",
       empty_lights: "Aucune lumière pour ce séjour.",
+      other_room: "Autre",
+      scenes: "Scènes",
       empty_access: "Aucun accès pour ce séjour.",
       empty_info: "Aucune information pour ce séjour.",
       empty_pool: "Aucune donnée piscine pour ce séjour.",
@@ -457,6 +459,8 @@
       unmute: "Sound",
       empty_climate: "No thermostat for this stay.",
       empty_lights: "No lights for this stay.",
+      other_room: "Other",
+      scenes: "Scenes",
       empty_access: "No access controls for this stay.",
       empty_info: "No information for this stay.",
       empty_pool: "No pool data for this stay.",
@@ -1017,22 +1021,55 @@
     return `${modeSwitch()}${listMode === "pieces" ? piecesView() : adjustView()}`;
   }
 
+  function groupLightsByRoom(lights) {
+    const order = [];
+    const buckets = {};
+    lights.forEach((light) => {
+      const room = String((light && light.group) || "").trim() || t("other_room");
+      if (!buckets[room]) {
+        buckets[room] = [];
+        order.push(room);
+      }
+      buckets[room].push(light);
+    });
+    // Keep named rooms first; push the fallback bucket last.
+    const other = t("other_room");
+    order.sort((a, b) => {
+      if (a === other && b !== other) return 1;
+      if (b === other && a !== other) return -1;
+      return a.localeCompare(b, locale() === "en" ? "en" : "fr", { sensitivity: "base" });
+    });
+    return order.map((room) => ({ room, lights: buckets[room] }));
+  }
+
   function lightsSection() {
     const lights = (state && state.lights) || [];
     const scenes = (state && state.scenes) || [];
     if (!lights.length && !scenes.length) return "";
-    const lightRows = `<div class="light-list">${lights
-      .map((light) => lightRow(light, "light"))
-      .join("")}</div>`;
+    const rooms = groupLightsByRoom(lights);
+    const showRoomTitles = rooms.length > 1 || (rooms[0] && rooms[0].room !== t("other_room"));
+    const lightBlocks = rooms
+      .map((bucket) => {
+        const title = showRoomTitles
+          ? `<p class="light-room-title">${escapeHtml(bucket.room)}</p>`
+          : "";
+        return `<section class="light-room">${title}<div class="light-list">${bucket.lights
+          .map((light) => lightRow(light, "light"))
+          .join("")}</div></section>`;
+      })
+      .join("");
     const sceneRow = scenes.length
-      ? `<div class="scenes">${scenes
-          .map(
-            (scene) =>
-              `<button type="button" data-act="scene" data-id="${escapeAttr(scene.entity_id)}">${escapeHtml(scene.name)}</button>`
-          )
-          .join("")}</div>`
+      ? `<section class="light-room scenes-block">
+          <p class="light-room-title">${escapeHtml(t("scenes"))}</p>
+          <div class="scenes">${scenes
+            .map(
+              (scene) =>
+                `<button type="button" data-act="scene" data-id="${escapeAttr(scene.entity_id)}">${escapeHtml(scene.name)}</button>`
+            )
+            .join("")}</div>
+        </section>`
       : "";
-    return `${sceneRow}${lights.length ? lightRows : ""}`;
+    return `${sceneRow}${lightBlocks}`;
   }
 
   function coverStatus(item) {

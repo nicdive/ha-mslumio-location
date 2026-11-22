@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.42] — 2026-11-22
+
+### Amélioré
+- Lumière : regroupement par **pièce** (area HA).
+
+[0.6.42]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.42
+
 ## [0.6.41] — 2026-11-22
 
 ### Amélioré
