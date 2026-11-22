@@ -86,7 +86,9 @@ def test_ledbury_logo_assets_ship():
     mark_w, mark_h, mark_ct = png_info(mark)
     ban_w, ban_h, ban_ct = png_info(banner)
     assert (mark_w, mark_h) == (256, 256)
-    assert ban_w >= 1400
+    # Stacked Ledbury mark: door above wordmark (taller than the wide Usvegliu banner)
+    assert ban_w >= 1000
+    assert ban_h >= 600
     # 6 = RGBA — transparent like the Usvegliu banner
     assert mark_ct == 6
     assert ban_ct == 6
