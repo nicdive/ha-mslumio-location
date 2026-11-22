@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.35] — 2026-11-22
+
+### Ajouté
+- Setup : 3ᵉ choix **Voucher manuel** (EasyPass sans cnMaestro X / sans API). Code collé dans Options, affiché dans Maison et le mail.
+
+[0.6.35]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.35
+
 ## [0.6.34] — 2026-11-21
 
 ### Corrigé

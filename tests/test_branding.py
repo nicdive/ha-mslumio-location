@@ -88,7 +88,17 @@ def test_ledbury_logo_assets_ship():
     ).read_text(encoding="utf-8")
     assert "guest_theme" in flow
     assert "async_step_cambium" in flow
+    assert "async_step_manual" in flow
     assert "async_show_menu" not in flow
-    assert "Cambium EasyPass — sans UDM" in flow
+    assert "VOUCHER_PROVIDER_MANUAL" in flow
     assert "_async_probe_cambium" in flow
     assert "SelectSelectorMode.LIST" in flow
+    assert "CONF_MANUAL_WIFI_CODE" in flow
+    strings = (
+        Path(__file__).resolve().parents[1]
+        / "custom_components"
+        / "usvegliu"
+        / "strings.json"
+    ).read_text(encoding="utf-8")
+    assert '"manual": "Voucher manuel (sans API)"' in strings
+    assert '"step": {\n      "manual"' in strings or '"manual": {' in strings

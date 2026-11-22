@@ -34,6 +34,7 @@ from .const import (
     CONF_ENABLE_ACCESS,
     CONF_ENABLE_NUKI,
     CONF_ENABLE_VOUCHERS,
+    CONF_MANUAL_WIFI_CODE,
     CONF_VOUCHER_PROVIDER,
     CONF_NUKI_SMARTLOCK_ID,
     CONF_NUKI_TOKEN,
@@ -79,6 +80,7 @@ from .const import (
     DASHBOARD_URL,
     DOMAIN,
     VOUCHER_PROVIDER_CAMBIUM,
+    VOUCHER_PROVIDER_MANUAL,
     VOUCHER_PROVIDER_UNIFI,
     OWNER_DASHBOARD_URL,
     EVENT_DEMO,
@@ -262,16 +264,23 @@ class UsvegliuRuntime:
         return NukiClient(self.session, token, smartlock_id=smartlock_id)
 
     def voucher_provider(self) -> str:
-        """Which Wi-Fi voucher backend is selected (unifi or cambium)."""
+        """Which Wi-Fi voucher backend is selected (unifi, cambium or manual)."""
         raw = str(
             self.entry.options.get(CONF_VOUCHER_PROVIDER) or DEFAULT_VOUCHER_PROVIDER
         ).strip()
+        if raw == VOUCHER_PROVIDER_MANUAL:
+            return VOUCHER_PROVIDER_MANUAL
         if raw == VOUCHER_PROVIDER_CAMBIUM:
             return VOUCHER_PROVIDER_CAMBIUM
         # Cambium-only installs have no UniFi key: force EasyPass.
         if self.client is None:
             return VOUCHER_PROVIDER_CAMBIUM
         return VOUCHER_PROVIDER_UNIFI
+
+    def manual_wifi_code(self) -> str | None:
+        """Shared guest Wi-Fi code when vouchers are entered by hand."""
+        code = str(self.entry.options.get(CONF_MANUAL_WIFI_CODE) or "").strip()
+        return code or None
 
     def cambium_client(self) -> CambiumClient | None:
         """EasyPass client when Cambium credentials are complete."""
@@ -292,7 +301,10 @@ class UsvegliuRuntime:
 
     def voucher_client(self) -> UnifiClient | CambiumClient | None:
         """Directory used by the stay engine for hotspot codes."""
-        if self.voucher_provider() == VOUCHER_PROVIDER_CAMBIUM:
+        provider = self.voucher_provider()
+        if provider == VOUCHER_PROVIDER_MANUAL:
+            return None
+        if provider == VOUCHER_PROVIDER_CAMBIUM:
             return self.cambium_client()
         return self.client
 
@@ -418,6 +430,7 @@ class UsvegliuRuntime:
         secrets.append(str(self.entry.options.get(CONF_ALARM_CODE) or ""))
         secrets.append(str(self.entry.options.get(CONF_NUKI_TOKEN) or ""))
         secrets.append(str(self.entry.options.get(CONF_CAMBIUM_CLIENT_SECRET) or ""))
+        secrets.append(str(self.entry.options.get(CONF_MANUAL_WIFI_CODE) or ""))
         self.log_filter.update(secrets, owner=self.entry.entry_id)
 
     def _option_int(self, key: str, default: int) -> int:
@@ -484,6 +497,8 @@ class UsvegliuRuntime:
             known_keys=known,
         )
         enable_vouchers = bool(options.get(CONF_ENABLE_VOUCHERS, True))
+        if self.voucher_provider() == VOUCHER_PROVIDER_MANUAL:
+            enable_vouchers = False
         enable_access = bool(options.get(CONF_ENABLE_ACCESS, True))
         voucher_dir = self.voucher_client() if enable_vouchers else None
         if enable_vouchers and voucher_dir is None:
@@ -677,6 +692,7 @@ class UsvegliuRuntime:
             "enable_vouchers": bool(options.get(CONF_ENABLE_VOUCHERS, True)),
             "voucher_provider": self.voucher_provider(),
             "cambium_configured": self.cambium_client() is not None,
+            "manual_wifi_configured": bool(self.manual_wifi_code()),
             "enable_nuki": self.nuki_pin_option(),
             "nuki_configured": self.nuki_client() is not None,
             "access_mode": mode,
@@ -935,13 +951,16 @@ class UsvegliuRuntime:
             link = self.guest_link(record)["url"]
             include_pin = self.nuki_pin_option()
             brand = self.guest_brand()
+            stay_code = str(record.get("voucher_code") or "").strip() or None
+            if not stay_code and not record.get("voucher_revoked"):
+                stay_code = self.manual_wifi_code()
             body = guest_welcome_message(
                 guest=str(record.get("guest") or ""),
                 check_in=str(record.get("check_in") or ""),
                 check_out=str(record.get("check_out") or ""),
                 lien_maison=link,
                 wifi_ssid=self.wifi_ssid(),
-                voucher_code=str(record.get("voucher_code") or "") or None,
+                voucher_code=stay_code,
                 voucher_revoked=bool(record.get("voucher_revoked")),
                 nuki_code=(
                     str(record.get("nuki_code") or "") or None if include_pin else None

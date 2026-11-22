@@ -48,6 +48,7 @@ from .const import (
     CONF_ENABLE_NUKI,
     CONF_ENABLE_VOUCHERS,
     CONF_VOUCHER_PROVIDER,
+    CONF_MANUAL_WIFI_CODE,
     CONF_NUKI_SMARTLOCK_ID,
     CONF_NUKI_TOKEN,
     CONF_EXTRA_DAYS,
@@ -94,6 +95,7 @@ from .const import (
     DOMAIN,
     ACCESS_PER_STAY,
     VOUCHER_PROVIDER_CAMBIUM,
+    VOUCHER_PROVIDER_MANUAL,
     VOUCHER_PROVIDER_UNIFI,
 )
 from .access import sensitive_entity_ids
@@ -257,7 +259,11 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
                 default=defaults.get(CONF_VOUCHER_PROVIDER, DEFAULT_VOUCHER_PROVIDER),
             ): SelectSelector(
                 SelectSelectorConfig(
-                    options=[VOUCHER_PROVIDER_UNIFI, VOUCHER_PROVIDER_CAMBIUM],
+                    options=[
+                        VOUCHER_PROVIDER_UNIFI,
+                        VOUCHER_PROVIDER_CAMBIUM,
+                        VOUCHER_PROVIDER_MANUAL,
+                    ],
                     translation_key="voucher_provider",
                     mode=SelectSelectorMode.DROPDOWN,
                 )
@@ -277,6 +283,9 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
                 CONF_CAMBIUM_VOUCHER_PLAN,
                 default=defaults.get(CONF_CAMBIUM_VOUCHER_PLAN, ""),
             ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            vol.Optional(
+                CONF_MANUAL_WIFI_CODE, default=""
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
             vol.Required(
                 CONF_ENABLE_ACCESS, default=defaults.get(CONF_ENABLE_ACCESS, True)
             ): BooleanSelector(),
@@ -359,6 +368,11 @@ def _clean_options(user_input: Mapping[str, Any]) -> dict[str, Any]:
     cleaned[CONF_CAMBIUM_VOUCHER_PLAN] = str(
         cleaned.get(CONF_CAMBIUM_VOUCHER_PLAN) or ""
     ).strip()
+    cleaned[CONF_MANUAL_WIFI_CODE] = str(
+        cleaned.get(CONF_MANUAL_WIFI_CODE) or ""
+    ).strip()
+    if cleaned.get(CONF_VOUCHER_PROVIDER) == VOUCHER_PROVIDER_MANUAL:
+        cleaned[CONF_ENABLE_VOUCHERS] = False
     return {key: value for key, value in cleaned.items() if key not in _CONNECTION_KEYS}
 
 
@@ -402,6 +416,8 @@ class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):
             choice = str(user_input.get(CONF_VOUCHER_PROVIDER) or "").strip()
             if choice == VOUCHER_PROVIDER_CAMBIUM:
                 return await self.async_step_cambium()
+            if choice == VOUCHER_PROVIDER_MANUAL:
+                return await self.async_step_manual()
             return await self.async_step_unifi()
         return self.async_show_form(
             step_id="user",
@@ -414,12 +430,16 @@ class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):
                         SelectSelectorConfig(
                             options=[
                                 {
-                                    "label": "UniFi — hotspot UDM (U Svegliu)",
+                                    "label": "UniFi — hotspot UDM (auto)",
                                     "value": VOUCHER_PROVIDER_UNIFI,
                                 },
                                 {
-                                    "label": "Cambium EasyPass — sans UDM (49 Ledbury)",
+                                    "label": "Cambium EasyPass — API cnMaestro X (auto)",
                                     "value": VOUCHER_PROVIDER_CAMBIUM,
+                                },
+                                {
+                                    "label": "Voucher manuel — Cambium/autre sans API",
+                                    "value": VOUCHER_PROVIDER_MANUAL,
                                 },
                             ],
                             mode=SelectSelectorMode.LIST,
@@ -552,6 +572,50 @@ class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):
                 }
             ),
             errors=errors,
+        )
+
+    async def async_step_manual(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """No UniFi / Cambium API — owner pastes EasyPass codes by hand."""
+        if user_input is not None:
+            site = str(user_input.get(CONF_SITE_NAME) or "Maison").strip() or "Maison"
+            code = str(user_input.get(CONF_MANUAL_WIFI_CODE) or "").strip()
+            ssid = str(user_input.get(CONF_WIFI_SSID) or "").strip()
+            await self.async_set_unique_id(f"manual:{site.casefold()}")
+            self._abort_if_unique_id_configured()
+            self._connection = {
+                CONF_HOST: "",
+                CONF_PORT: DEFAULT_PORT,
+                CONF_API_KEY: "",
+                CONF_VERIFY_SSL: True,
+                CONF_BASE_PATH: "",
+                CONF_SITE_ID: f"manual:{site.casefold()}",
+                CONF_SITE_NAME: site,
+            }
+            self._house_defaults = {
+                CONF_VOUCHER_PROVIDER: VOUCHER_PROVIDER_MANUAL,
+                CONF_ENABLE_VOUCHERS: False,
+                CONF_GUEST_THEME: THEME_LEDBURY,
+                CONF_WIFI_SSID: ssid or "49Ledbury-Guest",
+                CONF_MANUAL_WIFI_CODE: code,
+            }
+            return await self.async_step_house()
+        return self.async_show_form(
+            step_id="manual",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_SITE_NAME, default="49 Ledbury"): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.TEXT)
+                    ),
+                    vol.Optional(
+                        CONF_WIFI_SSID, default="49Ledbury-Guest"
+                    ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+                    vol.Optional(CONF_MANUAL_WIFI_CODE, default=""): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.TEXT)
+                    ),
+                }
+            ),
         )
 
     async def async_step_site(
@@ -741,6 +805,10 @@ class UsvegliuOptionsFlow(OptionsFlow):
             if not options.get(CONF_CAMBIUM_CLIENT_SECRET):
                 options[CONF_CAMBIUM_CLIENT_SECRET] = str(
                     self.config_entry.options.get(CONF_CAMBIUM_CLIENT_SECRET) or ""
+                )
+            if not options.get(CONF_MANUAL_WIFI_CODE):
+                options[CONF_MANUAL_WIFI_CODE] = str(
+                    self.config_entry.options.get(CONF_MANUAL_WIFI_CODE) or ""
                 )
             error = _house_error(
                 self.hass,

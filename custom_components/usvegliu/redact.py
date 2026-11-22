@@ -25,6 +25,7 @@ SECRET_KEYS: frozenset[str] = frozenset(
         "nuki_token",
         "cambium_client_secret",
         "client_secret",
+        "manual_wifi_code",
         "code",
         "alarm_code",
         "token",

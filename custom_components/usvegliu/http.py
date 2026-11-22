@@ -486,6 +486,8 @@ def _snapshot(
             metrics.append(item)
     revoked = bool(record.get("voucher_revoked"))
     voucher = "" if revoked else str(record.get("voucher_code") or "")
+    if not voucher and not revoked:
+        voucher = str(runtime.manual_wifi_code() or "")
     nuki_revoked = bool(record.get("nuki_revoked"))
     nuki_code = "" if nuki_revoked else str(record.get("nuki_code") or "")
     share = _guest_share_url(request, record)

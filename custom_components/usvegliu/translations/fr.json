@@ -3,12 +3,26 @@
     "step": {
       "user": {
         "title": "Wi-Fi de la maison",
-        "description": "U Svegliu utilise un UDM UniFi. 49 Ledbury utilise Cambium EasyPass (pas besoin d’UDM).",
+        "description": "UniFi ou Cambium API (cnMaestro X) = codes auto. Sans X : voucher manuel (EasyPass à la main).",
         "data": {
           "voucher_provider": "Fournisseur Wi-Fi"
         },
         "data_description": {
-          "voucher_provider": "UniFi = contrôleur local. Cambium = cnMaestro Cloud uniquement."
+          "voucher_provider": "UniFi = UDM. Cambium = API cnMaestro X. Manuel = tu crées le code dans EasyPass et tu le colles ici."
+        }
+      },
+      "manual": {
+        "title": "Voucher manuel",
+        "description": "Pas d’API UniFi ni Cambium. Créez les codes dans EasyPass (ou ailleurs) et collez le code courant ci-dessous. Vous pourrez le changer dans Options.",
+        "data": {
+          "site_name": "Nom de la maison",
+          "wifi_ssid": "Nom du réseau Wi-Fi",
+          "manual_wifi_code": "Code Wi-Fi actuel (optionnel)"
+        },
+        "data_description": {
+          "site_name": "Affiché dans le titre de l’intégration.",
+          "wifi_ssid": "SSID guest vu par le locataire dans Maison.",
+          "manual_wifi_code": "Code EasyPass du moment. Vide = le mail / Infos n’affichent pas de code tant que vous n’en avez pas mis un."
         }
       },
       "unifi": {
@@ -78,6 +92,7 @@
           "cambium_client_secret": "Cambium client secret",
           "cambium_portal": "Portail EasyPass",
           "cambium_voucher_plan": "Plan voucher EasyPass",
+          "manual_wifi_code": "Code Wi-Fi manuel",
           "enable_nuki": "Code PIN Nuki (Keypad)",
           "nuki_token": "Jeton Nuki Web API",
           "nuki_smartlock_id": "Identifiant du smartlock (optionnel)",
@@ -118,11 +133,12 @@
           "pool_temperature": "Affichée dans l'onglet Pool. Lecture seule.",
           "pool_ph": "Optionnel. Lecture seule.",
           "alarm_code": "Utilisé côté serveur pour armer/désarmer. Jamais envoyé au navigateur. Vide = conserver le code déjà enregistré.",
-          "voucher_provider": "UniFi (UDM hotspot) ou Cambium EasyPass Cloud. U Svegliu reste sur UniFi.",
-          "cambium_client_id": "Application API créée dans cnMaestro Cloud (Account → API).",
+          "voucher_provider": "UniFi, Cambium API (X), ou manuel (code collé, sans API).",
+          "cambium_client_id": "Network Services → API Client (cnMaestro X uniquement).",
           "cambium_client_secret": "Secret de l'application. Vide = conserver le secret déjà enregistré.",
           "cambium_portal": "Nom exact du portail EasyPass dans cnMaestro.",
           "cambium_voucher_plan": "Nom exact du plan voucher (durée et appareils se règlent dans cnMaestro).",
+          "manual_wifi_code": "Code EasyPass affiché dans Maison / mail. Vide = ne pas changer le code déjà enregistré.",
           "enable_nuki": "PIN Keypad par séjour (mail, Infos, Console). Indépendant du déverrouillage Nuki dans Maison (entité lock). Décochez : le mail d'accueil part sans code porte.",
           "nuki_token": "Créé sur https://web.nuki.io (API). Vide = conserver le jeton déjà enregistré.",
           "nuki_smartlock_id": "Laissez vide s'il n'y a qu'une serrure. Sinon l'identifiant numérique Nuki de la porte d'entrée."
@@ -188,6 +204,7 @@
           "cambium_client_secret": "Cambium client secret",
           "cambium_portal": "Portail EasyPass",
           "cambium_voucher_plan": "Plan voucher EasyPass",
+          "manual_wifi_code": "Code Wi-Fi manuel",
           "enable_nuki": "Code PIN Nuki (Keypad)",
           "nuki_token": "Jeton Nuki Web API",
           "nuki_smartlock_id": "Identifiant du smartlock (optionnel)",
@@ -216,11 +233,12 @@
           "pool_temperature": "Lecture seule, dans l'onglet Pool.",
           "pool_ph": "Optionnel, lecture seule.",
           "alarm_code": "Jamais envoyé au navigateur. Vide = ne pas changer.",
-          "voucher_provider": "UniFi (UDM hotspot) ou Cambium EasyPass Cloud.",
-          "cambium_client_id": "Application API créée dans cnMaestro Cloud.",
+          "voucher_provider": "UniFi, Cambium API (X), ou manuel.",
+          "cambium_client_id": "Network Services → API Client (cnMaestro X).",
           "cambium_client_secret": "Secret de l'application. Vide = ne pas changer.",
           "cambium_portal": "Nom exact du portail EasyPass.",
           "cambium_voucher_plan": "Nom exact du plan voucher (durée/appareils dans cnMaestro).",
+          "manual_wifi_code": "Code EasyPass. Vide = ne pas changer.",
           "enable_nuki": "PIN Keypad par séjour. Décochez : le mail part sans code porte. Le bouton ouvrir/fermer de Maison n'en dépend pas.",
           "nuki_token": "Jeton Nuki Web API. Vide = ne pas changer.",
           "nuki_smartlock_id": "Vide = première serrure avec Keypad."
@@ -244,7 +262,8 @@
     "voucher_provider": {
       "options": {
         "unifi": "UniFi (hotspot UDM)",
-        "cambium": "Cambium EasyPass Cloud"
+        "cambium": "Cambium EasyPass (API X)",
+        "manual": "Voucher manuel (sans API)"
       }
     },
     "guest_theme": {

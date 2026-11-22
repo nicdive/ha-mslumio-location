@@ -150,6 +150,7 @@ def test_diagnostics_and_logs_redact_secrets():
                 "api_key": "super-secret-key",
                 "host": "192.168.1.1",
                 "cambium_client_secret": "cnmaestro-secret",
+                "manual_wifi_code": "EASYPASS-99",
             },
             "stays": [
                 {
@@ -170,6 +171,7 @@ def test_diagnostics_and_logs_redact_secrets():
     )
     assert payload["entry_data"]["api_key"] == "**REDACTED**"
     assert payload["entry_data"]["cambium_client_secret"] == "**REDACTED**"
+    assert payload["entry_data"]["manual_wifi_code"] == "**REDACTED**"
     assert payload["entry_data"]["host"] == "192.168.1.1"
     assert payload["stays"][0]["voucher_code"] == "**REDACTED**"
     assert payload["stays"][0]["nuki_code"] == "**REDACTED**"
