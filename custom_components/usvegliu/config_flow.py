@@ -14,8 +14,6 @@ from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
     BooleanSelector,
-    DeviceSelector,
-    DeviceSelectorConfig,
     EntitySelector,
     EntitySelectorConfig,
     NumberSelector,
@@ -24,6 +22,8 @@ from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
+    TargetSelector,
+    TargetSelectorConfig,
     TextSelector,
     TextSelectorConfig,
     TextSelectorType,
@@ -76,6 +76,7 @@ from .const import (
     CONF_SITE_NAME,
     CONF_TENANT_DEVICES,
     CONF_TENANT_ENTITIES,
+    CONF_TENANT_TARGET,
     CONF_TITLE_BLOCKLIST,
     CONF_UPLOAD_MBPS,
     CONF_VERIFY_SSL,
@@ -100,6 +101,12 @@ from .const import (
 )
 from .access import sensitive_entity_ids
 from .journal import JournalPathError, resolve_journal_path
+from .target_options import (
+    as_id_list as _as_id_list,
+    default_entities as _default_entities,
+    expand_tenant_target as _expand_tenant_target,
+    tenant_target_default as _tenant_target_default,
+)
 from .unifi import (
     UnifiAuthError,
     UnifiClient,
@@ -130,17 +137,6 @@ def _number(min_value: int, max_value: int) -> NumberSelector:
             mode=NumberSelectorMode.BOX,
         )
     )
-
-
-def _default_entities(defaults: Mapping[str, Any]) -> list[str]:
-    """Keep a previous climate/cover/light selection visible after the upgrade."""
-    selected = list(defaults.get(CONF_TENANT_ENTITIES) or [])
-    if selected:
-        return selected
-    legacy: list[str] = []
-    for key in (CONF_CLIMATE_ENTITIES, CONF_COVER_ENTITIES, CONF_LIGHT_ENTITIES):
-        legacy.extend(defaults.get(key) or [])
-    return legacy
 
 
 def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
@@ -178,13 +174,15 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
                 )
             ),
             vol.Optional(
-                CONF_TENANT_ENTITIES,
-                default=_default_entities(defaults),
-            ): EntitySelector(EntitySelectorConfig(multiple=True)),
-            vol.Optional(
-                CONF_TENANT_DEVICES,
-                default=defaults.get(CONF_TENANT_DEVICES, []),
-            ): DeviceSelector(DeviceSelectorConfig(multiple=True)),
+                CONF_TENANT_TARGET,
+                default=_tenant_target_default(defaults),
+            ): TargetSelector(
+                TargetSelectorConfig(
+                    entity={},
+                    device={},
+                    area={},
+                )
+            ),
             vol.Required(
                 CONF_CONFIRM_SENSITIVE,
                 default=False,
@@ -307,7 +305,9 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
     )
 
 
-def _clean_options(user_input: Mapping[str, Any]) -> dict[str, Any]:
+def _clean_options(
+    user_input: Mapping[str, Any], hass: Any | None = None
+) -> dict[str, Any]:
     """Coerce selector numbers and drop connection secrets from options."""
     cleaned = dict(user_input)
     for key in (
@@ -322,14 +322,19 @@ def _clean_options(user_input: Mapping[str, Any]) -> dict[str, Any]:
     ):
         if key in cleaned and cleaned[key] is not None:
             cleaned[key] = int(cleaned[key])
-    legacy = []
+    legacy: list[str] = []
     for key in (CONF_CLIMATE_ENTITIES, CONF_COVER_ENTITIES, CONF_LIGHT_ENTITIES):
-        legacy.extend(cleaned.get(key) or [])
-    selected = list(cleaned.get(CONF_TENANT_ENTITIES) or [])
+        legacy.extend(_as_id_list(cleaned.get(key)))
+    target = cleaned.pop(CONF_TENANT_TARGET, None)
+    if isinstance(target, Mapping):
+        selected, devices = _expand_tenant_target(hass, target)
+    else:
+        selected = _as_id_list(cleaned.get(CONF_TENANT_ENTITIES))
+        devices = _as_id_list(cleaned.get(CONF_TENANT_DEVICES))
     if not selected and legacy:
         selected = legacy
     cleaned[CONF_TENANT_ENTITIES] = selected
-    cleaned[CONF_TENANT_DEVICES] = list(cleaned.get(CONF_TENANT_DEVICES) or [])
+    cleaned[CONF_TENANT_DEVICES] = devices
     cleaned[CONF_ALLOW_REMOTE] = bool(cleaned.get(CONF_ALLOW_REMOTE, False))
     cleaned.pop(CONF_CONFIRM_SENSITIVE, None)
     for key in (CONF_CLIMATE_ENTITIES, CONF_COVER_ENTITIES, CONF_LIGHT_ENTITIES):
@@ -660,7 +665,7 @@ class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Collect the calendar, voucher limits and tenant entities."""
         if user_input is not None:
-            options = _clean_options(user_input)
+            options = _clean_options(user_input, self.hass)
             for key, value in self._house_defaults.items():
                 if not options.get(key) and value not in (None, ""):
                     options[key] = value
@@ -793,7 +798,7 @@ class UsvegliuOptionsFlow(OptionsFlow):
     ) -> ConfigFlowResult:
         """Show the house options."""
         if user_input is not None:
-            options = _clean_options(user_input)
+            options = _clean_options(user_input, self.hass)
             if not options.get(CONF_ALARM_CODE):
                 options[CONF_ALARM_CODE] = str(
                     self.config_entry.options.get(CONF_ALARM_CODE) or ""

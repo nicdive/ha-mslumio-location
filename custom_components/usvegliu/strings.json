@@ -75,8 +75,7 @@
           "upload_mbps": "Débit montant (Mbit/s)",
           "extra_days": "Jours supplémentaires après le séjour",
           "access_mode": "Comptes Home Assistant",
-          "tenant_entities": "Entités autorisées",
-          "tenant_devices": "Appareils autorisés",
+          "tenant_target": "Équipements locataire",
           "confirm_sensitive": "J'autorise caméras, serrures ou alarmes",
           "allow_remote": "Accès internet pendant le séjour",
           "notify_service": "Notification (optionnelle)",
@@ -115,8 +114,7 @@
           "upload_mbps": "Défaut : 100.",
           "extra_days": "Le voucher Wi-Fi reste ce nombre de jours après la journée de départ, puis il est retiré. Défaut : 1. Le lien Maison s'arrête dès la fin du jour de départ.",
           "access_mode": "Un compte par séjour, ou un compte « locataire » dont le mot de passe change.",
-          "tenant_entities": "Tous les domaines. Les caméras, serrures et alarmes ne sont pas cochées : les ajouter exige la confirmation ci-dessous.",
-          "tenant_devices": "Toutes les entités de l'appareil sont autorisées, y compris celles ajoutées plus tard. Un appareil qui contient une caméra, une serrure ou une alarme exige la confirmation.",
+          "tenant_target": "Choisissez plusieurs entités, appareils ou zones d’un coup (cases à cocher). Caméras, serrures et alarmes exigent la confirmation ci-dessous.",
           "confirm_sensitive": "Sans cette case, l'enregistrement est refusé si la sélection contient une caméra, une serrure ou une alarme.",
           "allow_remote": "Désactivé par défaut. Le compte n'est plus « local uniquement » pendant le séjour. Home Assistant doit déjà être joignable de l'extérieur ; ce module n'ouvre rien. À activer aussi pour un essai du compte HA via Tailscale (une IP 100.x n'est pas locale).",
           "notify_service": "Ex. notify.mobile_app_telephone. Vide = notification persistante seulement. Destinataire : vous, pas le locataire.",
@@ -187,8 +185,7 @@
           "upload_mbps": "Débit montant (Mbit/s)",
           "extra_days": "Jours supplémentaires après le séjour",
           "access_mode": "Comptes Home Assistant",
-          "tenant_entities": "Entités autorisées",
-          "tenant_devices": "Appareils autorisés",
+          "tenant_target": "Équipements locataire",
           "confirm_sensitive": "J'autorise caméras, serrures ou alarmes",
           "allow_remote": "Accès internet pendant le séjour",
           "notify_service": "Notification (optionnelle)",
@@ -241,7 +238,8 @@
           "manual_wifi_code": "Code EasyPass. Vide = ne pas changer.",
           "enable_nuki": "PIN Keypad par séjour. Décochez : le mail part sans code porte. Le bouton ouvrir/fermer de Maison n'en dépend pas.",
           "nuki_token": "Jeton Nuki Web API. Vide = ne pas changer.",
-          "nuki_smartlock_id": "Vide = première serrure avec Keypad."
+          "nuki_smartlock_id": "Vide = première serrure avec Keypad.",
+          "tenant_target": "Choisissez plusieurs entités, appareils ou zones d’un coup (cases à cocher). Caméras, serrures et alarmes exigent la confirmation ci-dessous."
         }
       }
     },

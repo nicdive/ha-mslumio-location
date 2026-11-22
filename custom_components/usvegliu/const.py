@@ -29,6 +29,8 @@ CONF_COVER_ENTITIES: Final = "cover_entities"
 CONF_LIGHT_ENTITIES: Final = "light_entities"
 CONF_TENANT_ENTITIES: Final = "tenant_entities"
 CONF_TENANT_DEVICES: Final = "tenant_devices"
+# Options-form only (Target selector). Expanded into the two lists above.
+CONF_TENANT_TARGET: Final = "tenant_target"
 CONF_ALLOW_REMOTE: Final = "allow_remote"
 CONF_CONFIRM_SENSITIVE: Final = "confirm_sensitive"
 CONF_NOTIFY_SERVICE: Final = "notify_service"

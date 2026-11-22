@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.39] — 2026-11-22
+
+### Amélioré
+- Options : un seul sélecteur **Équipements locataire** (target HA) pour cocher plusieurs entités, appareils ou zones d’un coup.
+
+[0.6.39]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.39
+
 ## [0.6.38] — 2026-11-22
 
 ### Corrigé
