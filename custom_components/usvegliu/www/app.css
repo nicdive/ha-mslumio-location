@@ -39,17 +39,21 @@ body[data-theme="ledbury"] .fan-line {
   display: none !important;
 }
 
-/* Ledbury banner is the brand hero — give it more presence than the default mark */
+/* Ledbury stacked door+wordmark — taller mark, more presence */
+body[data-theme="ledbury"] .brand {
+  margin-bottom: 10px;
+}
+
 body[data-theme="ledbury"] .brand-logo {
-  width: min(100%, 520px);
+  width: min(72%, 280px);
 }
 
 body[data-theme="ledbury"] .brand-room .brand-logo {
-  width: min(88%, 340px);
+  width: min(42%, 168px);
 }
 
 body[data-theme="ledbury"] .status .brand {
-  width: min(100%, 420px);
+  width: min(100%, 300px);
 }
 
 * {
@@ -1232,15 +1236,15 @@ h1 {
   }
 
   body[data-theme="ledbury"] .brand-logo {
-    width: min(100%, 640px);
+    width: min(48%, 320px);
   }
 
   body[data-theme="ledbury"] .brand-room .brand-logo {
-    width: min(58%, 400px);
+    width: min(28%, 200px);
   }
 
   body[data-theme="ledbury"] .status .brand {
-    width: min(100%, 560px);
+    width: min(100%, 340px);
   }
 
   .dock {

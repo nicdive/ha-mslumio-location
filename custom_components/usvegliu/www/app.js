@@ -501,7 +501,7 @@
     const alt = `${brand.name}${brand.tagline ? `, ${brand.tagline}` : ""}`;
     return `<header class="brand${withBack ? " brand-room" : ""}">
       ${withBack ? backArrow() : ""}
-      <img class="brand-logo" src="${escapeHtml(brand.banner)}" width="1490" height="400" alt="${escapeHtml(alt)}" />
+      <img class="brand-logo" src="${escapeHtml(brand.banner)}" alt="${escapeHtml(alt)}" />
     </header>`;
   }
 
