@@ -10,6 +10,7 @@
   --line-strong: rgba(43, 36, 28, 0.18);
   --bronze: #8d6a45;
   --bronze-soft: rgba(141, 106, 69, 0.14);
+  --lamp-on: #d4a017;
   --heat: #b4533c;
   --cool: #5a7582;
   --danger: #8e3a32;
@@ -790,7 +791,7 @@ h1 {
 
 .row .lamp {
   display: flex;
-  color: var(--bronze);
+  color: var(--lamp-on);
 }
 
 .row .lamp.off {
