@@ -39,6 +39,19 @@ body[data-theme="ledbury"] .fan-line {
   display: none !important;
 }
 
+/* Ledbury banner is the brand hero — give it more presence than the default mark */
+body[data-theme="ledbury"] .brand-logo {
+  width: min(100%, 520px);
+}
+
+body[data-theme="ledbury"] .brand-room .brand-logo {
+  width: min(88%, 340px);
+}
+
+body[data-theme="ledbury"] .status .brand {
+  width: min(100%, 420px);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -1216,6 +1229,18 @@ h1 {
 
   .brand-room .brand-logo {
     width: min(46%, 280px);
+  }
+
+  body[data-theme="ledbury"] .brand-logo {
+    width: min(100%, 640px);
+  }
+
+  body[data-theme="ledbury"] .brand-room .brand-logo {
+    width: min(58%, 400px);
+  }
+
+  body[data-theme="ledbury"] .status .brand {
+    width: min(100%, 560px);
   }
 
   .dock {

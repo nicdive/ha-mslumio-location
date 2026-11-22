@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.44] — 2026-11-22
+
+### Amélioré
+- Ledbury : bandeau **plus graphique** (porte stylisée + typo type Usvegliu) et **plus grand** à l’écran.
+
+[0.6.44]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.44
+
 ## [0.6.43] — 2026-11-22
 
 ### Amélioré
