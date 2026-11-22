@@ -4,6 +4,14 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.36] — 2026-11-22
+
+### Amélioré
+- Thème **49 Ledbury** : logo porte Portobello en bannière, palette crème / vert forêt / blush.
+- Ledbury = chauffage sol + radiateurs : plus de soufflante / vitesses d’air dans Maison ; onglet toujours « Chauffage ».
+
+[0.6.36]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.36
+
 ## [0.6.35] — 2026-11-22
 
 ### Ajouté

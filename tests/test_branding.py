@@ -31,12 +31,21 @@ def test_unifi_configured_helper():
 
 
 def test_ledbury_brand_payload():
+    from custom_components.usvegliu.branding import brand_climate_fans, brand_heat_only
+
     brand = guest_brand(THEME_LEDBURY)
     assert brand["name"] == "49 Ledbury"
     assert brand["place"] == "Notting Hill"
+    assert "Portobello" in brand["tagline"]
     assert brand["banner"].endswith("logo-banner-ledbury.png")
     assert brand["logo"].endswith("logo-ledbury.png")
     assert brand["wifi_ssid_default"] == "49Ledbury-Guest"
+    assert brand["climate_fans"] == "0"
+    assert brand["climate_heat_only"] == "1"
+    assert not brand_climate_fans(brand)
+    assert brand_heat_only(brand)
+    assert brand_climate_fans(guest_brand(THEME_USVEGLIU))
+    assert not brand_heat_only(guest_brand(THEME_USVEGLIU))
     assert brand_from_options({"guest_theme": "ledbury"})["id"] == THEME_LEDBURY
 
 
@@ -78,6 +87,10 @@ def test_ledbury_logo_assets_ship():
     js = (www / "app.js").read_text(encoding="utf-8")
     assert 'data-theme="ledbury"' in css or "data-theme=\"ledbury\"" in css
     assert "body[data-theme=\"ledbury\"]" in css
+    assert "fan-line" in css
+    assert "display: none !important" in css
+    assert "roomHasFan" in js
+    assert "climateFans" in js
     assert "applyBrandChrome" in js
     assert "logo-banner-ledbury.png" in js or "brand.banner" in js
     flow = (

@@ -136,11 +136,13 @@
   }
 
   function modeLabel() {
+    if (brandInfo().heatOnly) return "Chauffage";
     if (state && state.mode_label) return state.mode_label;
     return state && state.mode === "heat" ? "Chauffage" : "Climatisation";
   }
 
   function modeTabLabel() {
+    if (brandInfo().heatOnly) return "Chauffage";
     if (state && (state.mode === "heat" || state.mode_label === "Chauffage")) {
       return "Chauffage";
     }
@@ -262,7 +264,23 @@
       banner: brand.banner || "/usvegliu/static/logo-banner.png",
       logo: brand.logo || "/usvegliu/static/logo.png",
       themeColor: brand.theme_color || "#F1EBE2",
+      climateFans: !(
+        brand.climate_fans === "0" ||
+        brand.climate_fans === false ||
+        brand.id === "ledbury"
+      ),
+      heatOnly: Boolean(
+        brand.climate_heat_only === "1" ||
+          brand.climate_heat_only === true ||
+          brand.id === "ledbury"
+      ),
     };
+  }
+
+  function roomHasFan(room) {
+    if (!brandInfo().climateFans) return false;
+    if (room && room.supports_fan === false) return false;
+    return true;
   }
 
   function applyBrandChrome() {
@@ -721,7 +739,11 @@
           </div>
           <div class="adjust-controls">
             <button class="power ${room.on ? "on" : ""}" type="button" data-act="on" data-id="${escapeAttr(room.entity_id)}" aria-label="${room.on ? "Éteindre" : "Allumer"}">${powerGlyph(14)}</button>
-            <button class="fan-chip" type="button" data-act="fan" data-id="${escapeAttr(room.entity_id)}" ${room.on ? "" : "disabled"} aria-label="Ventilation">${windGlyph(18)}<span>${room.fan || 2}</span></button>
+            ${
+              roomHasFan(room)
+                ? `<button class="fan-chip" type="button" data-act="fan" data-id="${escapeAttr(room.entity_id)}" ${room.on ? "" : "disabled"} aria-label="Ventilation">${windGlyph(18)}<span>${room.fan || 2}</span></button>`
+                : ""
+            }
             <div class="setpoint">
               <button class="chevron" type="button" data-act="minus" data-id="${escapeAttr(room.entity_id)}" ${room.on ? "" : "disabled"} aria-label="Moins">
                 <svg width="10" height="16" viewBox="0 0 10 16"><path d="M8 1 L2 8 L8 15" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -775,7 +797,9 @@
       <button class="circle ${room.on ? "filled" : ""}" type="button" data-act="on" data-id="${escapeAttr(room.entity_id)}" aria-label="${room.on ? "Éteindre" : "Allumer"}">${powerGlyph(20)}</button>
       <button class="circle" type="button" data-act="plus" data-id="${escapeAttr(room.entity_id)}" ${room.on ? "" : "disabled"} aria-label="Plus">+</button>
     </div>
-    <div class="fan-line">
+    ${
+      roomHasFan(room)
+        ? `<div class="fan-line">
       <span class="label">${windGlyph(20)} Air</span>
       <div class="fan-row">
         ${[1, 2, 3]
@@ -785,7 +809,9 @@
           })
           .join("")}
       </div>
-    </div>`;
+    </div>`
+        : ""
+    }`;
   }
 
   function climateSection() {
@@ -1171,11 +1197,13 @@
       return;
     }
     if (act === "fan" && room) {
+      if (!roomHasFan(room)) return;
       const next = room.fan >= 3 ? 1 : (room.fan || 1) + 1;
       commandClimate(id, { fan: next });
       return;
     }
     if (act === "fan-set" && room) {
+      if (!roomHasFan(room)) return;
       commandClimate(id, { fan: Number(button.getAttribute("data-fan")) });
       return;
     }

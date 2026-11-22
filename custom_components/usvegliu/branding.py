@@ -27,20 +27,38 @@ _THEMES: Final[dict[str, dict[str, str]]] = {
         "banner": "/usvegliu/static/logo-banner.png",
         "theme_color": "#F1EBE2",
         "wifi_ssid_default": "Usvegliu-Guest",
+        # Fan-coil / soufflante speeds in Maison.
+        "climate_fans": "1",
+        "climate_heat_only": "0",
     },
     THEME_LEDBURY: {
         "id": THEME_LEDBURY,
         "name": "49 Ledbury",
-        "tagline": "Notting Hill",
+        "tagline": "Notting Hill · Portobello",
         "place": "Notting Hill",
         "team": "The 49 Ledbury team",
         "welcome_house": "49 Ledbury",
         "logo": "/usvegliu/static/logo-ledbury.png",
         "banner": "/usvegliu/static/logo-banner-ledbury.png",
-        "theme_color": "#E8EEE6",
+        "theme_color": "#F3EEE6",
         "wifi_ssid_default": "49Ledbury-Guest",
+        # Underfloor heating + radiators — no blower UI.
+        "climate_fans": "0",
+        "climate_heat_only": "1",
     },
 }
+
+
+def brand_climate_fans(brand: Mapping[str, Any] | None) -> bool:
+    """True when Maison should show fan / soufflante controls."""
+    brand = brand or {}
+    return str(brand.get("climate_fans") or "1").strip() not in {"0", "false", "no"}
+
+
+def brand_heat_only(brand: Mapping[str, Any] | None) -> bool:
+    """True when the house is heating-only (UFH / radiators)."""
+    brand = brand or {}
+    return str(brand.get("climate_heat_only") or "0").strip() in {"1", "true", "yes"}
 
 
 def normalize_guest_theme(raw: object) -> str:
@@ -79,7 +97,9 @@ __all__ = (
     "DEFAULT_GUEST_THEME",
     "THEME_LEDBURY",
     "THEME_USVEGLIU",
+    "brand_climate_fans",
     "brand_from_options",
+    "brand_heat_only",
     "guest_brand",
     "normalize_guest_theme",
     "unifi_configured",

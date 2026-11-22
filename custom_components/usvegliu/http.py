@@ -15,6 +15,7 @@ from typing import Any
 
 from homeassistant.components.http import HomeAssistantView
 
+from .branding import brand_climate_fans, brand_heat_only
 from .const import DOMAIN, EVENT_DEMO
 from .demo import (
     apply_demo_climate,
@@ -24,6 +25,7 @@ from .demo import (
     overlay_demo_snapshot,
 )
 from .guest_session import (
+    HOUSE_HEAT,
     format_arrival_day,
     stay_activation_start,
     stay_is_active,
@@ -191,7 +193,11 @@ def _area_name(hass: Any, entity_id: str) -> str:
 
 
 def _serialize_climate(
-    hass: Any, entity_id: str, *, house_mode: str
+    hass: Any,
+    entity_id: str,
+    *,
+    house_mode: str,
+    allow_fans: bool = True,
 ) -> dict[str, Any] | None:
     state = hass.states.get(entity_id)
     if state is None:
@@ -199,6 +205,7 @@ def _serialize_climate(
     attrs = state.attributes
     fan_modes = [str(mode) for mode in (attrs.get("fan_modes") or [])]
     mapping = map_fan_modes(fan_modes)
+    supports_fan = bool(allow_fans and mapping)
     measured = attrs.get("current_temperature")
     setpoint = attrs.get("temperature")
     try:
@@ -224,10 +231,36 @@ def _serialize_climate(
             measured=measured_f,
             setpoint=setpoint_f,
         ),
-        "fan": infer_fan_speed(attrs.get("fan_mode"), mapping),
+        "supports_fan": supports_fan,
+        "fan": infer_fan_speed(attrs.get("fan_mode"), mapping) if supports_fan else None,
         "min": float(attrs.get("min_temp") or 16),
         "max": float(attrs.get("max_temp") or 28),
     }
+
+
+def _theme_climate_snapshot(payload: dict[str, Any], brand: dict[str, Any]) -> dict[str, Any]:
+    """Ledbury = UFH/radiators: heat-only, no soufflante controls."""
+    out = dict(payload)
+    fans = brand_climate_fans(brand)
+    heat_only = brand_heat_only(brand)
+    if heat_only:
+        out["mode"] = HOUSE_HEAT
+        out["mode_label"] = house_mode_label(HOUSE_HEAT)
+    climates: list[dict[str, Any]] = []
+    for room in out.get("climates") or []:
+        item = dict(room)
+        if not fans:
+            item["supports_fan"] = False
+            item["fan"] = None
+        else:
+            item["supports_fan"] = bool(item.get("supports_fan", True))
+        climates.append(item)
+    out["climates"] = climates
+    brand_out = dict(out.get("brand") or {})
+    brand_out["climate_fans"] = "1" if fans else "0"
+    brand_out["climate_heat_only"] = "1" if heat_only else "0"
+    out["brand"] = brand_out
+    return out
 
 
 def _switch_state(hass: Any, runtime: Any) -> str | None:
@@ -492,6 +525,9 @@ def _snapshot(
     nuki_code = "" if nuki_revoked else str(record.get("nuki_code") or "")
     share = _guest_share_url(request, record)
     brand = runtime.guest_brand()
+    allow_fans = brand_climate_fans(brand)
+    if brand_heat_only(brand):
+        house_mode = HOUSE_HEAT
     payload = {
         "guest": record.get("guest") or "",
         "check_in": record.get("check_in") or "",
@@ -505,6 +541,8 @@ def _snapshot(
             "logo": brand["logo"],
             "banner": brand["banner"],
             "theme_color": brand["theme_color"],
+            "climate_fans": brand.get("climate_fans", "1"),
+            "climate_heat_only": brand.get("climate_heat_only", "0"),
         },
         "informations": {
             "wifi_ssid": runtime.wifi_ssid(),
@@ -522,7 +560,14 @@ def _snapshot(
         "climates": [
             item
             for entity_id in climates
-            if (item := _serialize_climate(hass, entity_id, house_mode=house_mode))
+            if (
+                item := _serialize_climate(
+                    hass,
+                    entity_id,
+                    house_mode=house_mode,
+                    allow_fans=allow_fans,
+                )
+            )
         ],
         "lights": [
             item
@@ -589,8 +634,9 @@ def _snapshot(
     }
     villa = runtime.demo_villa() if runtime.demo_mode() else None
     if villa:
-        return overlay_demo_snapshot(payload, villa, house_mode=house_mode)
-    return payload
+        demo_mode = HOUSE_HEAT if brand_heat_only(brand) else house_mode
+        payload = overlay_demo_snapshot(payload, villa, house_mode=demo_mode)
+    return _theme_climate_snapshot(payload, brand)
 
 
 def _partition(hass: Any, entity_ids: list[str]) -> tuple[list[str], list[str]]:
@@ -764,14 +810,23 @@ class GuestClimateView(HomeAssistantView):
         except Exception:  # noqa: BLE001
             return _json_error(self, 400, "bad_json")
         entity_id = str(body.get("entity_id") or "")
+        brand = runtime.guest_brand()
+        allow_fans = brand_climate_fans(brand)
+        heat_only = brand_heat_only(brand)
         if runtime.demo_mode() and is_demo_entity(entity_id):
             villa = runtime.demo_villa()
             if villa is None:
                 return _json_error(self, 404, "missing")
-            house_mode = _house_mode(hass, runtime, [])
+            house_mode = HOUSE_HEAT if heat_only else _house_mode(hass, runtime, [])
+            if not allow_fans:
+                body = {key: value for key, value in body.items() if key != "fan"}
             item = apply_demo_climate(villa, entity_id, body, house_mode=house_mode)
             if item is None:
                 return _json_error(self, 404, "missing")
+            item = dict(item)
+            item["supports_fan"] = False if not allow_fans else bool(item.get("supports_fan", True))
+            if not allow_fans:
+                item["fan"] = None
             hass.bus.async_fire(EVENT_DEMO)
             return self.json(item)
         climates, _locks = _partition(hass, runtime.allowed_entity_ids(record))
@@ -784,7 +839,7 @@ class GuestClimateView(HomeAssistantView):
         fan_modes = [str(mode) for mode in (attrs.get("fan_modes") or [])]
         mapping = map_fan_modes(fan_modes)
         hvac_modes = [str(mode) for mode in (attrs.get("hvac_modes") or [])]
-        house_mode = _house_mode(hass, runtime, climates)
+        house_mode = HOUSE_HEAT if heat_only else _house_mode(hass, runtime, climates)
         try:
             if "on" in body:
                 if body["on"]:
@@ -812,7 +867,7 @@ class GuestClimateView(HomeAssistantView):
                     },
                     blocking=True,
                 )
-            if "fan" in body and body["fan"] is not None:
+            if allow_fans and "fan" in body and body["fan"] is not None:
                 speed = int(body["fan"])
                 mode = mapping.get(speed)
                 if mode:
@@ -825,7 +880,9 @@ class GuestClimateView(HomeAssistantView):
         except Exception:  # noqa: BLE001
             _LOGGER.exception("Guest climate command failed")
             return _json_error(self, 502, "command_failed")
-        payload = _serialize_climate(hass, entity_id, house_mode=house_mode)
+        payload = _serialize_climate(
+            hass, entity_id, house_mode=house_mode, allow_fans=allow_fans
+        )
         return self.json(payload or {"entity_id": entity_id})
 
 

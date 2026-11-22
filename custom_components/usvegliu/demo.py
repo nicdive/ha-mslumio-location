@@ -63,6 +63,7 @@ def _climate(
         "activity": climate_activity(
             on=on, house_mode=house_mode, measured=measured, setpoint=setpoint
         ),
+        "supports_fan": True,
         "fan": fan,
         "min": 16,
         "max": 28,
