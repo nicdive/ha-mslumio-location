@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.40] — 2026-11-22
+
+### Corrigé
+- Config flow : plus d’erreur **400 Bad Request** après 0.6.39 (TargetSelector sans filtres vides `entity={}` / `area={}`).
+
+[0.6.40]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.40
+
 ## [0.6.39] — 2026-11-22
 
 ### Amélioré

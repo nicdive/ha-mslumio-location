@@ -115,6 +115,9 @@ def test_ledbury_logo_assets_ship():
     assert "_async_probe_cambium" in flow
     assert "SelectSelectorMode.LIST" in flow
     assert "CONF_MANUAL_WIFI_CODE" in flow
+    assert "TargetSelector()" in flow
+    assert "entity={}" not in flow
+    assert "area={}" not in flow
     strings = (
         Path(__file__).resolve().parents[1]
         / "custom_components"

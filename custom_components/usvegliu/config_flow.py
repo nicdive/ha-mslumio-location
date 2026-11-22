@@ -23,7 +23,6 @@ from homeassistant.helpers.selector import (
     SelectSelectorConfig,
     SelectSelectorMode,
     TargetSelector,
-    TargetSelectorConfig,
     TextSelector,
     TextSelectorConfig,
     TextSelectorType,
@@ -173,16 +172,12 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
                     mode=SelectSelectorMode.DROPDOWN,
                 )
             ),
+            # Plain TargetSelector (no empty filters): entity/device/area multi-pick.
+            # Empty entity:{} / area:{} break config-flow load on current HA (400).
             vol.Optional(
                 CONF_TENANT_TARGET,
-                default=_tenant_target_default(defaults),
-            ): TargetSelector(
-                TargetSelectorConfig(
-                    entity={},
-                    device={},
-                    area={},
-                )
-            ),
+                description={"suggested_value": _tenant_target_default(defaults)},
+            ): TargetSelector(),
             vol.Required(
                 CONF_CONFIRM_SENSITIVE,
                 default=False,
