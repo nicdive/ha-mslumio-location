@@ -541,6 +541,7 @@ def _snapshot(
             "logo": brand["logo"],
             "banner": brand["banner"],
             "theme_color": brand["theme_color"],
+            "locale": brand.get("locale", "fr"),
             "climate_fans": brand.get("climate_fans", "1"),
             "climate_heat_only": brand.get("climate_heat_only", "0"),
         },

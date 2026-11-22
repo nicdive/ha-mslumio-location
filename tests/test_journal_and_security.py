@@ -734,7 +734,7 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert 'record.get("voucher_code")' in http
     assert "voucher_revoked" in http
     assert "function infoSection" in js
-    assert "Informations" in js
+    assert "Good afternoon" in js
     assert "Réseau Wi-Fi" in js
     assert "Code Wi-Fi" in js
     assert "Code porte" in js
@@ -867,7 +867,7 @@ def test_guest_stream_is_server_sent_events():
     assert "/guest/command" in text
     assert "Lumière" in js
     assert "Accès" in js
-    assert "Informations" in js
+    assert "Good afternoon" in js
     assert "infoSection" in js
     assert "infoPage" in js
     assert "homePage" in js

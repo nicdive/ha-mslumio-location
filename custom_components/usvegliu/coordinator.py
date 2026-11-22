@@ -182,6 +182,7 @@ class UsvegliuRuntime:
         self._last_dashboard: dict[str, Any] = {}
         self._weather: dict[str, Any] | None = None
         self._weather_at = None
+        self._weather_key: str | None = None
         self._demo_on = False
         self._demo: dict[str, Any] | None = None
 
@@ -347,23 +348,32 @@ class UsvegliuRuntime:
             self.coordinator.async_set_updated_data(self.coordinator.data)
 
     def weather(self) -> dict[str, Any] | None:
-        """Last Lumio forecast, or None until the first successful fetch."""
+        """Last forecast for the house place, or None until the first fetch."""
         return self._weather
 
     async def async_ensure_weather(self) -> dict[str, Any] | None:
-        """Refresh Lumio weather when the cache is empty or stale."""
+        """Refresh weather when the cache is empty, stale, or the place changed."""
         from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-        from .weather import async_fetch_lumio_weather, weather_is_fresh
+        from .weather import async_fetch_weather, weather_is_fresh
 
+        brand = self.guest_brand()
+        place = str(brand.get("weather_place") or "lumio")
+        locale = str(brand.get("locale") or "fr")
+        cache_key = f"{place}:{locale}"
         now = dt_util.utcnow()
-        if weather_is_fresh(self._weather_at, now) and self._weather:
+        if (
+            self._weather_key == cache_key
+            and weather_is_fresh(self._weather_at, now)
+            and self._weather
+        ):
             return self._weather
         session = async_get_clientsession(self.hass)
-        fetched = await async_fetch_lumio_weather(session)
+        fetched = await async_fetch_weather(session, place=place, locale=locale)
         if fetched:
             self._weather = fetched
             self._weather_at = now
+            self._weather_key = cache_key
         return self._weather
 
     async def async_load(self) -> None:

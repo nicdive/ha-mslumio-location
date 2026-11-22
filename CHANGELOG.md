@@ -4,6 +4,15 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.37] — 2026-11-22
+
+### Amélioré
+- Ledbury : même style propre qu’Usvegliu ; logo porte **transparent** et plus large.
+- Interface Ledbury en **anglais** ; météo **London** (plus Lumio).
+- Polices équipements inchangées (stack Usvegliu).
+
+[0.6.37]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.37
+
 ## [0.6.36] — 2026-11-22
 
 ### Amélioré

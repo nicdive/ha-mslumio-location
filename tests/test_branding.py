@@ -35,7 +35,9 @@ def test_ledbury_brand_payload():
 
     brand = guest_brand(THEME_LEDBURY)
     assert brand["name"] == "49 Ledbury"
-    assert brand["place"] == "Notting Hill"
+    assert brand["place"] == "London"
+    assert brand["locale"] == "en"
+    assert brand["weather_place"] == "london"
     assert "Portobello" in brand["tagline"]
     assert brand["banner"].endswith("logo-banner-ledbury.png")
     assert brand["logo"].endswith("logo-ledbury.png")
@@ -70,19 +72,24 @@ def test_welcome_message_uses_house_and_team():
 def test_ledbury_logo_assets_ship():
     www = Path(__file__).resolve().parents[1] / "custom_components" / "usvegliu" / "www"
 
-    def png_size(path: Path) -> tuple[int, int]:
+    def png_info(path: Path) -> tuple[int, int, int]:
         with path.open("rb") as handle:
             assert handle.read(8) == b"\x89PNG\r\n\x1a\n"
             length, chunk = struct.unpack(">I4s", handle.read(8))
             assert chunk == b"IHDR" and length == 13
-            width, height = struct.unpack(">II", handle.read(8))
-        return width, height
+            width, height, bit_depth, color_type = struct.unpack(">IIBB", handle.read(10))
+        return width, height, color_type
 
     mark = www / "logo-ledbury.png"
     banner = www / "logo-banner-ledbury.png"
     assert mark.is_file() and banner.is_file()
-    assert png_size(mark) == (256, 256)
-    assert png_size(banner)[0] >= 1400
+    mark_w, mark_h, mark_ct = png_info(mark)
+    ban_w, ban_h, ban_ct = png_info(banner)
+    assert (mark_w, mark_h) == (256, 256)
+    assert ban_w >= 1400
+    # 6 = RGBA — transparent like the Usvegliu banner
+    assert mark_ct == 6
+    assert ban_ct == 6
     css = (www / "app.css").read_text(encoding="utf-8")
     js = (www / "app.js").read_text(encoding="utf-8")
     assert 'data-theme="ledbury"' in css or "data-theme=\"ledbury\"" in css
@@ -91,6 +98,7 @@ def test_ledbury_logo_assets_ship():
     assert "display: none !important" in css
     assert "roomHasFan" in js
     assert "climateFans" in js
+    assert 'I18N' in js and 'Good afternoon' in js
     assert "applyBrandChrome" in js
     assert "logo-banner-ledbury.png" in js or "brand.banner" in js
     flow = (

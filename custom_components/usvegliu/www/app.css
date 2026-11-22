@@ -22,127 +22,20 @@
   --atmosphere: radial-gradient(rgba(43, 36, 28, 0.055) 0.6px, transparent 0.7px);
 }
 
-/* 49 Ledbury — Portobello door: cream stone, forest green, blush pink */
+/* 49 Ledbury — same clean Usvegliu layout; forest green + door blush only */
 body[data-theme="ledbury"] {
-  --bg: #f0ebe3;
-  --bg-deep: #e4ddd2;
-  --paper: #faf7f2;
-  --ink: #1a2a20;
-  --ink-soft: #3f5348;
-  --muted: #7a8a80;
-  --faint: #b7c0b8;
-  --line: rgba(26, 42, 32, 0.1);
-  --line-strong: rgba(26, 42, 32, 0.18);
   --bronze: #1f3d2a;
-  --bronze-soft: rgba(31, 61, 42, 0.12);
-  --blush: #d9a0ae;
-  --blush-soft: rgba(217, 160, 174, 0.22);
+  --bronze-soft: rgba(31, 61, 42, 0.14);
   --heat: #c45c6a;
-  --cool: #4f6d78;
-  --danger: #8e3a32;
-  --serif: "Didot", "Bodoni MT", "Playfair Display", Georgia, serif;
-  --sans: "Gill Sans", "Gill Sans MT", "Trebuchet MS", "Segoe UI", sans-serif;
-  --radius: 20px;
-  --shadow: 0 1px 0 rgba(26, 42, 32, 0.04), 0 16px 36px rgba(26, 42, 32, 0.07);
-  --atmosphere:
-    radial-gradient(ellipse 110% 70% at 8% -8%, rgba(217, 160, 174, 0.28), transparent 52%),
-    radial-gradient(ellipse 80% 60% at 100% 4%, rgba(31, 61, 42, 0.14), transparent 48%),
-    radial-gradient(ellipse 60% 40% at 50% 100%, rgba(243, 238, 230, 0.9), transparent 60%),
-    linear-gradient(180deg, rgba(250, 247, 242, 0.35), transparent 42%),
-    radial-gradient(rgba(26, 42, 32, 0.035) 0.55px, transparent 0.65px);
-}
-
-body[data-theme="ledbury"]::before {
-  opacity: 1;
-  background-image: var(--atmosphere);
-  background-size: auto, auto, auto, auto, 3px 3px;
-}
-
-body[data-theme="ledbury"] .brand {
-  margin-bottom: 22px;
-  animation: ledbury-rise 0.7s var(--ease) both;
-}
-
-body[data-theme="ledbury"] .brand-logo {
-  width: min(100%, 300px);
-  filter: drop-shadow(0 10px 24px rgba(31, 61, 42, 0.08));
-}
-
-body[data-theme="ledbury"] .brand-room .brand-logo {
-  width: min(64%, 200px);
-}
-
-body[data-theme="ledbury"] .welcome {
-  letter-spacing: -0.03em;
-  animation: ledbury-rise 0.75s var(--ease) 0.08s both;
-}
-
-body[data-theme="ledbury"] .kicker {
-  color: var(--bronze);
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  font-size: 11px;
-  font-family: var(--sans);
-}
-
-body[data-theme="ledbury"] .dock {
-  background: rgba(250, 247, 242, 0.94);
-  border-top-color: rgba(31, 61, 42, 0.1);
-}
-
-body[data-theme="ledbury"] .dock-item.on {
-  color: var(--bronze);
-}
-
-body[data-theme="ledbury"] .weather,
-body[data-theme="ledbury"] .status-sheet,
-body[data-theme="ledbury"] .info-sheet,
-body[data-theme="ledbury"] .adjust,
-body[data-theme="ledbury"] .room-card {
-  border-color: rgba(31, 61, 42, 0.1);
-  background: linear-gradient(180deg, #fffdf9 0%, var(--paper) 100%);
-}
-
-body[data-theme="ledbury"] .weather {
-  animation: ledbury-rise 0.8s var(--ease) 0.14s both;
-}
-
-body[data-theme="ledbury"] .weather-icon {
-  color: var(--blush);
-}
-
-body[data-theme="ledbury"] .dial-wrap.heating .progress,
-body[data-theme="ledbury"] .room-card.heating .room-card-temp,
-body[data-theme="ledbury"] .adjust.heating .measured {
-  color: var(--heat);
-}
-
-body[data-theme="ledbury"] .dial-wrap.heating .progress {
-  stroke: var(--heat);
+  --line: rgba(31, 61, 42, 0.1);
+  --line-strong: rgba(31, 61, 42, 0.18);
+  --shadow: 0 1px 0 rgba(31, 61, 42, 0.04), 0 18px 40px rgba(31, 61, 42, 0.07);
+  --atmosphere: radial-gradient(rgba(31, 61, 42, 0.05) 0.6px, transparent 0.7px);
 }
 
 body[data-theme="ledbury"] .fan-chip,
 body[data-theme="ledbury"] .fan-line {
   display: none !important;
-}
-
-@keyframes ledbury-rise {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  body[data-theme="ledbury"] .brand,
-  body[data-theme="ledbury"] .welcome,
-  body[data-theme="ledbury"] .weather {
-    animation: none;
-  }
 }
 
 * {

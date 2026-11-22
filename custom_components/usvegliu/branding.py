@@ -27,26 +27,39 @@ _THEMES: Final[dict[str, dict[str, str]]] = {
         "banner": "/usvegliu/static/logo-banner.png",
         "theme_color": "#F1EBE2",
         "wifi_ssid_default": "Usvegliu-Guest",
+        "locale": "fr",
         # Fan-coil / soufflante speeds in Maison.
         "climate_fans": "1",
         "climate_heat_only": "0",
+        "weather_place": "lumio",
     },
     THEME_LEDBURY: {
         "id": THEME_LEDBURY,
         "name": "49 Ledbury",
         "tagline": "Notting Hill · Portobello",
-        "place": "Notting Hill",
+        "place": "London",
         "team": "The 49 Ledbury team",
         "welcome_house": "49 Ledbury",
         "logo": "/usvegliu/static/logo-ledbury.png",
         "banner": "/usvegliu/static/logo-banner-ledbury.png",
-        "theme_color": "#F3EEE6",
+        "theme_color": "#F1EBE2",
         "wifi_ssid_default": "49Ledbury-Guest",
+        "locale": "en",
         # Underfloor heating + radiators — no blower UI.
         "climate_fans": "0",
         "climate_heat_only": "1",
+        "weather_place": "london",
     },
 }
+
+
+def brand_locale(brand: Mapping[str, Any] | None) -> str:
+    """Guest app language: fr (default) or en (Ledbury)."""
+    brand = brand or {}
+    value = str(brand.get("locale") or "").strip().casefold()
+    if value.startswith("en"):
+        return "en"
+    return "fr"
 
 
 def brand_climate_fans(brand: Mapping[str, Any] | None) -> bool:
@@ -100,6 +113,7 @@ __all__ = (
     "brand_climate_fans",
     "brand_from_options",
     "brand_heat_only",
+    "brand_locale",
     "guest_brand",
     "normalize_guest_theme",
     "unifi_configured",
