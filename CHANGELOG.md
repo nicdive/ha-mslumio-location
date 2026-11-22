@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.48] — 2026-11-22
+
+### Amélioré
+- Ledbury : sous-titre **Notting Hill · London** plus lisible.
+
+[0.6.48]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.48
+
 ## [0.6.47] — 2026-11-22
 
 ### Amélioré
