@@ -22,6 +22,8 @@
   let roomId = null;
   let error = "";
   let arrivalNote = "";
+  /** Pending arm/disarm confirmation: { id, cmd } or null. */
+  let alarmConfirm = null;
 
   function readToken() {
     const path = window.location.pathname.replace(/\/+$/, "");
@@ -383,6 +385,11 @@
       disarmed: "Désarmée",
       arm: "Armer",
       disarm: "Désarmer",
+      cancel: "Annuler",
+      confirm_arm: "Armer l'alarme ?",
+      confirm_disarm: "Désarmer l'alarme ?",
+      confirm_arm_hint: "L'alarme passera en mode absence.",
+      confirm_disarm_hint: "Les capteurs ne déclencheront plus l'alarme.",
       light_on: "Allumée",
       light_off: "Éteinte",
       water: "Eau",
@@ -483,6 +490,11 @@
       disarmed: "Disarmed",
       arm: "Arm",
       disarm: "Disarm",
+      cancel: "Cancel",
+      confirm_arm: "Arm the alarm?",
+      confirm_disarm: "Disarm the alarm?",
+      confirm_arm_hint: "The alarm will switch to away mode.",
+      confirm_disarm_hint: "Sensors will no longer trigger the alarm.",
       light_on: "On",
       light_off: "Off",
       water: "Water",
@@ -1089,10 +1101,59 @@
     </aside>`;
   }
 
+  function alarmConfirmPopup() {
+    if (!alarmConfirm) return "";
+    const alarm = ((state && state.alarms) || []).find(
+      (item) => item.entity_id === alarmConfirm.id
+    );
+    if (!alarm) return "";
+    const arming = alarmConfirm.cmd === "arm";
+    return `<aside class="confirm-pop" role="dialog" aria-modal="true" aria-label="${escapeAttr(t("alarm"))}">
+      <div class="confirm-pop-card">
+        <p class="confirm-pop-kicker">${escapeHtml(alarm.name || t("alarm"))}</p>
+        <h2 class="confirm-pop-title">${escapeHtml(arming ? t("confirm_arm") : t("confirm_disarm"))}</h2>
+        <p class="confirm-pop-text">${escapeHtml(arming ? t("confirm_arm_hint") : t("confirm_disarm_hint"))}</p>
+        <div class="confirm-pop-actions">
+          <button class="confirm-pop-cancel" type="button" data-act="alarm-cancel">${escapeHtml(t("cancel"))}</button>
+          <button class="confirm-pop-go${arming ? "" : " danger"}" type="button" data-act="alarm-confirm" data-id="${escapeAttr(alarm.entity_id)}" data-cmd="${escapeAttr(alarmConfirm.cmd)}">${escapeHtml(arming ? t("arm") : t("disarm"))}</button>
+        </div>
+      </div>
+    </aside>`;
+  }
+
+  function alarmTone(alarm) {
+    if (alarm.state === "triggered") return "triggered";
+    if (alarm.state === "pending") return "pending";
+    if (alarm.state === "armed") return "armed";
+    return "disarmed";
+  }
+
+  function alarmHomeCards() {
+    const alarms = (state && state.alarms) || [];
+    if (!alarms.length) return "";
+    return alarms
+      .map((alarm) => {
+        const tone = alarmTone(alarm);
+        const next =
+          alarm.state === "disarmed"
+            ? { label: t("arm"), cmd: "arm" }
+            : { label: t("disarm"), cmd: "disarm" };
+        return `<section class="status-sheet alarm-sheet ${tone}">
+        ${accessGlyph("alarm", alarm)}
+        <div class="charger-copy">
+          <div class="status-label">${escapeHtml(t("alarm"))}</div>
+          <div class="status-name">${escapeHtml(alarm.name)}</div>
+          <div class="status-value">${escapeHtml(alarmStatus(alarm))}</div>
+        </div>
+        <button class="access-action${next.cmd === "disarm" ? " filled" : ""}" type="button" data-act="alarm" data-id="${escapeAttr(alarm.entity_id)}" data-cmd="${escapeAttr(next.cmd)}">${escapeHtml(next.label)}</button>
+      </section>`;
+      })
+      .join("");
+  }
+
   function statusCards() {
     const chargers = ((state && state.chargers) || []).filter(chargerIsPlugged);
-    if (!chargers.length) return "";
-    return chargers
+    const chargerCards = chargers
       .map(
         (item) => `<section class="status-sheet charger-sheet${item.state === "charging" ? " live" : ""}">
         ${carGlyph(item)}
@@ -1104,6 +1165,7 @@
       </section>`
       )
       .join("");
+    return `${alarmHomeCards()}${chargerCards}`;
   }
 
   function lampGlyph(on) {
@@ -1546,7 +1608,28 @@
   }
 
   function appChrome(inner, withBack) {
-    return `<div class="shell${withBack ? " shell-room" : ""}">${brandBar(withBack)}${dock()}<main class="stage">${inner}</main>${visioPopup()}</div>`;
+    return `<div class="shell${withBack ? " shell-room" : ""}">${brandBar(withBack)}${dock()}<main class="stage">${inner}</main>${visioPopup()}${alarmConfirmPopup()}</div>`;
+  }
+
+  function syncShellOverlay(selector, html) {
+    const shell = root.querySelector(".shell");
+    if (!shell) return;
+    const existing = root.querySelector(selector);
+    if (existing && !html) {
+      existing.remove();
+      return;
+    }
+    if (!existing && html) {
+      shell.insertAdjacentHTML("beforeend", html);
+      const next = root.querySelector(selector);
+      if (next) bind(next);
+      return;
+    }
+    if (existing && html) {
+      existing.outerHTML = html;
+      const next = root.querySelector(selector);
+      if (next) bind(next);
+    }
   }
 
   function statusPage(message, kind) {
@@ -1624,16 +1707,9 @@
         syncBrandMode(withBack);
         stage.innerHTML = body;
         if (!withBack) syncDock();
-        const visio = root.querySelector(".visio-pop");
-        const nextVisio = visioPopup();
-        if (visio && !nextVisio) visio.remove();
-        else if (!visio && nextVisio) shell.insertAdjacentHTML("beforeend", nextVisio);
-        else if (visio && nextVisio) {
-          visio.outerHTML = nextVisio;
-          const pop = root.querySelector(".visio-pop");
-          if (pop) bind(pop);
-        }
         bind(stage);
+        syncShellOverlay(".visio-pop", visioPopup());
+        syncShellOverlay(".confirm-pop", alarmConfirmPopup());
         placeDock();
         return;
       }
@@ -1792,7 +1868,25 @@
       return;
     }
     if (act === "alarm") {
-      commandEntity("alarms", id, button.getAttribute("data-cmd"));
+      const cmd = button.getAttribute("data-cmd");
+      if (cmd !== "arm" && cmd !== "disarm") return;
+      alarmConfirm = { id, cmd };
+      render();
+      return;
+    }
+    if (act === "alarm-cancel") {
+      alarmConfirm = null;
+      render();
+      return;
+    }
+    if (act === "alarm-confirm") {
+      const cmd = button.getAttribute("data-cmd");
+      alarmConfirm = null;
+      if (cmd === "arm" || cmd === "disarm") {
+        commandEntity("alarms", id, cmd);
+      } else {
+        render();
+      }
       return;
     }
     if (act === "visio-close") {

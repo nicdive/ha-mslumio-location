@@ -773,6 +773,7 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     const = (root / "const.py").read_text(encoding="utf-8")
     http = (root / "http.py").read_text(encoding="utf-8")
     js = (root / "www" / "app.js").read_text(encoding="utf-8")
+    css = (root / "www" / "app.css").read_text(encoding="utf-8")
     flow = (root / "config_flow.py").read_text(encoding="utf-8")
     coord = (root / "coordinator.py").read_text(encoding="utf-8")
     assert 'CONF_WIFI_SSID: Final = "wifi_ssid"' in const
@@ -829,6 +830,14 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert "state.demo" in js
     assert "Armer" in js
     assert "Désarmer" in js
+    assert "confirm_arm" in js
+    assert "Armer l'alarme ?" in js
+    assert "function alarmConfirmPopup" in js
+    assert "function alarmHomeCards" in js
+    assert 'data-act="alarm-confirm"' in js
+    assert 'data-act="alarm-cancel"' in js
+    assert "alarm-sheet" in css
+    assert "confirm-pop" in css
     assert '"cameras"' in http
     assert "GuestSnapshotView" in http
     assert "guest_alarm_service" in http

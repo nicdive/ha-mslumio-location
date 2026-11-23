@@ -331,10 +331,32 @@ button:active:not(:disabled) {
   box-shadow: var(--shadow);
 }
 
-.charger-sheet {
+.charger-sheet,
+.alarm-sheet {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.alarm-sheet .access-action {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.alarm-sheet.armed .access-mark,
+.alarm-sheet.armed .status-value,
+.alarm-sheet.pending .access-mark,
+.alarm-sheet.pending .status-value {
+  color: var(--bronze);
+}
+
+.alarm-sheet.triggered .access-mark,
+.alarm-sheet.triggered .status-value {
+  color: var(--danger);
+}
+
+.alarm-sheet.disarmed .status-value {
+  color: var(--muted);
 }
 
 .car-mark,
@@ -484,6 +506,93 @@ button:active:not(:disabled) {
   font-size: 13px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.confirm-pop {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 22;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+  background: rgba(43, 36, 28, 0.42);
+}
+
+.confirm-pop-card {
+  width: min(100%, 360px);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 22px 18px 16px;
+  text-align: center;
+}
+
+.confirm-pop-kicker {
+  margin: 0 0 10px;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.confirm-pop-title {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.confirm-pop-text {
+  margin: 10px 0 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.confirm-pop-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.confirm-pop-cancel,
+.confirm-pop-go {
+  min-height: 48px;
+  padding: 12px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.confirm-pop-cancel {
+  color: var(--ink-soft);
+  background: var(--bg-deep);
+  border: 1px solid var(--line);
+}
+
+.confirm-pop-go {
+  color: #fff;
+  background: var(--bronze);
+}
+
+.confirm-pop-go.danger {
+  background: var(--danger);
+}
+
+html[data-theme="ledbury"] .confirm-pop,
+body[data-theme="ledbury"] .confirm-pop {
+  background: rgba(28, 46, 38, 0.4);
 }
 
 .sound-cut {
