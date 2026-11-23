@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.53] — 2026-11-23
+
+### Amélioré
+- Thème **49 Ledbury** : fond d’écran vert doux style Notting Hill (`#e6f3ec` / accent `#258d60`). Logos restaurés (inchangés).
+
+[0.6.53]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.53
+
 ## [0.6.52] — 2026-11-23
 
 ### Amélioré
