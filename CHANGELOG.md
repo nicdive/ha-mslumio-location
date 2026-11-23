@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.79] — 2026-11-23
+
+### Amélioré
+- Bandeau Maison Ledbury : nouveau header noir / or / vert (essai).
+
+[0.6.79]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.79
+
 ## [0.6.78] — 2026-11-23
 
 ### Amélioré
