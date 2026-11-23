@@ -684,6 +684,17 @@ async def _bound(
     return hass, runtime, record
 
 
+def _package_version() -> str:
+    """Integration version for Maison asset cache-busting."""
+    try:
+        data = json.loads(
+            (_WWW.parent / "manifest.json").read_text(encoding="utf-8")
+        )
+        return str(data.get("version") or "0")
+    except (OSError, ValueError, TypeError):
+        return "0"
+
+
 class GuestPageView(HomeAssistantView):
     """Serve the web app. The token is validated by the JSON API."""
 
@@ -699,7 +710,16 @@ class GuestPageView(HomeAssistantView):
         index = _WWW / "index.html"
         if not index.is_file():
             return web.Response(status=404, text="missing")
-        return web.FileResponse(index)
+        html = index.read_text(encoding="utf-8")
+        ver = _package_version()
+        html = html.replace("/usvegliu/static/app.css", f"/usvegliu/static/app.css?v={ver}")
+        html = html.replace("/usvegliu/static/app.js", f"/usvegliu/static/app.js?v={ver}")
+        return web.Response(
+            text=html,
+            content_type="text/html",
+            charset="utf-8",
+            headers={"Cache-Control": "no-cache"},
+        )
 
 
 class GuestServiceWorkerView(HomeAssistantView):

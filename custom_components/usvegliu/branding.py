@@ -45,7 +45,7 @@ _THEMES: Final[dict[str, dict[str, str]]] = {
         "welcome_house": "49 Ledbury",
         "logo": "/usvegliu/static/logo-ledbury.png",
         "banner": "/usvegliu/static/logo-banner-ledbury.png",
-        "theme_color": "#E6F3EC",
+        "theme_color": "#C8E2D7",
         "wifi_ssid_default": "49Ledbury-Guest",
         "locale": "en",
         # Underfloor heating + radiators — no blower UI.
