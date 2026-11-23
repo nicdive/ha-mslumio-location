@@ -1030,13 +1030,19 @@ h1 {
 .light-row {
   position: relative;
   overflow: hidden;
-  touch-action: none;
+  /* Allow vertical page scroll; lock to dim only once a horizontal drag starts. */
+  touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;
 }
 
 .light-row.dimmable.on {
   cursor: ew-resize;
+}
+
+.light-row.dimming {
+  touch-action: none;
+  cursor: grabbing;
 }
 
 .light-dim-fill {

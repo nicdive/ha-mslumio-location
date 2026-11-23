@@ -1767,22 +1767,14 @@
     return Math.max(0, Math.min(100, ratio * 100));
   }
 
-  function paintLightDim(row, pct) {
+  function paintLightFill(row, pct) {
     if (!row) return;
     const fill = row.querySelector(".light-dim-fill");
     if (fill) fill.style.width = `${lightDimFillWidth(pct)}%`;
-    row.dataset.brightness = String(pct);
-    row.classList.toggle("on", pct > 0);
-    const lamp = row.querySelector(".lamp");
-    if (lamp) {
-      lamp.classList.toggle("on", pct > 0);
-      lamp.classList.toggle("off", pct <= 0);
-      lamp.setAttribute("aria-label", pct > 0 ? t("light_on") : t("light_off"));
-      lamp.innerHTML = lampGlyph(pct > 0);
-    }
+    row.dataset.brightness = String(Math.round(pct));
   }
 
-  function commitBrightness(listKey, entityId, pct, renderAfter) {
+  function commitBrightness(listKey, entityId, pct) {
     const stepped = stepBrightness(pct);
     const optimistic = {
       on: stepped > 0,
@@ -1791,19 +1783,18 @@
       dimmable: true,
     };
     patchList(listKey, entityId, optimistic);
-    if (renderAfter) render();
-    api("/api/usvegliu/guest/command", {
+    return api("/api/usvegliu/guest/command", {
       method: "POST",
       body: JSON.stringify({ entity_id: entityId, action: "brightness", value: stepped }),
     })
       .then((updated) => {
         patchList(listKey, entityId, updated);
-        if (!dimDrag || dimDrag.id !== entityId) render();
+        return stepped;
       })
       .catch(() => {
-        if (!dimDrag || dimDrag.id !== entityId) refresh();
+        refresh();
+        return stepped;
       });
-    return stepped;
   }
 
   function bindLightDimmers(scope) {
@@ -1815,33 +1806,36 @@
     });
   }
 
+  function clearDimListeners(row) {
+    row.removeEventListener("pointermove", onDimPointerMove);
+    row.removeEventListener("pointerup", onDimPointerUp);
+    row.removeEventListener("pointercancel", onDimPointerUp);
+  }
+
   function onDimPointerDown(event) {
     if (event.button != null && event.button !== 0) return;
     if (event.target.closest && event.target.closest("[data-act]")) return;
     const row = event.currentTarget;
-    if (!row.classList.contains("on") && !row.classList.contains("dimmable")) return;
     // Dim only when already on (toggle stays on the lamp button).
-    if (!row.classList.contains("on")) return;
+    if (!row.classList.contains("on") || !row.classList.contains("dimmable")) return;
     const id = row.getAttribute("data-light-id");
     const listKey = row.getAttribute("data-light-list") || "lights";
     if (!id) return;
-    event.preventDefault();
-    row.setPointerCapture(event.pointerId);
-    const visual = pctFromPointer(row, event.clientX);
-    paintLightDim(row, visual);
+    const startPct = stepBrightness(
+      lightBrightnessPct(((state && state[listKey]) || []).find((item) => item.entity_id === id)) || 0
+    );
     dimDrag = {
       id,
       listKey,
-      lastSent: stepBrightness(lightBrightnessPct(
-        ((state && state[listKey]) || []).find((item) => item.entity_id === id)
-      ) || 0),
+      lastSent: startPct,
+      visual: startPct,
       pointerId: event.pointerId,
       row,
+      startX: event.clientX,
+      startY: event.clientY,
+      locked: false,
+      moved: false,
     };
-    const stepped = stepBrightness(visual);
-    if (stepped !== dimDrag.lastSent) {
-      dimDrag.lastSent = commitBrightness(listKey, id, stepped, false);
-    }
     row.addEventListener("pointermove", onDimPointerMove);
     row.addEventListener("pointerup", onDimPointerUp);
     row.addEventListener("pointercancel", onDimPointerUp);
@@ -1850,32 +1844,56 @@
   function onDimPointerMove(event) {
     if (!dimDrag || dimDrag.pointerId !== event.pointerId) return;
     const row = dimDrag.row;
-    const visual = pctFromPointer(row, event.clientX);
-    paintLightDim(row, visual);
-    const stepped = stepBrightness(visual);
-    if (stepped !== dimDrag.lastSent) {
-      dimDrag.lastSent = commitBrightness(dimDrag.listKey, dimDrag.id, stepped, false);
+    const dx = event.clientX - dimDrag.startX;
+    const dy = event.clientY - dimDrag.startY;
+    if (!dimDrag.locked) {
+      // Vertical intent → leave the gesture to page scroll.
+      if (Math.abs(dy) > 8 && Math.abs(dy) >= Math.abs(dx)) {
+        clearDimListeners(row);
+        dimDrag = null;
+        return;
+      }
+      // Horizontal intent → lock dimming and capture the pointer.
+      if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) {
+        dimDrag.locked = true;
+        row.classList.add("dimming");
+        try {
+          row.setPointerCapture(event.pointerId);
+        } catch (err) {
+          /* ignore */
+        }
+      } else {
+        return;
+      }
     }
+    event.preventDefault();
+    dimDrag.moved = true;
+    const visual = pctFromPointer(row, event.clientX);
+    dimDrag.visual = visual;
+    paintLightFill(row, visual);
   }
 
   function onDimPointerUp(event) {
     if (!dimDrag || dimDrag.pointerId !== event.pointerId) return;
     const row = dimDrag.row;
-    const { id, listKey, lastSent } = dimDrag;
-    const visual = pctFromPointer(row, event.clientX);
-    paintLightDim(row, visual);
-    const stepped = stepBrightness(visual);
-    dimDrag = null;
-    row.removeEventListener("pointermove", onDimPointerMove);
-    row.removeEventListener("pointerup", onDimPointerUp);
-    row.removeEventListener("pointercancel", onDimPointerUp);
+    const { id, listKey, lastSent, locked, moved, visual } = dimDrag;
+    clearDimListeners(row);
+    row.classList.remove("dimming");
     try {
-      row.releasePointerCapture(event.pointerId);
+      if (row.hasPointerCapture && row.hasPointerCapture(event.pointerId)) {
+        row.releasePointerCapture(event.pointerId);
+      }
     } catch (err) {
       /* already released */
     }
-    if (stepped !== lastSent) commitBrightness(listKey, id, stepped, true);
-    else render();
+    dimDrag = null;
+    if (!locked || !moved) return;
+    const stepped = stepBrightness(visual);
+    paintLightFill(row, stepped);
+    if (stepped === lastSent) return;
+    commitBrightness(listKey, id, stepped).then(() => {
+      if (!dimDrag) render();
+    });
   }
 
   function patchList(key, entityId, patch) {
