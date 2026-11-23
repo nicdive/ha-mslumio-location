@@ -382,17 +382,54 @@ def _serialize_lock(hass: Any, entity_id: str) -> dict[str, Any] | None:
     }
 
 
+def _brightness_pct(raw: float | None) -> int | None:
+    """Map Home Assistant brightness (0–255) to a 0–100 percent."""
+    if raw is None:
+        return None
+    return max(0, min(100, int(round(float(raw) / 255.0 * 100.0))))
+
+
 def _serialize_light(hass: Any, entity_id: str) -> dict[str, Any] | None:
     state = hass.states.get(entity_id)
     if state is None:
         return None
-    brightness = _as_float(state.attributes.get("brightness"))
+    attrs = state.attributes or {}
+    brightness = _as_float(attrs.get("brightness"))
+    # Prefer HA brightness_pct when present (Rako / MyHome integrations).
+    pct_attr = _as_float(attrs.get("brightness_pct"))
+    if pct_attr is not None:
+        brightness_pct = max(0, min(100, int(round(pct_attr))))
+    else:
+        brightness_pct = _brightness_pct(brightness)
+    modes = attrs.get("supported_color_modes") or []
+    if isinstance(modes, str):
+        modes = [modes]
+    mode_set = {str(item) for item in modes}
+    dimmable = (
+        brightness is not None
+        or pct_attr is not None
+        or bool(
+            mode_set
+            & {
+                "brightness",
+                "color_temp",
+                "hs",
+                "xy",
+                "rgb",
+                "rgbw",
+                "rgbww",
+                "white",
+            }
+        )
+    )
     return {
         "entity_id": entity_id,
-        "name": str(state.attributes.get("friendly_name") or entity_id),
+        "name": str(attrs.get("friendly_name") or entity_id),
         "group": _area_name(hass, entity_id),
         "on": str(state.state).casefold() == "on",
         "brightness": None if brightness is None else int(brightness),
+        "brightness_pct": brightness_pct,
+        "dimmable": dimmable,
     }
 
 
@@ -1337,6 +1374,21 @@ async def _async_guest_command(
     domain = entity_id.split(".", 1)[0]
     data: dict[str, Any] = {"entity_id": entity_id}
     if kind in {GUEST_KIND_LIGHT, GUEST_KIND_POOL_LIGHT}:
+        if action == "brightness":
+            # Guest UI sends 10% steps (Rako / MyHome) as brightness_pct 0–100.
+            pct = _as_float(value)
+            if pct is None:
+                raise ValueError("bad_action")
+            stepped = int(round(pct / 10.0) * 10)
+            stepped = max(0, min(100, stepped))
+            if stepped <= 0:
+                await hass.services.async_call(
+                    domain, "turn_off", data, blocking=True
+                )
+                return
+            data["brightness_pct"] = stepped
+            await hass.services.async_call(domain, "turn_on", data, blocking=True)
+            return
         if action not in {"on", "off", "toggle"}:
             raise ValueError("bad_action")
         service = {"on": "turn_on", "off": "turn_off", "toggle": "toggle"}[action]

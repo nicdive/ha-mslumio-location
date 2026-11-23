@@ -1027,9 +1027,50 @@ h1 {
   text-align: left;
 }
 
+.light-row {
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.light-row.dimmable.on {
+  cursor: ew-resize;
+}
+
+.light-dim-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #f0d56a 0%, #faf3c8 100%);
+}
+
+html[data-theme="ledbury"] .light-dim-fill,
+body[data-theme="ledbury"] .light-dim-fill {
+  background: linear-gradient(90deg, #e8d070 0%, #f7f0c4 100%);
+}
+
+.light-row > .light-name,
+.light-row > .lamp {
+  position: relative;
+  z-index: 1;
+}
+
+.light-name {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .room-card-name,
 .adjust .name,
 .row span:first-child,
+.light-name,
 .access-name {
   font-family: var(--serif);
   font-size: 20px;
@@ -1047,7 +1088,10 @@ h1 {
 
 .row .lamp {
   display: flex;
+  flex-shrink: 0;
   color: var(--lamp-on);
+  padding: 4px;
+  margin: -4px;
 }
 
 .row .lamp.off {

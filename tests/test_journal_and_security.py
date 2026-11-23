@@ -814,6 +814,12 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert "GUEST_KIND_POOL_LIGHT" in http
     assert "function poolLights" in js
     assert 'lightRow(light, "pool-light")' in js
+    assert "light-dim-fill" in js
+    assert "light-dim-fill" in css
+    assert 'action == "brightness"' in http or 'action == "brightness"' in http.replace("'", '"')
+    assert "brightness_pct" in http
+    assert "commitBrightness" in js
+    assert "bindLightDimmers" in js
     assert "Quelqu'un sonne" in js
     assert "En charge" in js
     assert "Charge terminée" in js

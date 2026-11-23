@@ -24,6 +24,8 @@
   let arrivalNote = "";
   /** Pending arm/disarm confirmation: { id, cmd } or null. */
   let alarmConfirm = null;
+  /** Active light dim drag: { id, listKey, lastSent, pointerId } or null. */
+  let dimDrag = null;
 
   function readToken() {
     const path = window.location.pathname.replace(/\/+$/, "");
@@ -1180,12 +1182,41 @@
     </svg>`;
   }
 
+  function lightBrightnessPct(light) {
+    if (!light) return null;
+    if (light.brightness_pct != null && light.brightness_pct !== "") {
+      const pct = Number(light.brightness_pct);
+      if (Number.isFinite(pct)) return Math.max(0, Math.min(100, Math.round(pct)));
+    }
+    if (light.brightness == null || light.brightness === "") return null;
+    const raw = Number(light.brightness);
+    if (!Number.isFinite(raw)) return null;
+    return Math.max(0, Math.min(100, Math.round((raw / 255) * 100)));
+  }
+
+  function lightIsDimmable(light) {
+    if (light && light.dimmable === false) return false;
+    return lightBrightnessPct(light) != null || light.dimmable === true;
+  }
+
+  function lightDimFillWidth(pct) {
+    const value = Math.max(0, Math.min(100, Number(pct) || 0));
+    // On + min → fill reaches ~start of the name; 100% → full row.
+    return 8 + value * 0.92;
+  }
+
   function lightRow(light, act) {
     const on = Boolean(light.on);
-    return `<button class="row" type="button" data-act="${escapeAttr(act)}" data-id="${escapeAttr(light.entity_id)}" aria-pressed="${on}">
-          <span>${escapeHtml(light.name)}</span>
-          <span class="lamp${on ? " on" : " off"}" aria-label="${on ? escapeAttr(t("light_on")) : escapeAttr(t("light_off"))}">${lampGlyph(on)}</span>
-        </button>`;
+    const dimmable = lightIsDimmable(light);
+    const pct = lightBrightnessPct(light);
+    const shown = on && dimmable ? Math.max(0, pct == null ? 100 : pct) : 0;
+    const fill = on && dimmable ? lightDimFillWidth(shown) : 0;
+    const listKey = act === "pool-light" ? "pool_lights" : "lights";
+    return `<div class="row light-row${on ? " on" : ""}${dimmable ? " dimmable" : ""}" data-light-id="${escapeAttr(light.entity_id)}" data-light-list="${escapeAttr(listKey)}" data-brightness="${pct == null ? "" : String(pct)}" aria-pressed="${on}">
+      ${dimmable ? `<span class="light-dim-fill" style="width:${fill}%" aria-hidden="true"></span>` : ""}
+      <span class="light-name">${escapeHtml(light.name)}</span>
+      <button class="lamp${on ? " on" : " off"}" type="button" data-act="${escapeAttr(act)}" data-id="${escapeAttr(light.entity_id)}" aria-label="${on ? escapeAttr(t("light_on")) : escapeAttr(t("light_off"))}">${lampGlyph(on)}</button>
+    </div>`;
   }
 
   function poolLights() {
@@ -1722,6 +1753,129 @@
       el.addEventListener("click", onAction);
       el.addEventListener("mousedown", (event) => event.preventDefault());
     });
+    bindLightDimmers(target);
+  }
+
+  function stepBrightness(pct) {
+    return Math.max(0, Math.min(100, Math.round(Number(pct) / 10) * 10));
+  }
+
+  function pctFromPointer(row, clientX) {
+    const rect = row.getBoundingClientRect();
+    if (rect.width <= 0) return 0;
+    const ratio = (clientX - rect.left) / rect.width;
+    return Math.max(0, Math.min(100, ratio * 100));
+  }
+
+  function paintLightDim(row, pct) {
+    if (!row) return;
+    const fill = row.querySelector(".light-dim-fill");
+    if (fill) fill.style.width = `${lightDimFillWidth(pct)}%`;
+    row.dataset.brightness = String(pct);
+    row.classList.toggle("on", pct > 0);
+    const lamp = row.querySelector(".lamp");
+    if (lamp) {
+      lamp.classList.toggle("on", pct > 0);
+      lamp.classList.toggle("off", pct <= 0);
+      lamp.setAttribute("aria-label", pct > 0 ? t("light_on") : t("light_off"));
+      lamp.innerHTML = lampGlyph(pct > 0);
+    }
+  }
+
+  function commitBrightness(listKey, entityId, pct, renderAfter) {
+    const stepped = stepBrightness(pct);
+    const optimistic = {
+      on: stepped > 0,
+      brightness: Math.round((stepped / 100) * 255),
+      brightness_pct: stepped,
+      dimmable: true,
+    };
+    patchList(listKey, entityId, optimistic);
+    if (renderAfter) render();
+    api("/api/usvegliu/guest/command", {
+      method: "POST",
+      body: JSON.stringify({ entity_id: entityId, action: "brightness", value: stepped }),
+    })
+      .then((updated) => {
+        patchList(listKey, entityId, updated);
+        if (!dimDrag || dimDrag.id !== entityId) render();
+      })
+      .catch(() => {
+        if (!dimDrag || dimDrag.id !== entityId) refresh();
+      });
+    return stepped;
+  }
+
+  function bindLightDimmers(scope) {
+    const target = scope || root;
+    target.querySelectorAll(".light-row.dimmable").forEach((row) => {
+      if (row.dataset.dimBound === "1") return;
+      row.dataset.dimBound = "1";
+      row.addEventListener("pointerdown", onDimPointerDown);
+    });
+  }
+
+  function onDimPointerDown(event) {
+    if (event.button != null && event.button !== 0) return;
+    if (event.target.closest && event.target.closest("[data-act]")) return;
+    const row = event.currentTarget;
+    if (!row.classList.contains("on") && !row.classList.contains("dimmable")) return;
+    // Dim only when already on (toggle stays on the lamp button).
+    if (!row.classList.contains("on")) return;
+    const id = row.getAttribute("data-light-id");
+    const listKey = row.getAttribute("data-light-list") || "lights";
+    if (!id) return;
+    event.preventDefault();
+    row.setPointerCapture(event.pointerId);
+    const visual = pctFromPointer(row, event.clientX);
+    paintLightDim(row, visual);
+    dimDrag = {
+      id,
+      listKey,
+      lastSent: stepBrightness(lightBrightnessPct(
+        ((state && state[listKey]) || []).find((item) => item.entity_id === id)
+      ) || 0),
+      pointerId: event.pointerId,
+      row,
+    };
+    const stepped = stepBrightness(visual);
+    if (stepped !== dimDrag.lastSent) {
+      dimDrag.lastSent = commitBrightness(listKey, id, stepped, false);
+    }
+    row.addEventListener("pointermove", onDimPointerMove);
+    row.addEventListener("pointerup", onDimPointerUp);
+    row.addEventListener("pointercancel", onDimPointerUp);
+  }
+
+  function onDimPointerMove(event) {
+    if (!dimDrag || dimDrag.pointerId !== event.pointerId) return;
+    const row = dimDrag.row;
+    const visual = pctFromPointer(row, event.clientX);
+    paintLightDim(row, visual);
+    const stepped = stepBrightness(visual);
+    if (stepped !== dimDrag.lastSent) {
+      dimDrag.lastSent = commitBrightness(dimDrag.listKey, dimDrag.id, stepped, false);
+    }
+  }
+
+  function onDimPointerUp(event) {
+    if (!dimDrag || dimDrag.pointerId !== event.pointerId) return;
+    const row = dimDrag.row;
+    const { id, listKey, lastSent } = dimDrag;
+    const visual = pctFromPointer(row, event.clientX);
+    paintLightDim(row, visual);
+    const stepped = stepBrightness(visual);
+    dimDrag = null;
+    row.removeEventListener("pointermove", onDimPointerMove);
+    row.removeEventListener("pointerup", onDimPointerUp);
+    row.removeEventListener("pointercancel", onDimPointerUp);
+    try {
+      row.releasePointerCapture(event.pointerId);
+    } catch (err) {
+      /* already released */
+    }
+    if (stepped !== lastSent) commitBrightness(listKey, id, stepped, true);
+    else render();
   }
 
   function patchList(key, entityId, patch) {
@@ -1843,7 +1997,16 @@
       const listKey = act === "pool-light" ? "pool_lights" : "lights";
       const light = ((state && state[listKey]) || []).find((item) => item.entity_id === id);
       if (!light) return;
-      commandEntity(listKey, id, light.on ? "off" : "on", { on: !light.on });
+      const turningOn = !light.on;
+      const pct = lightBrightnessPct(light);
+      const optimistic = turningOn
+        ? {
+            on: true,
+            brightness: pct == null || pct <= 0 ? 180 : Math.round((pct / 100) * 255),
+            brightness_pct: pct == null || pct <= 0 ? 70 : pct,
+          }
+        : { on: false };
+      commandEntity(listKey, id, turningOn ? "on" : "off", optimistic);
       return;
     }
     if (act === "scene") {
@@ -2016,6 +2179,23 @@
   function applyState(payload) {
     const next = payload || {};
     if (next.climates) next.climates = mergeClimateHolds(next.climates);
+    // Keep the in-progress dim value while the finger is down (avoid SSE snap-back).
+    if (dimDrag && state) {
+      const key = dimDrag.listKey;
+      const current = ((state[key] || []).find((item) => item.entity_id === dimDrag.id)) || null;
+      if (current && next[key]) {
+        next[key] = next[key].map((item) =>
+          item.entity_id === dimDrag.id
+            ? {
+                ...item,
+                on: current.on,
+                brightness: current.brightness,
+                brightness_pct: current.brightness_pct,
+              }
+            : item
+        );
+      }
+    }
     state = next;
     error = "";
     arrivalNote = "";
@@ -2029,6 +2209,7 @@
       visioDismissed = false;
     }
     scheduleSnapshotRefresh();
+    if (dimDrag) return;
     render();
   }
 

@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.91] — 2026-11-23
+
+### Ajouté
+- Éclairage : barre de dimmer (jaune clair) quand la lampe est allumée — UI fluide, consignes par pas de 10 % (Rako / MyHome).
+
+[0.6.91]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.91
+
 ## [0.6.90] — 2026-11-23
 
 ### Corrigé

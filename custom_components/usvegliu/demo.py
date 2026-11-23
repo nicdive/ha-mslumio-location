@@ -133,6 +133,8 @@ def build_demo_villa(house_mode: str = HOUSE_COOL) -> dict[str, Any]:
                 "group": "Salon",
                 "on": True,
                 "brightness": 180,
+                "brightness_pct": 71,
+                "dimmable": True,
             },
             {
                 "entity_id": _eid("light", "salon_applique"),
@@ -140,6 +142,8 @@ def build_demo_villa(house_mode: str = HOUSE_COOL) -> dict[str, Any]:
                 "group": "Salon",
                 "on": False,
                 "brightness": 40,
+                "brightness_pct": 16,
+                "dimmable": True,
             },
             {
                 "entity_id": _eid("light", "cuisine"),
@@ -147,6 +151,8 @@ def build_demo_villa(house_mode: str = HOUSE_COOL) -> dict[str, Any]:
                 "group": "Cuisine",
                 "on": False,
                 "brightness": 40,
+                "brightness_pct": 16,
+                "dimmable": True,
             },
             {
                 "entity_id": _eid("light", "terrasse"),
@@ -154,6 +160,8 @@ def build_demo_villa(house_mode: str = HOUSE_COOL) -> dict[str, Any]:
                 "group": "Terrasse",
                 "on": True,
                 "brightness": 120,
+                "brightness_pct": 47,
+                "dimmable": True,
             },
             {
                 "entity_id": _eid("light", "suite"),
@@ -161,6 +169,8 @@ def build_demo_villa(house_mode: str = HOUSE_COOL) -> dict[str, Any]:
                 "group": "Suite",
                 "on": False,
                 "brightness": 0,
+                "brightness_pct": 0,
+                "dimmable": True,
             },
         ],
         "scenes": [
@@ -228,6 +238,8 @@ def build_demo_villa(house_mode: str = HOUSE_COOL) -> dict[str, Any]:
                 "group": "Piscine",
                 "on": False,
                 "brightness": 0,
+                "brightness_pct": 0,
+                "dimmable": True,
             }
         ],
         "chargers": [
@@ -398,13 +410,31 @@ def apply_demo_command(
         return None
     _key, item = found
     if kind in {"light", "pool_light"}:
+        if action == "brightness":
+            try:
+                pct = int(round(float(value) / 10.0) * 10)
+            except (TypeError, ValueError) as exc:
+                raise ValueError("bad_action") from exc
+            pct = max(0, min(100, pct))
+            item["on"] = pct > 0
+            item["brightness"] = int(round(pct / 100.0 * 255.0)) if pct else 0
+            item["brightness_pct"] = pct
+            item["dimmable"] = True
+            return item
         if action not in {"on", "off", "toggle"}:
             raise ValueError("bad_action")
         if action == "toggle":
             item["on"] = not bool(item.get("on"))
         else:
             item["on"] = action == "on"
-        item["brightness"] = 180 if item["on"] else 0
+        if item["on"]:
+            current = int(item.get("brightness") or 0)
+            item["brightness"] = current if current > 0 else 180
+            item["brightness_pct"] = int(round(item["brightness"] / 255.0 * 100.0))
+        else:
+            item["brightness"] = 0
+            item["brightness_pct"] = 0
+        item["dimmable"] = True
         return item
     if kind == "scene":
         if action != "activate":
