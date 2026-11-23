@@ -21,6 +21,19 @@ def test_normalize_guest_theme():
     assert normalize_guest_theme("unknown") == THEME_USVEGLIU
 
 
+def test_keep_previous_ids_when_checkbox_list_submits_empty():
+    from custom_components.usvegliu.target_options import keep_previous_ids
+
+    missing = object()
+    previous = ["climate.salon", "light.cuisine"]
+    assert keep_previous_ids([], previous, [], missing=missing) == previous
+    assert keep_previous_ids([], previous, ["__none__"], missing=missing) == previous
+    assert keep_previous_ids([], previous, missing, missing=missing) == previous
+    assert keep_previous_ids(["light.only"], previous, ["light.only"], missing=missing) == [
+        "light.only"
+    ]
+
+
 def test_unifi_configured_helper():
     from custom_components.usvegliu.branding import unifi_configured
 
@@ -130,11 +143,11 @@ def test_ledbury_logo_assets_ship():
     assert "_async_probe_cambium" in flow
     assert "SelectSelectorMode.LIST" in flow
     assert "CONF_MANUAL_WIFI_CODE" in flow
-    assert "SelectSelectorMode.LIST" in flow
+    assert "CONF_BULK_ADD_DOMAINS" in flow
     assert "multiple=True" in flow
-    assert "_tenant_entity_options" in flow
+    assert "EntitySelector(EntitySelectorConfig(multiple=True))" in flow
+    assert "DeviceSelector(DeviceSelectorConfig(multiple=True))" in flow
     assert "TargetSelector()" not in flow
-    assert "DeviceSelector" not in flow
     assert "entity={}" not in flow
     assert "area={}" not in flow
     strings = (

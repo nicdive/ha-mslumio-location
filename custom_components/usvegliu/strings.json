@@ -76,6 +76,7 @@
           "extra_days": "Jours supplémentaires après le séjour",
           "access_mode": "Comptes Home Assistant",
           "tenant_entities": "Entités locataire",
+          "bulk_add_domains": "Ajouter tout (domaines)",
           "tenant_devices": "Appareils locataire",
           "confirm_sensitive": "J'autorise caméras, serrures ou alarmes",
           "allow_remote": "Accès internet pendant le séjour",
@@ -116,8 +117,9 @@
           "upload_mbps": "Défaut : 100.",
           "extra_days": "Le voucher Wi-Fi reste ce nombre de jours après la journée de départ, puis il est retiré. Défaut : 1. Le lien Maison s'arrête dès la fin du jour de départ.",
           "access_mode": "Un compte par séjour, ou un compte « locataire » dont le mot de passe change.",
-          "tenant_entities": "Liste à cases : cochez toutes les entités autorisées pour le locataire. Caméras, serrures et alarmes exigent la confirmation ci-dessous.",
-          "tenant_devices": "Liste à cases (optionnel). Un appareil = toutes ses entités. Souvent inutile si vous cochez déjà les entités.",
+          "tenant_entities": "Cherchez et ajoutez les entités (filtre HA). Caméras, serrures et alarmes exigent la confirmation ci-dessous.",
+          "bulk_add_domains": "Choisissez des domaines (ex. light, climate) puis Enregistrer : toutes leurs entités sont ajoutées. Retirez ensuite les puces en trop.",
+          "tenant_devices": "Optionnel. Un appareil = toutes ses entités. Souvent inutile si les entités sont déjà choisies.",
           "confirm_sensitive": "Sans cette case, l'enregistrement est refusé si la sélection contient une caméra, une serrure ou une alarme.",
           "allow_remote": "Désactivé par défaut. Le compte n'est plus « local uniquement » pendant le séjour. Home Assistant doit déjà être joignable de l'extérieur ; ce module n'ouvre rien. À activer aussi pour un essai du compte HA via Tailscale (une IP 100.x n'est pas locale).",
           "notify_service": "Ex. notify.mobile_app_telephone. Vide = notification persistante seulement. Destinataire : vous, pas le locataire.",
@@ -190,6 +192,7 @@
           "extra_days": "Jours supplémentaires après le séjour",
           "access_mode": "Comptes Home Assistant",
           "tenant_entities": "Entités locataire",
+          "bulk_add_domains": "Ajouter tout (domaines)",
           "tenant_devices": "Appareils locataire",
           "confirm_sensitive": "J'autorise caméras, serrures ou alarmes",
           "allow_remote": "Accès internet pendant le séjour",
@@ -246,8 +249,9 @@
           "enable_nuki": "PIN Keypad par séjour. Décochez : le mail part sans code porte. Le bouton ouvrir/fermer de Maison n'en dépend pas.",
           "nuki_token": "Jeton Nuki Web API. Vide = ne pas changer.",
           "nuki_smartlock_id": "Vide = première serrure avec Keypad.",
-          "tenant_entities": "Liste à cases : cochez toutes les entités autorisées pour le locataire. Caméras, serrures et alarmes exigent la confirmation ci-dessous.",
-          "tenant_devices": "Liste à cases (optionnel). Un appareil = toutes ses entités. Souvent inutile si vous cochez déjà les entités."
+          "tenant_entities": "Cherchez et ajoutez les entités (filtre HA). Caméras, serrures et alarmes exigent la confirmation ci-dessous.",
+          "bulk_add_domains": "Choisissez des domaines (ex. light, climate) puis Enregistrer : toutes leurs entités sont ajoutées. Retirez ensuite les puces en trop.",
+          "tenant_devices": "Optionnel. Un appareil = toutes ses entités. Souvent inutile si les entités sont déjà choisies."
         }
       }
     },
@@ -263,6 +267,24 @@
       "options": {
         "per_stay": "Un compte par séjour",
         "shared": "Compte locataire unique (mot de passe tournant)"
+      }
+    },
+    "bulk_add_domains": {
+      "options": {
+        "climate": "climate — chauffage / clim",
+        "light": "light — lumières",
+        "cover": "cover — volets / portails",
+        "lock": "lock — serrures",
+        "fan": "fan — ventilateurs",
+        "switch": "switch",
+        "media_player": "media_player — son",
+        "alarm_control_panel": "alarm_control_panel",
+        "camera": "camera",
+        "scene": "scene",
+        "script": "script",
+        "binary_sensor": "binary_sensor",
+        "sensor": "sensor",
+        "event": "event"
       }
     },
     "voucher_provider": {

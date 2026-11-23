@@ -1185,17 +1185,18 @@ h1 {
   position: fixed;
   left: 50%;
   bottom: 0;
-  z-index: 8;
+  z-index: 30;
   width: var(--app);
   transform: translateX(-50%);
   display: flex;
   justify-content: space-around;
   gap: 2px;
   padding: 8px 10px calc(10px + env(safe-area-inset-bottom));
-  background: rgba(247, 243, 236, 0.92);
+  background: color-mix(in srgb, var(--paper) 92%, transparent);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border-top: 1px solid var(--line);
+  pointer-events: auto;
 }
 
 .dock-item {
@@ -1211,6 +1212,9 @@ h1 {
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+  pointer-events: auto;
+  position: relative;
+  z-index: 1;
 }
 
 .dock-item.on {

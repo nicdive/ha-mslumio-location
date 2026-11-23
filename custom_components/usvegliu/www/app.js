@@ -543,7 +543,25 @@
   function registerMaisonServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     if (!window.isSecureContext) return;
-    navigator.serviceWorker.register("/usvegliu/sw.js", { scope: "/" }).catch(() => {});
+    const scope = "/usvegliu/";
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((regs) =>
+        Promise.all(
+          regs.map((reg) => {
+            const script = reg.active || reg.waiting || reg.installing;
+            const url = script && script.scriptURL ? script.scriptURL : "";
+            // Drop the 0.6.50–0.6.61 site-wide worker that broke live UI.
+            if (url.includes("/usvegliu/sw.js") && reg.scope === `${window.location.origin}/`) {
+              return reg.unregister();
+            }
+            return null;
+          })
+        )
+      )
+      .finally(() => {
+        navigator.serviceWorker.register("/usvegliu/sw.js", { scope }).catch(() => {});
+      });
   }
 
   function setupPwaInstall() {
@@ -919,7 +937,10 @@
     if (!visioOpen || !((state && state.cameras) || []).length) return;
     snapshotTimer = setInterval(() => {
       snapshotStamp = Date.now();
-      render();
+      root.querySelectorAll(".visio-frame img[data-cam]").forEach((img) => {
+        const entityId = img.getAttribute("data-cam");
+        if (entityId) img.setAttribute("src", snapshotSrc(entityId));
+      });
     }, 4000);
   }
 
@@ -935,7 +956,7 @@
     const gate = gateTarget();
     const photo = cam
       ? `<div class="visio-frame">
-          <img alt="${escapeAttr(cam.name)}" src="${escapeAttr(snapshotSrc(cam.entity_id))}" />
+          <img data-cam="${escapeAttr(cam.entity_id)}" alt="${escapeAttr(cam.name)}" src="${escapeAttr(snapshotSrc(cam.entity_id))}" />
         </div>`
       : "";
     const openBtn = gate
@@ -1414,49 +1435,69 @@
     return `<div class="status">${brandBar(false)}<p class="${kind || "error"}">${message}</p></div>`;
   }
 
+  let renderBusy = false;
+  let renderQueued = false;
+
   function render() {
-    applyBrandChrome();
-    if (!token) {
-      root.innerHTML = statusPage(escapeHtml(t("link_incomplete")));
+    // Coalesce SSE/poll repaints so a tap is not wiped mid-gesture.
+    if (renderBusy) {
+      renderQueued = true;
       return;
     }
-    if (error === "invalid_token") {
-      root.innerHTML = statusPage(escapeHtml(t("stay_closed")));
-      return;
-    }
-    if (error === "too_early") {
-      const message = arrivalNote
-        ? `${t("opens_prefix")}${t("opens_on_date")} ${arrivalNote}.`
-        : `${t("opens_prefix")}${t("opens_on_day")}.`;
-      root.innerHTML = statusPage(escapeHtml(message));
-      return;
-    }
-    if (!state) {
-      root.innerHTML = statusPage(escapeHtml(t("loading")), "empty");
-      return;
-    }
-    normalizeScreen();
-    if (screen === "room") {
-      const room = (state.climates || []).find((item) => item.entity_id === roomId);
-      if (!room) {
-        screen = "climate";
-      } else {
-        root.innerHTML = appChrome(
-          `${pageHead(room.name, modeLabel())}${dialView(room)}`,
-          true
-        );
-        bind();
+    renderBusy = true;
+    renderQueued = false;
+    try {
+      applyBrandChrome();
+      if (!token) {
+        root.innerHTML = statusPage(escapeHtml(t("link_incomplete")));
         return;
       }
+      if (error === "invalid_token") {
+        root.innerHTML = statusPage(escapeHtml(t("stay_closed")));
+        return;
+      }
+      if (error === "too_early") {
+        const message = arrivalNote
+          ? `${t("opens_prefix")}${t("opens_on_date")} ${arrivalNote}.`
+          : `${t("opens_prefix")}${t("opens_on_day")}.`;
+        root.innerHTML = statusPage(escapeHtml(message));
+        return;
+      }
+      if (!state) {
+        root.innerHTML = statusPage(escapeHtml(t("loading")), "empty");
+        return;
+      }
+      normalizeScreen();
+      if (screen === "room") {
+        const room = (state.climates || []).find((item) => item.entity_id === roomId);
+        if (!room) {
+          screen = "climate";
+        } else {
+          root.innerHTML = appChrome(
+            `${pageHead(room.name, modeLabel())}${dialView(room)}`,
+            true
+          );
+          return;
+        }
+      }
+      root.innerHTML = appChrome(pageView(), false);
+    } finally {
+      renderBusy = false;
+      if (renderQueued) {
+        requestAnimationFrame(() => render());
+      }
     }
-    root.innerHTML = appChrome(pageView(), false);
-    bind();
   }
 
   function bind() {
-    root.querySelectorAll("[data-act]").forEach((el) => {
-      el.addEventListener("click", onAction);
-      el.addEventListener("mousedown", (event) => event.preventDefault());
+    // One delegated listener — survives full innerHTML swaps from live state.
+    if (root.dataset.bound === "1") return;
+    root.dataset.bound = "1";
+    root.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-act]");
+      if (!button || !root.contains(button)) return;
+      event.preventDefault();
+      onAction({ currentTarget: button, preventDefault() {}, target: button });
     });
   }
 
@@ -1731,22 +1772,44 @@
     return escapeHtml(value).replace(/"/g, "&quot;");
   }
 
+  let lastStateFp = "";
+  let ringCoolUntil = 0;
+
+  function stateFingerprint(payload) {
+    try {
+      return JSON.stringify(payload);
+    } catch (_err) {
+      return String(Date.now());
+    }
+  }
+
   function applyState(payload) {
     const next = payload || {};
     if (next.climates) next.climates = mergeClimateHolds(next.climates);
+    const ringing = ((next.doorbells) || []).some(
+      (item) => item.ringing || item.state === "ringing"
+    );
     state = next;
     error = "";
     arrivalNote = "";
-    if (anyRinging()) {
-      if (!visioDismissed) {
+    if (ringing) {
+      if (!visioDismissed && Date.now() >= ringCoolUntil) {
+        const firstOpen = !visioOpen;
         visioOpen = true;
-        screen = "home";
+        // Jump home only when the popup first appears — never yank the user
+        // off Heating/Lights/Access on every SSE tick.
+        if (firstOpen) screen = "home";
       }
     } else {
+      if (visioOpen) ringCoolUntil = Date.now() + 20000;
       visioOpen = false;
       visioDismissed = false;
     }
     scheduleSnapshotRefresh();
+    const fp =
+      stateFingerprint(next) + `|${visioOpen}|${visioDismissed}|${screen}|${listMode}`;
+    if (fp === lastStateFp) return;
+    lastStateFp = fp;
     render();
   }
 
@@ -1834,6 +1897,7 @@
     refresh();
   });
 
+  bind();
   setupPwaInstall();
   render();
   refresh();

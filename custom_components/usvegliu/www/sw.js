@@ -1,12 +1,9 @@
-/* Maison PWA — keep the install prompt eligible; network-first for pages. */
+/* Maison PWA — install-eligible worker. Do not proxy fetches:
+   intercepting SSE/API under a site-wide scope broke the guest UI. */
 self.addEventListener("install", (event) => {
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
-});
-
-self.addEventListener("fetch", (event) => {
-  event.respondWith(fetch(event.request));
 });

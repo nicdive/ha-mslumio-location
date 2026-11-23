@@ -4,10 +4,20 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.62] — 2026-11-23
+
+### Corrigé
+- Maison : le **service worker PWA** (depuis 0.6.50) ne proxy plus tout le site ni le flux SSE — dock et boutons redeviennent fiables ; scope limité à `/usvegliu/`.
+- Maison : clics via délégation d’événements ; popup visio ne renvoie plus de force sur Accueil à chaque tick.
+- Console : plus d’**Entity not found** sur le brouillon Wi-Fi (entité `text` résolue, affichée seulement en mode manuel).
+- Options : retour du **sélecteur filtrable** HA + action **Ajouter tout (domaines)** ; plus la liste à cases illisible de 0.6.61.
+
+[0.6.62]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.62
+
 ## [0.6.61] — 2026-11-23
 
 ### Corrigé
-- Options : **vraie liste à cases** pour les entités / appareils locataire (plus le picker déroulant un-par-un).
+- Options : **vraie liste à cases** pour les entités / appareils locataire (plus le picker déroulant un-par-un). *(remplacé en 0.6.62)*
 
 [0.6.61]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.61
 

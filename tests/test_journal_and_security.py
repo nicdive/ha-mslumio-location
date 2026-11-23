@@ -884,8 +884,14 @@ def test_guest_app_ships_villa_banner_logo():
     assert "brand.banner" in js
     assert "setupPwaInstall" in js
     assert "/usvegliu/sw.js" in js
+    assert 'const scope = "/usvegliu/"' in js
+    assert 'scope: "/"' not in js
+    assert "respondWith" not in (www / "sw.js").read_text(encoding="utf-8")
     assert (www / "sw.js").is_file()
     assert (www / "manifest.webmanifest").is_file()
+    assert '"scope": "/usvegliu/"' in (www / "manifest.webmanifest").read_text(
+        encoding="utf-8"
+    )
     assert (www / "logo-192.png").is_file()
     assert (www / "logo-512.png").is_file()
     html = (www / "index.html").read_text(encoding="utf-8")
@@ -905,6 +911,8 @@ def test_guest_app_ships_villa_banner_logo():
         / "http.py"
     ).read_text(encoding="utf-8")
     assert "GuestManifestView" in http_py
+    assert 'Service-Worker-Allowed": f"/{DOMAIN}/"' in http_py
+    assert 'Service-Worker-Allowed": "/"' not in http_py
     assert ".brand-logo" in css
     assert ".wordmark" not in css
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from typing import Any
 
 from .const import (
@@ -12,6 +12,7 @@ from .const import (
     CONF_TENANT_DEVICES,
     CONF_TENANT_ENTITIES,
     CONF_TENANT_TARGET,
+    TENANT_BULK_DOMAINS,
 )
 
 
@@ -32,6 +33,73 @@ def as_id_list(value: Any) -> list[str]:
                 out.append(text)
         return out
     return []
+
+
+def keep_previous_ids(
+    selected: list[str],
+    previous: list[str],
+    raw: Any,
+    *,
+    missing: object,
+) -> list[str]:
+    """Keep previous ids when a multi-select submits empty/placeholder."""
+    if selected or not previous:
+        return selected
+    if raw is missing or raw in ([], None, ["__none__"]):
+        return list(previous)
+    return selected
+
+
+def merge_unique(existing: Iterable[str], extra: Iterable[str]) -> list[str]:
+    """Append new ids while keeping order and uniqueness."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in list(existing) + list(extra):
+        text = str(item or "").strip()
+        if text and text not in seen:
+            seen.add(text)
+            out.append(text)
+    return out
+
+
+def entity_ids_for_domains(hass: Any, domains: Iterable[str]) -> list[str]:
+    """List live entity ids for the chosen domains (enabled only)."""
+    wanted = {
+        str(domain or "").strip()
+        for domain in domains
+        if str(domain or "").strip() in TENANT_BULK_DOMAINS
+    }
+    if not wanted or hass is None:
+        return []
+    found: list[str] = []
+    seen: set[str] = set()
+    try:
+        from homeassistant.helpers import entity_registry as er
+
+        registry = er.async_get(hass)
+        for entry in registry.entities.values():
+            entity_id = entry.entity_id
+            domain = entity_id.split(".", 1)[0]
+            if domain not in wanted or entry.disabled:
+                continue
+            if entity_id not in seen:
+                seen.add(entity_id)
+                found.append(entity_id)
+    except Exception:  # noqa: BLE001 — registry optional in tests
+        pass
+    if found:
+        return sorted(found)
+    if not hasattr(hass, "states"):
+        return []
+    for domain in sorted(wanted):
+        try:
+            for entity_id in hass.states.async_entity_ids(domain):
+                if entity_id not in seen:
+                    seen.add(entity_id)
+                    found.append(entity_id)
+        except Exception:  # noqa: BLE001
+            continue
+    return sorted(found)
 
 
 def default_entities(defaults: Mapping[str, Any]) -> list[str]:

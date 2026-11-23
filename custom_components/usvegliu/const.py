@@ -31,8 +31,27 @@ CONF_TENANT_ENTITIES: Final = "tenant_entities"
 CONF_TENANT_DEVICES: Final = "tenant_devices"
 # Legacy Options-form Target selector (expanded into the two lists above).
 CONF_TENANT_TARGET: Final = "tenant_target"
+# Transient Options form action — not stored on the config entry.
+CONF_BULK_ADD_DOMAINS: Final = "bulk_add_domains"
 CONF_ALLOW_REMOTE: Final = "allow_remote"
 CONF_CONFIRM_SENSITIVE: Final = "confirm_sensitive"
+# Domains offered by “add all filtered” in Options.
+TENANT_BULK_DOMAINS: Final = (
+    "climate",
+    "light",
+    "cover",
+    "lock",
+    "fan",
+    "switch",
+    "media_player",
+    "alarm_control_panel",
+    "camera",
+    "scene",
+    "script",
+    "binary_sensor",
+    "sensor",
+    "event",
+)
 CONF_NOTIFY_SERVICE: Final = "notify_service"
 CONF_GUEST_MAIL_SERVICE: Final = "guest_mail_service"
 CONF_GUEST_MAIL_DAYS: Final = "guest_mail_days"

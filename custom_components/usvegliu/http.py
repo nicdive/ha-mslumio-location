@@ -724,7 +724,7 @@ class GuestPageView(HomeAssistantView):
 
 
 class GuestServiceWorkerView(HomeAssistantView):
-    """Service worker at /usvegliu/sw.js with site-wide scope for PWA install."""
+    """Service worker at /usvegliu/sw.js — scoped to /usvegliu/ only."""
 
     requires_auth = False
     cors_allowed = True
@@ -741,7 +741,8 @@ class GuestServiceWorkerView(HomeAssistantView):
             path,
             headers={
                 "Content-Type": "application/javascript; charset=utf-8",
-                "Service-Worker-Allowed": "/",
+                # Never allow "/" — a site-wide SW broke SSE and dock clicks.
+                "Service-Worker-Allowed": f"/{DOMAIN}/",
                 "Cache-Control": "no-cache",
             },
         )
@@ -784,7 +785,7 @@ class GuestManifestView(HomeAssistantView):
             "short_name": brand.get("name") or "Maison",
             "description": brand.get("tagline") or brand.get("name") or "Maison",
             "start_url": start,
-            "scope": "/",
+            "scope": f"/{DOMAIN}/",
             "display": "standalone",
             "orientation": "portrait-primary",
             "background_color": theme,

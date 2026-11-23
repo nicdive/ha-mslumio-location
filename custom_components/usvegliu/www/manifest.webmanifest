@@ -3,7 +3,7 @@
   "short_name": "Maison",
   "description": "Guest house controls",
   "start_url": ".",
-  "scope": "/",
+  "scope": "/usvegliu/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#F1EBE2",
