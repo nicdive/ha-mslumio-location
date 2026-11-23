@@ -23,15 +23,15 @@
   --atmosphere: radial-gradient(rgba(43, 36, 28, 0.055) 0.6px, transparent 0.7px);
 }
 
-/* 49 Ledbury — same clean Usvegliu layout; forest green + door blush only */
+/* 49 Ledbury — Notting Hill green (#258d60) + door blush */
 body[data-theme="ledbury"] {
-  --bronze: #1f3d2a;
-  --bronze-soft: rgba(31, 61, 42, 0.14);
+  --bronze: #258d60;
+  --bronze-soft: rgba(37, 141, 96, 0.14);
   --heat: #c45c6a;
-  --line: rgba(31, 61, 42, 0.1);
-  --line-strong: rgba(31, 61, 42, 0.18);
-  --shadow: 0 1px 0 rgba(31, 61, 42, 0.04), 0 18px 40px rgba(31, 61, 42, 0.07);
-  --atmosphere: radial-gradient(rgba(31, 61, 42, 0.05) 0.6px, transparent 0.7px);
+  --line: rgba(37, 141, 96, 0.12);
+  --line-strong: rgba(37, 141, 96, 0.22);
+  --shadow: 0 1px 0 rgba(37, 141, 96, 0.05), 0 18px 40px rgba(37, 141, 96, 0.08);
+  --atmosphere: radial-gradient(rgba(37, 141, 96, 0.06) 0.6px, transparent 0.7px);
 }
 
 body[data-theme="ledbury"] .fan-chip,
