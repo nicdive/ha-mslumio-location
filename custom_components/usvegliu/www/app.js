@@ -1002,8 +1002,8 @@
         : `<rect x="6" y="4.2" width="12" height="15.6" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.4"/>
            <path d="M6 8.2 H18 M6 12 H18 M6 15.8 H18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>`,
       alarm: armed
-        ? `<path d="M12 3.4 L19.2 6.4 V12.4 C19.2 16.6 15.8 19.6 12 20.6 C8.2 19.6 4.8 16.6 4.8 12.4 V6.4 Z" fill="currentColor" fill-opacity="0.16" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
-           <path d="M9.2 12.4 L11.2 14.4 L15.2 9.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>`
+        ? `<path class="alarm-shield" d="M12 3.4 L19.2 6.4 V12.4 C19.2 16.6 15.8 19.6 12 20.6 C8.2 19.6 4.8 16.6 4.8 12.4 V6.4 Z" fill="currentColor" fill-opacity="0.22" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+           <circle class="alarm-armed-dot" cx="12" cy="12.2" r="2.2" fill="currentColor"/>`
         : `<path d="M12 3.4 L19.2 6.4 V12.4 C19.2 16.6 15.8 19.6 12 20.6 C8.2 19.6 4.8 16.6 4.8 12.4 V6.4 Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>`,
       doorbell: `<path d="M7.6 10.4 C7.6 7.2 9.5 5.2 12 5.2 C14.5 5.2 16.4 7.2 16.4 10.4 V13.6 L18 16 H6 L7.6 13.6 Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
         <path d="M10.2 16.2 C10.2 17.6 13.8 17.6 13.8 16.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
@@ -1134,18 +1134,13 @@
     return alarms
       .map((alarm) => {
         const tone = alarmTone(alarm);
-        const next =
-          alarm.state === "disarmed"
-            ? { label: t("arm"), cmd: "arm" }
-            : { label: t("disarm"), cmd: "disarm" };
-        return `<section class="status-sheet alarm-sheet ${tone}">
+        return `<section class="status-sheet alarm-sheet ${tone}" aria-label="${escapeAttr(t("alarm"))}">
         ${accessGlyph("alarm", alarm)}
         <div class="charger-copy">
           <div class="status-label">${escapeHtml(t("alarm"))}</div>
           <div class="status-name">${escapeHtml(alarm.name)}</div>
           <div class="status-value">${escapeHtml(alarmStatus(alarm))}</div>
         </div>
-        <button class="access-action${next.cmd === "disarm" ? " filled" : ""}" type="button" data-act="alarm" data-id="${escapeAttr(alarm.entity_id)}" data-cmd="${escapeAttr(next.cmd)}">${escapeHtml(next.label)}</button>
       </section>`;
       })
       .join("");
@@ -1485,7 +1480,7 @@
           ? { label: t("arm"), cmd: "arm", filled: false }
           : { label: t("disarm"), cmd: "disarm", filled: true },
         "alarm",
-        alarm.state === "triggered" ? " triggered" : "",
+        ` ${alarmTone(alarm)}`,
         "alarm"
       )
     );

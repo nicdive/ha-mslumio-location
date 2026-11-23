@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.87] — 2026-11-23
+
+### Modifié
+- Accueil : statut alarme uniquement (plus de bouton) ; icône rouge quand armée. Armer/désarmer + confirm restent dans Accès.
+
+[0.6.87]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.87
+
 ## [0.6.86] — 2026-11-23
 
 ### Ajouté

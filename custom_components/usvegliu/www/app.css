@@ -338,24 +338,20 @@ button:active:not(:disabled) {
   gap: 16px;
 }
 
-.alarm-sheet .access-action {
-  flex-shrink: 0;
-  margin-left: auto;
-}
-
-.alarm-sheet.armed .access-mark,
 .alarm-sheet.armed .status-value,
-.alarm-sheet.pending .access-mark,
-.alarm-sheet.pending .status-value {
-  color: var(--bronze);
-}
-
-.alarm-sheet.triggered .access-mark,
-.alarm-sheet.triggered .status-value {
+.alarm-sheet.pending .status-value,
+.access.armed .access-status,
+.access.pending .access-status {
   color: var(--danger);
 }
 
-.alarm-sheet.disarmed .status-value {
+.alarm-sheet.triggered .status-value,
+.access.triggered .access-status {
+  color: var(--danger);
+}
+
+.alarm-sheet.disarmed .status-value,
+.access.disarmed .access-status {
   color: var(--muted);
 }
 
@@ -373,8 +369,20 @@ button:active:not(:disabled) {
 }
 
 .access.ringing .access-mark,
-.access.triggered .access-mark {
+.access.triggered .access-mark,
+.alarm-sheet.triggered .access-mark,
+.alarm-sheet.armed .access-mark,
+.alarm-sheet.pending .access-mark,
+.access.armed .access-mark,
+.access.pending .access-mark {
   color: var(--danger);
+}
+
+.alarm-sheet.armed .alarm-armed-dot,
+.access.armed .alarm-armed-dot,
+.alarm-sheet.pending .alarm-armed-dot,
+.access.pending .alarm-armed-dot {
+  fill: var(--danger);
 }
 
 .charger-copy {
