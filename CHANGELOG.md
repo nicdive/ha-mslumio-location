@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.58] — 2026-11-23
+
+### Corrigé
+- Capteur / séjour courant : un séjour **manuel sans code encore collé** est bien sélectionné (plus ignoré faute de `voucher_code`).
+
+[0.6.58]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.58
+
 ## [0.6.57] — 2026-11-23
 
 ### Amélioré
