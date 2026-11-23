@@ -5,12 +5,15 @@ from datetime import date, datetime, timedelta, timezone
 from custom_components.usvegliu.planning import (
     build_plan,
     default_blocklist,
+    extract_guest_email,
+    maison_closes_at,
     mbps_to_kbps,
     normalize_event,
     select_current,
     stored_keys_in_window,
     time_limit_minutes,
     voucher_name,
+    wifi_revokes_at,
 )
 
 UTC = timezone.utc
@@ -78,14 +81,37 @@ def test_checkout_and_cancellation_revoke_a_known_stay():
     active = build_plan([stay], now=now, lead_days=3, known_keys=["airbnb-1|2026-07-10"])
     assert [item.key for item in active.ensure] == ["airbnb-1|2026-07-10"]
 
+    departure_day = build_plan(
+        [stay],
+        now=datetime(2026, 7, 17, 18, tzinfo=UTC),
+        lead_days=3,
+        extra_days=1,
+        known_keys=[stay.key],
+    )
+    assert [item.key for item in departure_day.ensure] == [stay.key]
+
+    extra_wifi = build_plan(
+        [stay],
+        now=datetime(2026, 7, 18, 12, tzinfo=UTC),
+        lead_days=3,
+        extra_days=1,
+        known_keys=[stay.key],
+    )
+    assert [item.key for item in extra_wifi.ensure] == [stay.key]
+
     checked_out = build_plan(
         [stay],
-        now=datetime(2026, 7, 17, 0, 1, tzinfo=UTC),
+        now=datetime(2026, 7, 19, 0, 1, tzinfo=UTC),
         lead_days=3,
+        extra_days=1,
         known_keys=[stay.key],
     )
     assert checked_out.ensure == ()
     assert checked_out.revoke_keys == (stay.key,)
+    assert maison_closes_at(stay.check_out) == datetime(2026, 7, 18, tzinfo=UTC)
+    assert wifi_revokes_at(stay.check_out, extra_days=1) == datetime(
+        2026, 7, 19, tzinfo=UTC
+    )
 
     cancelled = build_plan([], now=now, lead_days=3, known_keys=[stay.key])
     assert cancelled.revoke_keys == (stay.key,)
@@ -127,6 +153,25 @@ def test_cancelled_status_is_ignored():
         )
         is None
     )
+
+
+def test_guest_email_is_read_from_the_calendar_description():
+    stay = _stay(description="Jean Dupont\njean.dupont@example.com")
+    assert stay is not None
+    assert stay.email == "jean.dupont@example.com"
+    from_location = _stay(description="", location="contact: ada@villa.fr")
+    assert from_location is not None
+    assert from_location.email == "ada@villa.fr"
+    none = _stay(description="pas de mail ici")
+    assert none is not None
+    assert none.email == ""
+
+
+def test_platform_emails_are_skipped():
+    assert extract_guest_email("guest@airbnb.com\nmoi@villa.fr") == "moi@villa.fr"
+    assert extract_guest_email("noreply@booking.com") == ""
+    assert extract_guest_email("Host <host@vrbo.com>") == ""
+    assert extract_guest_email("Ada <ada@Usvegliu.fr>.") == "ada@Usvegliu.fr"
 
 
 def test_quotes_are_stripped_from_the_voucher_name():
