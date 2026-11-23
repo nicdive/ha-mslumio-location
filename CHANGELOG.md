@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.80] — 2026-11-23
+
+### Amélioré
+- Icônes PWA Ledbury : monogramme vert/or sur fond crème (180 / 192 / 256 / 512).
+
+[0.6.80]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.80
+
 ## [0.6.79] — 2026-11-23
 
 ### Amélioré
