@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.83] — 2026-11-23
+
+### Corrigé
+- iPhone : bandeau bas collé au bord au premier ouverture PWA (plus de `transform` sur le dock fixed).
+
+[0.6.83]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.83
+
 ## [0.6.82] — 2026-11-23
 
 ### Corrigé
