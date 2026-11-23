@@ -28,6 +28,7 @@ from .const import (
     SERVICE_REVOKE_VOUCHER,
     SERVICE_STAY_SETTINGS,
     SERVICE_GUEST_LINK,
+    SERVICE_HOUSE_LINK,
     SERVICE_SET_VOUCHER,
     STORAGE_VERSION,
 )
@@ -179,6 +180,7 @@ async def async_unload_entry(hass: Any, entry: Any) -> bool:
                 SERVICE_REFRESH_CALENDAR,
                 SERVICE_STAY_SETTINGS,
                 SERVICE_GUEST_LINK,
+                SERVICE_HOUSE_LINK,
                 SERVICE_SET_VOUCHER,
             ):
                 hass.services.async_remove(DOMAIN, service)
@@ -313,6 +315,12 @@ def _async_register_services(hass: Any) -> None:
             vol.Optional("essai"): bool,
         }
     )
+    house_schema = vol.Schema(
+        {
+            vol.Optional("regenerer"): bool,
+            vol.Optional("rotate"): bool,
+        }
+    )
     set_voucher_schema = vol.Schema(
         {
             vol.Optional(ATTR_RESERVATION_KEY): str,
@@ -341,11 +349,14 @@ def _async_register_services(hass: Any) -> None:
         (SERVICE_REFRESH_CALENDAR, SupportsResponse.OPTIONAL),
         (SERVICE_STAY_SETTINGS, SupportsResponse.OPTIONAL),
         (SERVICE_GUEST_LINK, SupportsResponse.OPTIONAL),
+        (SERVICE_HOUSE_LINK, SupportsResponse.OPTIONAL),
     ):
         if service == SERVICE_STAY_SETTINGS:
             schema = stay_schema
         elif service == SERVICE_GUEST_LINK:
             schema = guest_schema
+        elif service == SERVICE_HOUSE_LINK:
+            schema = house_schema
         elif service == SERVICE_SET_VOUCHER:
             schema = set_voucher_schema
         elif service in {

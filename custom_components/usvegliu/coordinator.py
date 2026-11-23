@@ -94,14 +94,19 @@ from .dashboard import async_ensure_dashboard, async_ensure_owner_dashboard
 from .engine import async_synchronize
 from .nuki import NukiClient
 from .guest_session import (
+    HOUSE_KEY,
     PREVIEW_KEY,
+    TOKEN_MIN_LENGTH,
     build_preview_record,
     find_record_by_token,
+    generate_guest_token,
     guest_path,
     guest_welcome_message,
+    house_path,
     issued_account_view,
     open_issued_records,
     public_guest_url,
+    select_active_stay,
     stay_is_open,
     welcome_mail_due,
 )
@@ -185,6 +190,7 @@ class UsvegliuRuntime:
         self._weather_key: str | None = None
         self._demo_on = False
         self._demo: dict[str, Any] | None = None
+        self._house_token: str = ""
         self.wifi_draft_entity: Any | None = None
 
     def tenant_entity_ids(self) -> list[str]:
@@ -391,32 +397,38 @@ class UsvegliuRuntime:
     async def async_load(self) -> None:
         """Load the private stay store."""
         raw = await self.store.async_load()
-        if not isinstance(raw, dict):
-            return
-        stays = raw.get("stays")
-        if isinstance(stays, dict):
-            self._stays = stays
-        shared = raw.get("shared_user")
-        if isinstance(shared, dict):
-            self._shared = _scrub_secrets(shared)
-        overrides = raw.get("overrides")
-        if isinstance(overrides, dict):
-            self._overrides = overrides
-        preview = raw.get("guest_preview")
-        if isinstance(preview, dict):
-            self._preview = _scrub_secrets(preview)
-        self._demo_on = bool(raw.get("demo_mode"))
-        if self._demo_on:
-            from .demo import build_demo_villa
+        if isinstance(raw, dict):
+            stays = raw.get("stays")
+            if isinstance(stays, dict):
+                self._stays = stays
+            shared = raw.get("shared_user")
+            if isinstance(shared, dict):
+                self._shared = _scrub_secrets(shared)
+            overrides = raw.get("overrides")
+            if isinstance(overrides, dict):
+                self._overrides = overrides
+            preview = raw.get("guest_preview")
+            if isinstance(preview, dict):
+                self._preview = _scrub_secrets(preview)
+            self._demo_on = bool(raw.get("demo_mode"))
+            if self._demo_on:
+                from .demo import build_demo_villa
 
-            self._demo = build_demo_villa()
-        history = raw.get("stay_history")
-        if isinstance(history, list):
-            self._history = [
-                item for item in history if isinstance(item, dict)
-            ][-40:]
-        self._stays = {key: _scrub_secrets(value) for key, value in self._stays.items()}
+                self._demo = build_demo_villa()
+            history = raw.get("stay_history")
+            if isinstance(history, list):
+                self._history = [
+                    item for item in history if isinstance(item, dict)
+                ][-40:]
+            house = str(raw.get("house_token") or "").strip()
+            if len(house) >= TOKEN_MIN_LENGTH:
+                self._house_token = house
+            self._stays = {
+                key: _scrub_secrets(value) for key, value in self._stays.items()
+            }
         self._refresh_log_filter()
+        if not self._house_token:
+            await self.async_ensure_house_token()
 
     async def _persist(
         self,
@@ -433,6 +445,7 @@ class UsvegliuRuntime:
                 "guest_preview": self._preview,
                 "stay_history": self._history,
                 "demo_mode": self._demo_on,
+                "house_token": self._house_token,
             }
         )
         self._refresh_log_filter()
@@ -449,6 +462,8 @@ class UsvegliuRuntime:
             secrets.append(str(self._shared.get("password") or ""))
         if self._preview:
             secrets.append(str(self._preview.get("guest_token") or ""))
+        if self._house_token:
+            secrets.append(self._house_token)
         secrets.append(str(self.entry.options.get(CONF_ALARM_CODE) or ""))
         secrets.append(str(self.entry.options.get(CONF_NUKI_TOKEN) or ""))
         secrets.append(str(self.entry.options.get(CONF_CAMBIUM_CLIENT_SECRET) or ""))
@@ -746,6 +761,7 @@ class UsvegliuRuntime:
             "pool_ph": telemetry.get("pool_ph") or "",
             "alarm_configured": bool(self.alarm_code()),
             "journal_path": journal_path,
+            "lien_tablettes": self.house_link().get("url") or self.house_link().get("path") or "",
             "notify_service": str(options.get(CONF_NOTIFY_SERVICE) or ""),
             "guest_mail_service": str(options.get(CONF_GUEST_MAIL_SERVICE) or ""),
             "guest_mail_days": self._option_int(
@@ -871,7 +887,11 @@ class UsvegliuRuntime:
         """Entities this stay (or the preview) may read and control."""
         from .access import resolve_stay_access
 
-        if record.get("preview") or record.get("key") == PREVIEW_KEY:
+        if (
+            record.get("house")
+            or record.get("preview")
+            or record.get("key") in {PREVIEW_KEY, HOUSE_KEY}
+        ):
             entities, devices = self.tenant_entity_ids(), self.tenant_device_ids()
         else:
             entities, devices, _remote = resolve_stay_access(
@@ -900,8 +920,93 @@ class UsvegliuRuntime:
             extra_days=self._option_int(CONF_EXTRA_DAYS, DEFAULT_EXTRA_DAYS),
         )
 
+    def is_house_token(self, token: str) -> bool:
+        """True when ``token`` is the stable in-house tablet secret."""
+        cleaned = str(token or "").strip()
+        return bool(self._house_token and cleaned and cleaned == self._house_token)
+
+    async def async_ensure_house_token(self, *, rotate: bool = False) -> str:
+        """Mint or keep the tablet token. Persists when created/rotated."""
+        if self._house_token and not rotate:
+            return self._house_token
+        self._house_token = generate_guest_token()
+        await self._persist(self._stays, self._shared)
+        return self._house_token
+
+    def house_token(self) -> str:
+        """Current tablet token (empty before first ensure)."""
+        return self._house_token
+
+    def house_session_record(self) -> dict[str, Any]:
+        """Synthetic always-on session for wall tablets.
+
+        Controls use the global entity allow-list. The greeting name follows
+        the stay in progress; otherwise the villa brand name is shown.
+        """
+        now = dt_util.now()
+        brand = self.guest_brand()
+        current = select_active_stay(self._stays, now)
+        guest = str(brand.get("name") or brand.get("welcome_house") or "Maison")
+        check_in = ""
+        check_out = ""
+        voucher = ""
+        voucher_id = None
+        voucher_revoked = False
+        nuki = ""
+        nuki_revoked = False
+        if current is not None:
+            guest = str(current.get("guest") or guest)
+            check_in = str(current.get("check_in") or "")
+            check_out = str(current.get("check_out") or "")
+            voucher_revoked = bool(current.get("voucher_revoked"))
+            voucher = "" if voucher_revoked else str(current.get("voucher_code") or "")
+            voucher_id = current.get("voucher_id")
+            nuki_revoked = bool(current.get("nuki_revoked"))
+            nuki = "" if nuki_revoked else str(current.get("nuki_code") or "")
+        if not voucher and not voucher_revoked:
+            voucher = str(self.manual_wifi_code() or "")
+        return {
+            "key": HOUSE_KEY,
+            "house": True,
+            "guest": guest,
+            "check_in": check_in,
+            "check_out": check_out,
+            "guest_token": self._house_token,
+            "voucher_code": voucher or None,
+            "voucher_id": voucher_id,
+            "voucher_revoked": voucher_revoked,
+            "nuki_code": nuki or None,
+            "nuki_revoked": nuki_revoked,
+            "preview": False,
+        }
+
+    def session_for_token(
+        self, token: str, *, require_active: bool = True
+    ) -> dict[str, Any] | None:
+        """Guest stay, preview, or always-on house tablet session."""
+        if self.is_house_token(token):
+            return self.house_session_record()
+        return self.guest_record(token, require_active=require_active)
+
+    def house_link(self) -> dict[str, str]:
+        """LAN URL for wall tablets — never the public guest vitrine."""
+        token = self._house_token
+        path = house_path(token) if token else ""
+        origin = getattr(self.hass.config, "internal_url", None) or getattr(
+            self.hass.config, "external_url", None
+        )
+        url = f"{str(origin).rstrip('/')}{path}" if origin and path else path
+        return {
+            "path": path,
+            "url": url,
+            "lan_only": "1",
+            "guest": str(self.house_session_record().get("guest") or ""),
+        }
+
     def guest_link(self, record: dict[str, Any]) -> dict[str, str]:
         """Admin-facing path and public URL for one token."""
+        if record.get("house"):
+            return self.house_link()
         token = str(record.get("guest_token") or "")
         path = guest_path(token) if token else ""
         configured = str(self.entry.options.get(CONF_GUEST_BASE_URL) or "").strip()
@@ -1075,6 +1180,22 @@ class UsvegliuRuntime:
         await self._persist(self._stays, self._shared)
         return {**self.guest_link(record), "essai": False}
 
+    async def _async_house_link(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Stable LAN tablet URL. Optional regenerate invalidates old iPad installs."""
+        rotate = bool(data.get("regenerer") or data.get("rotate"))
+        await self.async_ensure_house_token(rotate=rotate)
+        link = self.house_link()
+        await self._async_notify(
+            {
+                "reservation_id": HOUSE_KEY,
+                "guest": "Tablettes",
+                "check_in": "",
+                "check_out": "",
+                "guest_token": self._house_token,
+            }
+        )
+        return {**link, "regenerer": rotate}
+
     def _device_sensitive(self, device_ids: list[str]) -> list[str]:
         if not device_ids:
             return []
@@ -1184,6 +1305,9 @@ class UsvegliuRuntime:
         if action == "lien_maison":
             async with self._lock:
                 return await self._async_guest_link(call.data)
+        if action == "lien_tablettes":
+            async with self._lock:
+                return await self._async_house_link(call.data)
         set_code: str | None = None
         async with self._lock:
             resolved = None

@@ -477,6 +477,16 @@
           "description": "Ignores the calendar. Uses the entities currently selected."
         }
       }
+    },
+    "lien_tablettes": {
+      "name": "Tablet link",
+      "description": "Fixed URL for wall iPads (LAN only). Always on; the displayed name follows the stay.",
+      "fields": {
+        "regenerer": {
+          "name": "Regenerate token",
+          "description": "Invalidates the old URL — reinstall on every iPad."
+        }
+      }
     }
   },
   "issues": {

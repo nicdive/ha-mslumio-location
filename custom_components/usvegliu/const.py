@@ -170,6 +170,7 @@ SERVICE_APPLY_DASHBOARD: Final = "appliquer_tableau"
 SERVICE_REFRESH_CALENDAR: Final = "relire_calendrier"
 SERVICE_STAY_SETTINGS: Final = "reglages_sejour"
 SERVICE_GUEST_LINK: Final = "lien_maison"
+SERVICE_HOUSE_LINK: Final = "lien_tablettes"
 SERVICE_SET_VOUCHER: Final = "definir_voucher"
 
 ATTR_RESERVATION_KEY: Final = "reservation_key"

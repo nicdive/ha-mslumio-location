@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.77] — 2026-11-23
+
+### Ajouté
+- **Tablettes maison** : URL fixe `/usvegliu/house/<jeton>` (service `lien_tablettes`). Toujours active ; le nom affiché suit le séjour. Accès **LAN uniquement** (refus sur Host public / IP WAN).
+
+[0.6.77]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.77
+
 ## [0.6.76] — 2026-11-23
 
 ### Corrigé

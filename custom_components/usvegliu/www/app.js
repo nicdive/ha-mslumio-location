@@ -26,6 +26,8 @@
   function readToken() {
     const path = window.location.pathname.replace(/\/+$/, "");
     const parts = path.split("/").filter(Boolean);
+    const houseIdx = parts.lastIndexOf("house");
+    if (houseIdx >= 0 && parts[houseIdx + 1]) return parts[houseIdx + 1];
     const idx = parts.lastIndexOf("s");
     if (idx >= 0 && parts[idx + 1]) return parts[idx + 1];
     return new URLSearchParams(window.location.search).get("token") || "";
@@ -399,6 +401,7 @@
       stay_closed: "Ce séjour est clos. Demandez un nouveau lien à l’accueil.",
       opens_on: "Disponible le jour de votre arrivée",
       opens_prefix: "La maison s’ouvre",
+      lan_only: "Tablettes : ouvrez cette page sur le Wi‑Fi de la maison.",
       opens_on_day: " le jour de votre arrivée",
       opens_on_date: " le",
       loading: "La maison s’ouvre…",
@@ -498,6 +501,7 @@
       stay_closed: "This stay has ended. Please ask the host for a new link.",
       opens_on: "Available on your arrival day",
       opens_prefix: "The house opens",
+      lan_only: "Tablets: open this page on the house Wi‑Fi.",
       opens_on_day: " on your arrival day",
       opens_on_date: " on",
       loading: "Opening the house…",
@@ -1507,6 +1511,12 @@
       restoreBrandLogo(keep);
       return;
     }
+    if (error === "lan_only") {
+      const keep = takeBrandLogo();
+      root.innerHTML = statusPage(escapeHtml(t("lan_only")));
+      restoreBrandLogo(keep);
+      return;
+    }
     if (error === "too_early") {
       const message = arrivalNote
         ? `${t("opens_prefix")}${t("opens_on_date")} ${arrivalNote}.`
@@ -1872,6 +1882,12 @@
     const code = err && err.message;
     if (code === "invalid_token") {
       error = "invalid_token";
+      arrivalNote = "";
+      render();
+      return;
+    }
+    if (code === "lan_only") {
+      error = "lan_only";
       arrivalNote = "";
       render();
       return;

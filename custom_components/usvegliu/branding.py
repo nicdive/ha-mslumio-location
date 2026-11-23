@@ -124,7 +124,7 @@ def unifi_configured(data: Mapping[str, Any] | None) -> bool:
 
 
 def safe_manifest_start(raw: str, *, token: str) -> str:
-    """PWA start_url: keep /s/<token> (or /usvegliu/s/<token>), never a token-less path."""
+    """PWA start_url: keep /s/<token> or /house/<token>, never a token-less path."""
     start = str(raw or "").strip().split("#", 1)[0]
     token = str(token or "").strip()
     if (
@@ -137,11 +137,14 @@ def safe_manifest_start(raw: str, *, token: str) -> str:
     ):
         path = start.split("?", 1)[0].rstrip("/") or "/"
         parts = [p for p in path.split("/") if p]
-        if token and len(parts) >= 2 and parts[-2] == "s" and parts[-1] == token:
+        if token and len(parts) >= 2 and parts[-2] in {"s", "house"} and parts[-1] == token:
             return path
         if not token:
             return path
     if token:
+        # Prefer house when the client asked for /house/… (tablet PWA).
+        if "/house/" in start:
+            return f"/{DOMAIN}/house/{token}"
         return f"/{DOMAIN}/s/{token}"
     return f"/{DOMAIN}/static/"
 

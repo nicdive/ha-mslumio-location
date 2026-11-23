@@ -477,6 +477,16 @@
           "description": "Ignore le calendrier. Utilise les entités actuellement choisies."
         }
       }
+    },
+    "lien_tablettes": {
+      "name": "Lien tablettes",
+      "description": "URL fixe pour les iPad muraux (réseau local). Toujours active ; le nom affiché suit le séjour.",
+      "fields": {
+        "regenerer": {
+          "name": "Régénérer le jeton",
+          "description": "Invalide l'ancienne URL — réinstaller sur chaque iPad."
+        }
+      }
     }
   },
   "issues": {

@@ -27,6 +27,7 @@ from .demo import (
 from .guest_session import (
     HOUSE_HEAT,
     format_arrival_day,
+    ip_is_lan,
     stay_activation_start,
     stay_is_active,
     GUEST_KIND_ALARM,
@@ -113,6 +114,7 @@ def async_setup_http(hass: Any) -> None:
     from homeassistant.components.http import StaticPathConfig
 
     hass.http.register_view(GuestPageView())
+    hass.http.register_view(HousePageView())
     hass.http.register_view(GuestServiceWorkerView())
     hass.http.register_view(GuestManifestView())
     hass.http.register_view(GuestStateView())
@@ -157,6 +159,8 @@ def _guest_not_ready(view: Any, record: dict[str, Any] | None) -> Any | None:
     """401 if the token is unknown or the stay is over, 403 until arrival."""
     if record is None:
         return _json_error(view, 401, "invalid_token")
+    if record.get("house"):
+        return None
     from homeassistant.util import dt as dt_util
 
     now = dt_util.now()
@@ -173,6 +177,52 @@ def _guest_not_ready(view: Any, record: dict[str, Any] | None) -> Any | None:
             opens_on=opens,
         )
     return _json_error(view, 401, "invalid_token")
+
+
+def _request_host(request: Any) -> str:
+    return str(getattr(request, "host", None) or request.headers.get("Host") or "")
+
+
+def _client_ip(request: Any) -> str:
+    """Best-effort client IP (peer, then first X-Forwarded-For hop)."""
+    peer = str(getattr(request, "remote", None) or "").strip()
+    forwarded = str(request.headers.get("X-Forwarded-For") or "").strip()
+    if forwarded:
+        first = forwarded.split(",")[0].strip()
+        if first and (not peer or ip_is_lan(peer)):
+            return first
+    return peer
+
+
+def _public_hostnames(runtime: Any) -> set[str]:
+    """Hosts that must not serve the house-tablet token."""
+    hosts: set[str] = set()
+    from urllib.parse import urlparse
+
+    from .const import CONF_GUEST_BASE_URL
+
+    candidates = [
+        str(runtime.entry.options.get(CONF_GUEST_BASE_URL) or ""),
+        str(getattr(runtime.hass.config, "external_url", None) or ""),
+    ]
+    for raw in candidates:
+        text = raw.strip()
+        if not text:
+            continue
+        if "://" not in text:
+            text = f"https://{text}"
+        host = (urlparse(text).hostname or "").casefold()
+        if host:
+            hosts.add(host)
+    return hosts
+
+
+def house_lan_allowed(request: Any, runtime: Any) -> bool:
+    """Tablets: LAN / private IP only — block public Host and WAN clients."""
+    host = _request_host(request).split(":")[0].casefold()
+    if host and host in _public_hostnames(runtime):
+        return False
+    return ip_is_lan(_client_ip(request))
 
 
 def _area_name(hass: Any, entity_id: str) -> str:
@@ -535,7 +585,7 @@ def _snapshot(
         voucher = str(runtime.manual_wifi_code() or "")
     nuki_revoked = bool(record.get("nuki_revoked"))
     nuki_code = "" if nuki_revoked else str(record.get("nuki_code") or "")
-    share = _guest_share_url(request, record)
+    share = None if record.get("house") else _guest_share_url(request, record)
     brand = runtime.guest_brand()
     allow_fans = brand_climate_fans(brand)
     if brand_heat_only(brand):
@@ -545,6 +595,7 @@ def _snapshot(
         "check_in": record.get("check_in") or "",
         "check_out": record.get("check_out") or "",
         "preview": bool(record.get("preview")),
+        "house": bool(record.get("house")),
         "brand": {
             "id": brand["id"],
             "name": brand["name"],
@@ -679,10 +730,21 @@ async def _bound(
     runtime = _runtime(hass)
     if runtime is None:
         return None, None, None
-    record = runtime.guest_record(_token_from(request), require_active=False)
+    token = _token_from(request)
+    if runtime.is_house_token(token):
+        if not house_lan_allowed(request, runtime):
+            return hass, runtime, {"house": True, "lan_denied": True}
+        return hass, runtime, runtime.house_session_record()
+    record = runtime.guest_record(token, require_active=False)
     if record is None:
         return hass, runtime, None
     return hass, runtime, record
+
+
+def _lan_denied(view: Any, record: dict[str, Any] | None) -> Any | None:
+    if record and record.get("lan_denied"):
+        return _json_error(view, 403, "lan_only")
+    return None
 
 
 def _package_version() -> str:
@@ -788,6 +850,28 @@ class GuestPageView(HomeAssistantView):
             charset="utf-8",
             headers={"Cache-Control": "no-cache"},
         )
+
+
+class HousePageView(GuestPageView):
+    """Always-on wall tablets — same app, stable token, LAN only."""
+
+    url = f"/{DOMAIN}/house/{{token}}"
+    extra_urls = ["/house/{token}"]
+    name = f"api:{DOMAIN}:house_page"
+
+    async def get(self, request: Any, token: str) -> Any:
+        from aiohttp import web
+
+        runtime = _runtime(request.app["hass"])
+        if runtime is None or not runtime.is_house_token(token):
+            return web.Response(status=404, text="missing")
+        if not house_lan_allowed(request, runtime):
+            return web.Response(
+                status=403,
+                text="Tablettes: réseau local uniquement",
+                content_type="text/plain; charset=utf-8",
+            )
+        return await GuestPageView.get(self, request, token)
 
 
 class GuestServiceWorkerView(HomeAssistantView):
@@ -914,7 +998,7 @@ class GuestStateView(HomeAssistantView):
         hass, runtime, record = await _bound(request)
         if runtime is None:
             return _json_error(self, 503, "not_loaded")
-        denied = _guest_not_ready(self, record)
+        denied = _lan_denied(self, record) or _guest_not_ready(self, record)
         if denied is not None:
             return denied
         await runtime.async_ensure_weather()
@@ -935,7 +1019,7 @@ class GuestStreamView(HomeAssistantView):
         hass, runtime, record = await _bound(request)
         if runtime is None:
             return _json_error(self, 503, "not_loaded")
-        denied = _guest_not_ready(self, record)
+        denied = _lan_denied(self, record) or _guest_not_ready(self, record)
         if denied is not None:
             return denied
 
@@ -959,7 +1043,7 @@ class GuestStreamView(HomeAssistantView):
                 pass
 
         def listener(event: Any) -> None:
-            current = runtime.guest_record(token)
+            current = runtime.session_for_token(token, require_active=False)
             if current is None:
                 notify("expired")
                 return
@@ -983,13 +1067,17 @@ class GuestStreamView(HomeAssistantView):
                     while not queue.empty():
                         kind = queue.get_nowait()
                 except asyncio.TimeoutError:
-                    current = runtime.guest_record(token)
+                    current = runtime.session_for_token(token, require_active=False)
                     if current is None:
                         await emit("expired", {"error": "invalid_token"})
                         break
-                    await response.write(b": ping\n\n")
+                    # House tablets: refresh greeting when the stay rolls over.
+                    if runtime.is_house_token(token):
+                        await emit("state", _snapshot(hass, runtime, current, request))
+                    else:
+                        await response.write(b": ping\n\n")
                     continue
-                current = runtime.guest_record(token)
+                current = runtime.session_for_token(token, require_active=False)
                 if current is None or kind == "expired":
                     await emit("expired", {"error": "invalid_token"})
                     break
@@ -1014,7 +1102,7 @@ class GuestClimateView(HomeAssistantView):
         hass, runtime, record = await _bound(request)
         if runtime is None:
             return _json_error(self, 503, "not_loaded")
-        denied = _guest_not_ready(self, record)
+        denied = _lan_denied(self, record) or _guest_not_ready(self, record)
         if denied is not None:
             return denied
         try:
@@ -1145,7 +1233,7 @@ class GuestLockView(HomeAssistantView):
         hass, runtime, record = await _bound(request)
         if runtime is None:
             return _json_error(self, 503, "not_loaded")
-        denied = _guest_not_ready(self, record)
+        denied = _lan_denied(self, record) or _guest_not_ready(self, record)
         if denied is not None:
             return denied
         try:
@@ -1199,7 +1287,7 @@ class GuestCommandView(HomeAssistantView):
         hass, runtime, record = await _bound(request)
         if runtime is None:
             return _json_error(self, 503, "not_loaded")
-        denied = _guest_not_ready(self, record)
+        denied = _lan_denied(self, record) or _guest_not_ready(self, record)
         if denied is not None:
             return denied
         try:
@@ -1368,7 +1456,7 @@ class GuestSnapshotView(HomeAssistantView):
         hass, runtime, record = await _bound(request)
         if runtime is None:
             return _json_error(self, 503, "not_loaded")
-        denied = _guest_not_ready(self, record)
+        denied = _lan_denied(self, record) or _guest_not_ready(self, record)
         if denied is not None:
             return denied
         entity_id = str(request.query.get("entity_id") or "")

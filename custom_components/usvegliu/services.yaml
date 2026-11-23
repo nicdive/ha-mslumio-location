@@ -188,3 +188,16 @@ lien_maison:
       description: Ignore le calendrier et ouvre un accès temporaire aux entités choisies.
       selector:
         boolean:
+
+lien_tablettes:
+  name: Lien tablettes
+  description: >
+    URL fixe pour les iPad muraux (réseau local uniquement). Une seule
+    installation : l'app reste active entre les séjours ; seul le nom
+    affiché change. Ne pas utiliser l'URL publique home.49ledbury.com.
+  fields:
+    regenerer:
+      name: Régénérer le jeton
+      description: Invalide l'ancienne URL — à réinstaller sur chaque iPad.
+      selector:
+        boolean:

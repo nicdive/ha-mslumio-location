@@ -50,13 +50,13 @@ Le dépôt doit être **public**. HACS n'installe pas un dépôt privé.
 
 1. HACS → ⋮ → *Dépôts personnalisés*.
 2. URL `https://github.com/nicdive/ha-mslumio-location`, catégorie **Intégration**.
-3. Télécharger **Usvegliu** en choisissant une **release GitHub** (dernière : [0.6.76](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.76)), pas le commit d'une branche.
+3. Télécharger **Usvegliu** en choisissant une **release GitHub** (dernière : [0.6.77](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.77)), pas le commit d'une branche.
 4. Redémarrer Home Assistant.
 5. Paramètres → Appareils et services → Ajouter une intégration → **Usvegliu**.
 
-Pour **mettre à jour** (ex. 0.6.35 → 0.6.76) : HACS → Usvegliu → ⋮ → **Redownload** → **0.6.76**, puis redémarrer. Le numéro dans Paramètres → Intégrations ne change qu'après ce redémarrage.
+Pour **mettre à jour** (ex. 0.6.35 → 0.6.77) : HACS → Usvegliu → ⋮ → **Redownload** → **0.6.77**, puis redémarrer. Le numéro dans Paramètres → Intégrations ne change qu'après ce redémarrage.
 
-HACS ne liste une version **que** si la [release GitHub](https://github.com/nicdive/ha-mslumio-location/releases) existe. Un numéro dans le `manifest.json` ou une pull request ne suffit pas : sans tag `v0.6.76` poussé, 0.6.76 n'apparaît pas.
+HACS ne liste une version **que** si la [release GitHub](https://github.com/nicdive/ha-mslumio-location/releases) existe. Un numéro dans le `manifest.json` ou une pull request ne suffit pas : sans tag `v0.6.77` poussé, 0.6.77 n'apparaît pas.
 
 ## Versions
 
@@ -257,7 +257,7 @@ L'intégration crée les deux tableaux si la collection Lovelace est joignable. 
 
 Ce n'est **pas** le tableau **Séjour** (locataire) ni un tableau créé à la main sous un autre nom. Dans Home Assistant 2026, le bouton **+** des tableaux de bord ne reprend pas le titre comme URL : « Location » devient `dashboard-location`, donc l'intégration n'y écrit rien.
 
-1. Mettre à jour Usvegliu ([0.6.76](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.76)+), redémarrer Home Assistant.
+1. Mettre à jour Usvegliu ([0.6.77](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.77)+), redémarrer Home Assistant.
 2. Outils de développement → Actions → `usvegliu.appliquer_tableau` → Exécuter.
 3. Dans la barre latérale, ouvrir **Console**, ou l'URL `/usvegliu-proprietaire`.
 
@@ -345,6 +345,16 @@ Sans UID calendrier, la clé est un condensat du nom et des dates : renommer le 
 ## Web app locataire
 
 La web app **Maison** est servie par le même Home Assistant. Le locataire n'ouvre pas l'UI admin : un lien avec jeton suffit. L'interface est une application à sections (accueil, clim, pool, lumière, accès, infos), adaptée au téléphone et à l'iPad mini. Le bandeau reprend le logo **U Svegliu**.
+
+### Tablettes murales (iPad)
+
+Pour 6 iPad dans la maison : **une seule URL fixe**, installée une fois.
+
+1. Services → `usvegliu.lien_tablettes` (réponse `url` / `path`).
+2. Sur chaque iPad, ouvrir l’URL **locale** (`http://ha:8123/usvegliu/house/…` ou l’IP LAN) → Sur l’écran d’accueil.
+3. Ne **pas** utiliser `https://home.49ledbury.com/…` : le jeton tablette est **refusé hors LAN** (et idéalement bloqué sur le reverse proxy).
+
+L’app reste **toujours active** (chauffage, lumières…). Pendant un séjour le prénom du locataire s’affiche ; sinon le nom de la villa. Le lien perso du mail (`/s/<token>`) reste distinct et expire au départ.
 
 - **Maison** : accueil nominatif, dates du séjour, météo du jour à Lumio, **véhicule** seulement s'il est branché (pictogramme de voiture, en charge, niveau, charge terminée). Si quelqu'un sonne, un popup avec la photo de la platine et *Ouvrir le portail*.
 - **Clim** : thermostats autorisés (marche / arrêt, consigne, ventilation) ; titre **Chauffage** ou **Climatisation** selon le switch du propriétaire. Température extérieure en coin.

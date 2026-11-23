@@ -15,6 +15,7 @@ from .const import DEFAULT_EXTRA_DAYS, DEFAULT_WIFI_SSID, DOMAIN
 from .planning import maison_closes_at, wifi_revokes_at
 
 PREVIEW_KEY = "__usvegliu_preview__"
+HOUSE_KEY = "__usvegliu_house__"
 PREVIEW_HOURS = 24
 TOKEN_MIN_LENGTH = 16
 
@@ -1147,6 +1148,11 @@ def guest_path(token: str) -> str:
     return f"/{DOMAIN}/s/{token}"
 
 
+def house_path(token: str) -> str:
+    """Stable tablet path — one install for every stay."""
+    return f"/{DOMAIN}/house/{token}"
+
+
 def public_guest_url(base_url: str | None, token: str) -> str:
     """Public locataire URL. ``base_url`` is the vitrine origin, without /s."""
     path = guest_path(token)
@@ -1156,3 +1162,40 @@ def public_guest_url(base_url: str | None, token: str) -> str:
     if origin.endswith("/s"):
         return f"{origin}/{token}"
     return f"{origin}/s/{token}"
+
+
+def select_active_stay(
+    stored: dict[str, dict],
+    now: datetime,
+) -> dict | None:
+    """Stay whose Maison window is open today (arrival midnight → departure end)."""
+    covering: list[tuple[datetime, dict]] = []
+    for record in stored.values():
+        if record.get("preview") or record.get("house"):
+            continue
+        if not stay_is_active(record, now):
+            continue
+        begin = stay_activation_start(record, now)
+        if begin is None:
+            continue
+        covering.append((begin, record))
+    if not covering:
+        return None
+    covering.sort(key=lambda item: item[0])
+    return covering[0][1]
+
+
+def ip_is_lan(raw: str | None) -> bool:
+    """True for loopback / private / link-local client addresses."""
+    import ipaddress
+
+    text = str(raw or "").strip()
+    if not text:
+        return False
+    if text.startswith("::ffff:"):
+        text = text[7:]
+    try:
+        addr = ipaddress.ip_address(text)
+    except ValueError:
+        return False
+    return bool(addr.is_private or addr.is_loopback or addr.is_link_local)
