@@ -1360,7 +1360,7 @@
   }
 
   function homePage() {
-    return `${welcomeHead()}${installBanner()}${statusCards()}${weatherCard()}`;
+    return `${welcomeHead()}${statusCards()}${weatherCard()}`;
   }
 
   function climateHead() {
@@ -1389,9 +1389,12 @@
   }
 
   function infoPage() {
+    const install = installBanner();
     const body = infoSection();
-    if (!body) return `${pageHead(t("info"))}<p class="empty">${escapeHtml(t("empty_info"))}</p>`;
-    return `${pageHead(t("info"))}${body}`;
+    if (!body && !install) {
+      return `${pageHead(t("info"))}<p class="empty">${escapeHtml(t("empty_info"))}</p>`;
+    }
+    return `${pageHead(t("info"))}${install}${body || ""}`;
   }
 
   function poolPage() {

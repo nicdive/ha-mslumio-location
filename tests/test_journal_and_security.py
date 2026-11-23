@@ -931,6 +931,9 @@ def test_guest_stream_is_server_sent_events():
     assert "infoSection" in js
     assert "infoPage" in js
     assert "homePage" in js
+    assert "installBanner()" in js
+    assert "welcomeHead()}${installBanner()" not in js
+    assert "pageHead(t(\"info\"))}${install}" in js or '${install}${body' in js
     assert 'data-act="tab"' in js
     assert "dock" in js
     assert "windGlyph" in js
