@@ -116,7 +116,8 @@ def test_ledbury_logo_assets_ship():
     assert "applyBrandChrome" in js
     assert "__USVEGLIU_BRAND__" in js
     assert "logo-ledbury-180.png" in js
-    assert "preserveBrandLogo" in js
+    assert "takeBrandLogo" in js
+    assert "restoreBrandLogo" in js
     assert 'alt=""' in js
     assert "logo-banner-ledbury.png" in js or "brand.banner" in js
     flow = (

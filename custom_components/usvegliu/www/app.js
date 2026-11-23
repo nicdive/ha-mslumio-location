@@ -643,10 +643,10 @@
 
   function brandBar(withBack) {
     const brand = brandInfo();
-    // Empty alt — iOS flashes alt text for ~500ms when <img> is recreated via innerHTML.
+    // Empty alt — iOS WebKit flashes alt text when <img> is recreated via innerHTML.
     return `<header class="brand${withBack ? " brand-room" : ""}" aria-label="${escapeAttr(brand.name)}">
       ${withBack ? backArrow() : ""}
-      <img class="brand-logo" src="${escapeHtml(brand.banner)}" alt="" decoding="async" draggable="false" />
+      <img class="brand-logo" src="${escapeHtml(brand.banner)}" alt="" draggable="false" />
     </header>`;
   }
 
@@ -658,13 +658,36 @@
     });
   }
 
-  function preserveBrandLogo(previous) {
-    if (!previous || !previous.getAttribute("src")) return;
+  function takeBrandLogo() {
+    const logo = root.querySelector("img.brand-logo");
+    if (!logo) return null;
+    logo.remove();
+    return logo;
+  }
+
+  function restoreBrandLogo(previous) {
+    if (!previous) return;
     const next = root.querySelector("img.brand-logo");
-    if (!next) return;
-    if (previous.getAttribute("src") === next.getAttribute("src")) {
+    if (next) {
       next.replaceWith(previous);
+      return;
     }
+    const header = root.querySelector(".brand");
+    if (header) header.appendChild(previous);
+  }
+
+  function syncBrandMode(withBack) {
+    const header = root.querySelector(".brand");
+    if (!header) return false;
+    header.classList.toggle("brand-room", withBack);
+    const back = header.querySelector(".back");
+    if (withBack && !back) {
+      header.insertAdjacentHTML("afterbegin", backArrow());
+      bind(header);
+    } else if (!withBack && back) {
+      back.remove();
+    }
+    return true;
   }
 
   function stageHtml(withBack) {
@@ -1472,24 +1495,30 @@
   function render() {
     applyBrandChrome();
     if (!token) {
+      const keep = takeBrandLogo();
       root.innerHTML = statusPage(escapeHtml(t("link_incomplete")));
+      restoreBrandLogo(keep);
       return;
     }
     if (error === "invalid_token") {
+      const keep = takeBrandLogo();
       root.innerHTML = statusPage(escapeHtml(t("stay_closed")));
+      restoreBrandLogo(keep);
       return;
     }
     if (error === "too_early") {
       const message = arrivalNote
         ? `${t("opens_prefix")}${t("opens_on_date")} ${arrivalNote}.`
         : `${t("opens_prefix")}${t("opens_on_day")}.`;
+      const keep = takeBrandLogo();
       root.innerHTML = statusPage(escapeHtml(message));
+      restoreBrandLogo(keep);
       return;
     }
     if (!state) {
-      const keep = root.querySelector("img.brand-logo");
+      const keep = takeBrandLogo();
       root.innerHTML = statusPage(escapeHtml(t("loading")), "empty");
-      preserveBrandLogo(keep);
+      restoreBrandLogo(keep);
       return;
     }
     normalizeScreen();
@@ -1510,30 +1539,31 @@
     const body = inner != null ? inner : stageHtml(false);
     const shell = root.querySelector(".shell");
     const stage = root.querySelector("main.stage");
-    const sameChrome =
-      shell &&
-      stage &&
-      shell.classList.contains("shell-room") === withBack &&
-      Boolean(root.querySelector(".dock")) === !withBack;
-
-    // Tab / live updates: keep logo + dock in the DOM (no iOS alt/text flash).
-    if (sameChrome && !withBack) {
-      stage.innerHTML = body;
-      syncDock();
-      const visio = root.querySelector(".visio-pop");
-      const nextVisio = visioPopup();
-      if (visio && !nextVisio) visio.remove();
-      else if (!visio && nextVisio) shell.insertAdjacentHTML("beforeend", nextVisio);
-      else if (visio && nextVisio) visio.outerHTML = nextVisio;
-      bind(stage);
-      const pop = root.querySelector(".visio-pop");
-      if (pop) bind(pop);
-      return;
+    const hasDock = Boolean(root.querySelector(".dock"));
+    // Same shell mode (tabs ↔ tabs, or room ↔ room): never touch the logo node.
+    // All iOS browsers are WebKit — recreating <img> flashes title text for ~500ms.
+    if (shell && stage && shell.classList.contains("shell-room") === withBack) {
+      if (withBack || hasDock) {
+        syncBrandMode(withBack);
+        stage.innerHTML = body;
+        if (!withBack) syncDock();
+        const visio = root.querySelector(".visio-pop");
+        const nextVisio = visioPopup();
+        if (visio && !nextVisio) visio.remove();
+        else if (!visio && nextVisio) shell.insertAdjacentHTML("beforeend", nextVisio);
+        else if (visio && nextVisio) {
+          visio.outerHTML = nextVisio;
+          const pop = root.querySelector(".visio-pop");
+          if (pop) bind(pop);
+        }
+        bind(stage);
+        return;
+      }
     }
 
-    const keepLogo = root.querySelector("img.brand-logo");
+    const keepLogo = takeBrandLogo();
     root.innerHTML = appChrome(body, withBack);
-    preserveBrandLogo(keepLogo);
+    restoreBrandLogo(keepLogo);
     bind();
   }
 
@@ -1852,7 +1882,9 @@
       return;
     }
     error = "error";
+    const keep = takeBrandLogo();
     root.innerHTML = statusPage("La maison est momentanément indisponible.");
+    restoreBrandLogo(keep);
   }
 
   function refresh() {

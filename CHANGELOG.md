@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.75] — 2026-11-23
+
+### Corrigé
+- iOS (Safari **et** Chrome / tous WebKit) : le logo n’est plus détruit au changement de page — plus de flash de texte à la place du bandeau.
+
+[0.6.75]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.75
+
 ## [0.6.74] — 2026-11-23
 
 ### Corrigé
