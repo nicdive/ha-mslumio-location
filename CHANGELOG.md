@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.61] — 2026-11-23
+
+### Corrigé
+- Options : **vraie liste à cases** pour les entités / appareils locataire (plus le picker déroulant un-par-un).
+
+[0.6.61]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.61
+
 ## [0.6.60] — 2026-11-23
 
 ### Corrigé

@@ -14,8 +14,6 @@ from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
     BooleanSelector,
-    DeviceSelector,
-    DeviceSelectorConfig,
     EntitySelector,
     EntitySelectorConfig,
     NumberSelector,
@@ -152,7 +150,100 @@ def _default_guest_locale(defaults: Mapping[str, Any]) -> str:
     )
 
 
-def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
+# Domains the guest app can control or display — used for checkbox lists.
+_TENANT_ENTITY_DOMAINS = frozenset(
+    {
+        "climate",
+        "light",
+        "cover",
+        "lock",
+        "fan",
+        "switch",
+        "media_player",
+        "alarm_control_panel",
+        "camera",
+        "scene",
+        "script",
+        "binary_sensor",
+        "sensor",
+        "event",
+    }
+)
+
+
+def _select_option(value: str, label: str | None = None) -> dict[str, str]:
+    return {"value": value, "label": label or value}
+
+
+def _tenant_entity_options(hass: Any, defaults: Mapping[str, Any]) -> list[dict[str, str]]:
+    """Build a checkbox list of guest-relevant entities."""
+    selected = set(_default_entities(defaults))
+    found: dict[str, str] = {}
+    if hass is not None:
+        try:
+            from homeassistant.helpers import entity_registry as er
+
+            registry = er.async_get(hass)
+            for entry in registry.entities.values():
+                entity_id = entry.entity_id
+                domain = entity_id.split(".", 1)[0]
+                if domain not in _TENANT_ENTITY_DOMAINS:
+                    continue
+                if entry.disabled:
+                    continue
+                state = hass.states.get(entity_id)
+                name = (
+                    state.name
+                    if state is not None and state.name
+                    else (entry.name or entry.original_name or entity_id)
+                )
+                found[entity_id] = f"{name} ({entity_id})"
+        except Exception:  # noqa: BLE001 — registry optional in tests
+            pass
+        if not found and hasattr(hass, "states"):
+            for domain in sorted(_TENANT_ENTITY_DOMAINS):
+                try:
+                    for entity_id in hass.states.async_entity_ids(domain):
+                        state = hass.states.get(entity_id)
+                        name = state.name if state is not None else entity_id
+                        found[entity_id] = f"{name} ({entity_id})"
+                except Exception:  # noqa: BLE001
+                    continue
+    for entity_id in selected:
+        found.setdefault(entity_id, entity_id)
+    return [_select_option(eid, found[eid]) for eid in sorted(found)]
+
+
+def _tenant_device_options(hass: Any, defaults: Mapping[str, Any]) -> list[dict[str, str]]:
+    """Build a checkbox list of devices (all their entities become allowed)."""
+    selected = set(_as_id_list(defaults.get(CONF_TENANT_DEVICES)))
+    found: dict[str, str] = {}
+    if hass is not None:
+        try:
+            from homeassistant.helpers import device_registry as dr
+
+            registry = dr.async_get(hass)
+            for entry in registry.devices.values():
+                if entry.disabled:
+                    continue
+                name = entry.name_by_user or entry.name or entry.id
+                found[entry.id] = f"{name}"
+        except Exception:  # noqa: BLE001
+            pass
+    for device_id in selected:
+        found.setdefault(device_id, device_id)
+    return [_select_option(did, found[did]) for did in sorted(found, key=lambda i: found[i].casefold())]
+
+
+def _house_schema(defaults: Mapping[str, Any], hass: Any = None) -> vol.Schema:
+    entity_options = _tenant_entity_options(hass, defaults)
+    device_options = _tenant_device_options(hass, defaults)
+    entity_default = [e for e in _default_entities(defaults) if e in {o["value"] for o in entity_options}] or _default_entities(defaults)
+    device_default = [
+        d
+        for d in _as_id_list(defaults.get(CONF_TENANT_DEVICES))
+        if d in {o["value"] for o in device_options}
+    ] or _as_id_list(defaults.get(CONF_TENANT_DEVICES))
     return vol.Schema(
         {
             vol.Required(
@@ -186,17 +277,28 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
                     mode=SelectSelectorMode.DROPDOWN,
                 )
             ),
-            # Entity/device multi-select with checkboxes (not TargetSelector).
+            # Real checkbox lists (Select LIST + multiple) — EntitySelector is a
+            # single-pick search field even with multiple=True.
             vol.Optional(
                 CONF_TENANT_ENTITIES,
-                description={"suggested_value": _default_entities(defaults)},
-            ): EntitySelector(EntitySelectorConfig(multiple=True)),
+                default=list(entity_default),
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=entity_options or [_select_option("__none__", "—")],
+                    multiple=True,
+                    mode=SelectSelectorMode.LIST,
+                )
+            ),
             vol.Optional(
                 CONF_TENANT_DEVICES,
-                description={
-                    "suggested_value": _as_id_list(defaults.get(CONF_TENANT_DEVICES))
-                },
-            ): DeviceSelector(DeviceSelectorConfig(multiple=True)),
+                default=list(device_default),
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=device_options or [_select_option("__none__", "—")],
+                    multiple=True,
+                    mode=SelectSelectorMode.LIST,
+                )
+            ),
             vol.Required(
                 CONF_CONFIRM_SENSITIVE,
                 default=False,
@@ -357,6 +459,9 @@ def _clean_options(
         devices = _as_id_list(cleaned.get(CONF_TENANT_DEVICES))
     if not selected and legacy:
         selected = legacy
+    # Placeholder when the checkbox list has no entities yet.
+    selected = [item for item in selected if item != "__none__"]
+    devices = [item for item in devices if item != "__none__"]
     cleaned[CONF_TENANT_ENTITIES] = selected
     cleaned[CONF_TENANT_DEVICES] = devices
     cleaned[CONF_ALLOW_REMOTE] = bool(cleaned.get(CONF_ALLOW_REMOTE, False))
@@ -706,7 +811,9 @@ class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):
             if error:
                 return self.async_show_form(
                     step_id="house",
-                    data_schema=_house_schema({**self._house_defaults, **user_input}),
+                    data_schema=_house_schema(
+                        {**self._house_defaults, **user_input}, self.hass
+                    ),
                     errors={"base": error},
                 )
             site = str(self._connection.get(CONF_SITE_NAME) or "Maison")
@@ -718,7 +825,7 @@ class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):
             )
         return self.async_show_form(
             step_id="house",
-            data_schema=_house_schema(self._house_defaults),
+            data_schema=_house_schema(self._house_defaults, self.hass),
         )
 
     async def async_step_reauth(
@@ -852,13 +959,13 @@ class UsvegliuOptionsFlow(OptionsFlow):
             if error:
                 return self.async_show_form(
                     step_id="init",
-                    data_schema=_house_schema(user_input),
+                    data_schema=_house_schema(user_input, self.hass),
                     errors={"base": error},
                 )
             return self.async_create_entry(title="", data=options)
         return self.async_show_form(
             step_id="init",
-            data_schema=_house_schema(self.config_entry.options),
+            data_schema=_house_schema(self.config_entry.options, self.hass),
         )
 
 

@@ -116,8 +116,8 @@
           "upload_mbps": "Default: 100.",
           "extra_days": "The Wi-Fi voucher stays this many days after the departure day, then it is deleted. Default: 1. The Maison link stops at the end of departure day.",
           "access_mode": "One account per stay, or a single guest account whose password rotates.",
-          "tenant_entities": "Tick several entities in the list. Cameras, locks and alarms require the confirmation below.",
-          "tenant_devices": "Tick several devices. All their entities are allowed.",
+          "tenant_entities": "Checkbox list: tick every entity the guest may use. Cameras, locks and alarms require the confirmation below.",
+          "tenant_devices": "Optional checkbox list. One device = all its entities. Often unused if you already tick entities.",
           "confirm_sensitive": "Without this box, saving is refused when the selection contains a camera, lock or alarm.",
           "allow_remote": "Off by default. The account is not local-only for the length of the stay. Home Assistant must already be reachable from outside; this integration opens nothing. Also turn this on to try the HA account over Tailscale (a 100.x address is not local).",
           "notify_service": "e.g. notify.mobile_app_phone. Empty = persistent notification only. This goes to you, not the guest.",
@@ -246,8 +246,8 @@
           "enable_nuki": "Per-stay Keypad PIN. Unchecked: the mail goes without a door code. Maison lock/unlock does not depend on this.",
           "nuki_token": "Nuki Web API token. Empty = keep the stored token.",
           "nuki_smartlock_id": "Empty = first lock with a Keypad.",
-          "tenant_entities": "Tick several entities in the list. Cameras, locks and alarms require the confirmation below.",
-          "tenant_devices": "Tick several devices. All their entities are allowed."
+          "tenant_entities": "Checkbox list: tick every entity the guest may use. Cameras, locks and alarms require the confirmation below.",
+          "tenant_devices": "Optional checkbox list. One device = all its entities. Often unused if you already tick entities."
         }
       }
     },
