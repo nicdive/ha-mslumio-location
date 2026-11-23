@@ -612,6 +612,7 @@
 
   function applyBrandChrome() {
     const brand = brandInfo();
+    document.documentElement.dataset.theme = brand.id;
     document.body.dataset.theme = brand.id;
     document.documentElement.lang = locale();
     document.title = brand.name;

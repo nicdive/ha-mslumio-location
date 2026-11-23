@@ -759,6 +759,10 @@ class GuestPageView(HomeAssistantView):
             "window.__USVEGLIU_BRAND__ = window.__USVEGLIU_BRAND__ || null;",
             f"window.__USVEGLIU_BRAND__ = {json.dumps(brand_boot, ensure_ascii=False)};",
         )
+        html = html.replace(
+            '<html lang="fr">',
+            f'<html lang="fr" data-theme="{brand_id}">',
+        )
         html = html.replace("<body>", f'<body data-theme="{brand_id}">')
         html = html.replace(
             'href="/usvegliu/static/manifest.webmanifest"',

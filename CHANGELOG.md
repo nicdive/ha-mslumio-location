@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.76] — 2026-11-23
+
+### Corrigé
+- macOS : plus de bande crème en bas au scroll — le thème Ledbury s’applique aussi sur `html` (overscroll).
+
+[0.6.76]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.76
+
 ## [0.6.75] — 2026-11-23
 
 ### Corrigé
