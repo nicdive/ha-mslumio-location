@@ -832,11 +832,19 @@ def test_guest_app_ships_villa_banner_logo():
     js = (www / "app.js").read_text(encoding="utf-8")
     assert 'class="brand-logo"' in js
     assert "brand.banner" in js
+    assert "setupPwaInstall" in js
+    assert "/usvegliu/sw.js" in js
+    assert (www / "sw.js").is_file()
+    assert (www / "manifest.webmanifest").is_file()
+    assert (www / "logo-192.png").is_file()
+    assert (www / "logo-512.png").is_file()
     html = (www / "index.html").read_text(encoding="utf-8")
     css = (www / "app.css").read_text(encoding="utf-8")
     assert "logo-banner.png" in js
     assert 'rel="apple-touch-icon"' in html
+    assert 'rel="manifest"' in html
     assert "/usvegliu/static/logo.png" in html
+    assert "install-banner" in css
     assert ".brand-logo" in css
     assert ".wordmark" not in css
 

@@ -113,6 +113,7 @@ def async_setup_http(hass: Any) -> None:
     from homeassistant.components.http import StaticPathConfig
 
     hass.http.register_view(GuestPageView())
+    hass.http.register_view(GuestServiceWorkerView())
     hass.http.register_view(GuestStateView())
     hass.http.register_view(GuestStreamView())
     hass.http.register_view(GuestClimateView())
@@ -699,6 +700,30 @@ class GuestPageView(HomeAssistantView):
         if not index.is_file():
             return web.Response(status=404, text="missing")
         return web.FileResponse(index)
+
+
+class GuestServiceWorkerView(HomeAssistantView):
+    """Service worker at /usvegliu/sw.js with site-wide scope for PWA install."""
+
+    requires_auth = False
+    cors_allowed = True
+    url = f"/{DOMAIN}/sw.js"
+    name = f"api:{DOMAIN}:guest_sw"
+
+    async def get(self, request: Any) -> Any:
+        from aiohttp import web
+
+        path = _WWW / "sw.js"
+        if not path.is_file():
+            return web.Response(status=404, text="missing")
+        return web.FileResponse(
+            path,
+            headers={
+                "Content-Type": "application/javascript; charset=utf-8",
+                "Service-Worker-Allowed": "/",
+                "Cache-Control": "no-cache",
+            },
+        )
 
 
 class GuestStateView(HomeAssistantView):

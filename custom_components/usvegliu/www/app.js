@@ -333,6 +333,10 @@
       share_qr: "QR code de l'app Maison",
       share_hint: "Scannez pour ouvrir la maison sur un autre téléphone.",
       share_link: "Lien Maison",
+      install_app: "Installer l'app",
+      install_hint_ios: "Sur iPhone : Partager → Sur l'écran d'accueil.",
+      install_hint_android: "Ajoutez Maison à l'écran d'accueil pour un accès rapide.",
+      install_dismiss: "Plus tard",
       wifi_network: "Réseau Wi-Fi",
       wifi_code: "Code Wi-Fi",
       door_code: "Code porte",
@@ -427,6 +431,10 @@
       share_qr: "Home app QR code",
       share_hint: "Scan to open the house on another phone.",
       share_link: "Home link",
+      install_app: "Install app",
+      install_hint_ios: "On iPhone: Share → Add to Home Screen.",
+      install_hint_android: "Add Maison to your home screen for quick access.",
+      install_dismiss: "Not now",
       wifi_network: "Wi-Fi network",
       wifi_code: "Wi-Fi code",
       door_code: "Door code",
@@ -487,18 +495,134 @@
   }
 
 
+  let deferredInstallPrompt = null;
+  let installBannerDismissed = false;
+
+  function isStandaloneApp() {
+    return (
+      window.matchMedia("(display-mode: standalone)").matches ||
+      window.navigator.standalone === true
+    );
+  }
+
+  function isIosSafari() {
+    const ua = window.navigator.userAgent || "";
+    const iOS = /iPad|iPhone|iPod/.test(ua) || (window.navigator.platform === "MacIntel" && window.navigator.maxTouchPoints > 1);
+    const webkit = /WebKit/.test(ua);
+    const chrome = /CriOS|FxiOS|EdgiOS/.test(ua);
+    return iOS && webkit && !chrome;
+  }
+
+  function pwaIconBase() {
+    return brandInfo().id === "ledbury"
+      ? "/usvegliu/static/logo-ledbury"
+      : "/usvegliu/static/logo";
+  }
+
+  function publishWebManifest() {
+    const brand = brandInfo();
+    const base = pwaIconBase();
+    const start = window.location.pathname + window.location.search;
+    const manifest = {
+      id: start,
+      name: brand.name,
+      short_name: brand.name,
+      description: brand.tagline || brand.name,
+      start_url: start,
+      scope: "/",
+      display: "standalone",
+      orientation: "portrait-primary",
+      background_color: brand.themeColor || "#F1EBE2",
+      theme_color: brand.themeColor || "#F1EBE2",
+      lang: locale(),
+      icons: [
+        { src: `${base}-192.png`, sizes: "192x192", type: "image/png", purpose: "any" },
+        { src: `${base}-512.png`, sizes: "512x512", type: "image/png", purpose: "any" },
+        { src: brand.logo, sizes: "256x256", type: "image/png", purpose: "any" },
+      ],
+    };
+    const blob = new Blob([JSON.stringify(manifest)], { type: "application/manifest+json" });
+    const url = URL.createObjectURL(blob);
+    let link = document.getElementById("maison-manifest");
+    if (!link) {
+      link = document.createElement("link");
+      link.id = "maison-manifest";
+      link.rel = "manifest";
+      document.head.appendChild(link);
+    }
+    if (link.dataset.blobUrl) URL.revokeObjectURL(link.dataset.blobUrl);
+    link.dataset.blobUrl = url;
+    link.setAttribute("href", url);
+  }
+
+  function registerMaisonServiceWorker() {
+    if (!("serviceWorker" in navigator)) return;
+    if (!window.isSecureContext) return;
+    navigator.serviceWorker.register("/usvegliu/sw.js", { scope: "/" }).catch(() => {});
+  }
+
+  function setupPwaInstall() {
+    publishWebManifest();
+    registerMaisonServiceWorker();
+    window.addEventListener("beforeinstallprompt", (event) => {
+      event.preventDefault();
+      deferredInstallPrompt = event;
+      render();
+    });
+    window.addEventListener("appinstalled", () => {
+      deferredInstallPrompt = null;
+      installBannerDismissed = true;
+      render();
+    });
+  }
+
+  function installBanner() {
+    if (isStandaloneApp() || installBannerDismissed || !token) return "";
+    if (!window.isSecureContext) return "";
+    const canPrompt = Boolean(deferredInstallPrompt);
+    const ios = isIosSafari();
+    const hint = ios ? t("install_hint_ios") : t("install_hint_android");
+    const action = canPrompt
+      ? `<button type="button" class="install-action" data-act="install-app">${escapeHtml(t("install_app"))}</button>`
+      : "";
+    return `<aside class="install-banner" role="note">
+      <p>${escapeHtml(hint)}</p>
+      <div class="install-actions">
+        ${action}
+        <button type="button" class="install-dismiss" data-act="install-dismiss">${escapeHtml(t("install_dismiss"))}</button>
+      </div>
+    </aside>`;
+  }
+
+  async function promptInstallApp() {
+    if (!deferredInstallPrompt) return;
+    const prompt = deferredInstallPrompt;
+    deferredInstallPrompt = null;
+    try {
+      await prompt.prompt();
+      await prompt.userChoice;
+    } catch (_err) {
+      /* user dismissed */
+    }
+    render();
+  }
+
   function applyBrandChrome() {
     const brand = brandInfo();
     document.body.dataset.theme = brand.id;
+    document.documentElement.lang = locale();
     document.title = brand.name;
     const themeMeta = document.querySelector('meta[name="theme-color"]');
     if (themeMeta) themeMeta.setAttribute("content", brand.themeColor);
     const appTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
     if (appTitle) appTitle.setAttribute("content", brand.name);
+    const appName = document.querySelector('meta[name="application-name"]');
+    if (appName) appName.setAttribute("content", brand.name);
     const icon = document.querySelector('link[rel="icon"]');
     if (icon) icon.setAttribute("href", brand.logo);
     const touch = document.querySelector('link[rel="apple-touch-icon"]');
     if (touch) touch.setAttribute("href", brand.logo);
+    publishWebManifest();
   }
 
   function brandBar(withBack) {
@@ -1236,7 +1360,7 @@
   }
 
   function homePage() {
-    return `${welcomeHead()}${statusCards()}${weatherCard()}`;
+    return `${welcomeHead()}${installBanner()}${statusCards()}${weatherCard()}`;
   }
 
   function climateHead() {
@@ -1415,6 +1539,15 @@
     if (act === "copy") {
       copyText(button.getAttribute("data-copy") || "");
       markCopied(button.getAttribute("data-id") || "");
+      return;
+    }
+    if (act === "install-app") {
+      promptInstallApp();
+      return;
+    }
+    if (act === "install-dismiss") {
+      installBannerDismissed = true;
+      render();
       return;
     }
     if (act === "mode") {
@@ -1711,6 +1844,7 @@
     refresh();
   });
 
+  setupPwaInstall();
   render();
   refresh();
   startStream();

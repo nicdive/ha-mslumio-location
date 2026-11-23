@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.50] — 2026-11-23
+
+### Ajouté
+- App Maison installable (PWA) : manifeste, service worker, icônes, bandeau « Installer l’app » (iOS / Android).
+
+[0.6.50]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.50
+
 ## [0.6.49] — 2026-11-23
 
 ### Ajouté

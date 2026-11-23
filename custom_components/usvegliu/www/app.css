@@ -153,6 +153,50 @@ button:active:not(:disabled) {
   width: min(70%, 228px);
 }
 
+.install-banner {
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+
+.install-banner p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.install-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.install-action,
+.install-dismiss {
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  font-size: 13px;
+  letter-spacing: 0.03em;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.install-action {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.install-dismiss {
+  color: var(--muted);
+}
+
 .hero {
   text-align: center;
   margin: 0 0 28px;
