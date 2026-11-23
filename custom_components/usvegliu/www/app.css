@@ -101,6 +101,7 @@ body::before {
   content: "";
   position: fixed;
   inset: 0;
+  z-index: -1;
   pointer-events: none;
   opacity: 0.35;
   background-image: var(--atmosphere);
@@ -138,8 +139,9 @@ button:active:not(:disabled) {
 }
 
 #app {
+  /* No z-index / transform / filter here — those make position:fixed
+     children (the dock) use #app as containing block on iOS WebKit. */
   position: relative;
-  z-index: 1;
   width: var(--app);
   margin: 0 auto;
   min-height: 100dvh;
@@ -1212,7 +1214,8 @@ h1 {
 }
 
 .dock {
-  /* Avoid transform on position:fixed — iOS PWA often leaves a gap under bottom:0. */
+  /* No transform — iOS PWA leaves a gap under transformed fixed footers.
+     bottom/top may be overridden by pinDockToViewport() on iOS. */
   position: fixed;
   left: 0;
   right: 0;
@@ -1220,27 +1223,17 @@ h1 {
   z-index: 8;
   width: 100%;
   max-width: 100%;
-  margin: 0 auto;
+  margin: 0;
   display: flex;
   justify-content: space-around;
   align-items: flex-start;
   gap: 2px;
-  padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+  /* Safe-area only once (not 10px + inset) — icons sit just above the home indicator. */
+  padding: 8px 8px max(6px, env(safe-area-inset-bottom, 0px));
   background: var(--dock, var(--paper));
   border-top: 1px solid var(--line);
-}
-
-/* Fill any iOS visual-viewport gap under the home indicator. */
-.dock::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: -160px;
-  background: var(--dock, var(--paper));
-  z-index: -1;
-  pointer-events: none;
+  /* Paint past the home indicator if the visual viewport is short on first open. */
+  box-shadow: 0 120px 0 0 var(--dock, var(--paper));
 }
 
 .dock-item {
@@ -1344,19 +1337,17 @@ h1 {
     left: auto;
     right: auto;
     bottom: auto;
+    top: auto;
     width: 100%;
     justify-content: flex-start;
     gap: 8px;
     margin: 8px 0 28px;
     padding: 0;
     background: transparent;
+    box-shadow: none;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     border: none;
-  }
-
-  .dock::after {
-    display: none;
   }
 
   .dock-item {

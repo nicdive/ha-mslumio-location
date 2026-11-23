@@ -661,6 +661,62 @@
       btn.classList.toggle("on", on);
       btn.setAttribute("aria-current", on ? "page" : "false");
     });
+    pinDockToViewport();
+  }
+
+  function dockEl() {
+    return root.querySelector(".dock") || document.body.querySelector(":scope > nav.dock");
+  }
+
+  function placeDock() {
+    const dock = root.querySelector(".dock");
+    const orphan = document.body.querySelector(":scope > nav.dock");
+    if (!dock && orphan) {
+      orphan.remove();
+      return;
+    }
+    if (!dock) return;
+    // Desktop keeps the dock in-flow under the brand. Mobile portals it to
+    // <body> so position:fixed is never trapped by #app / .shell on iOS.
+    if (window.matchMedia("(min-width: 700px)").matches) {
+      if (orphan && orphan !== dock) orphan.remove();
+      dock.style.top = "";
+      dock.style.bottom = "";
+      dock.style.left = "";
+      dock.style.right = "";
+      dock.style.width = "";
+      dock.style.position = "";
+      return;
+    }
+    if (dock.parentElement !== document.body) {
+      document.body.appendChild(dock);
+    }
+    pinDockToViewport();
+  }
+
+  function pinDockToViewport() {
+    const dock = dockEl();
+    if (!dock) return;
+    if (window.matchMedia("(min-width: 700px)").matches) {
+      dock.style.top = "";
+      dock.style.bottom = "";
+      return;
+    }
+    dock.style.position = "fixed";
+    dock.style.left = "0px";
+    dock.style.right = "0px";
+    dock.style.width = "100%";
+    const vv = window.visualViewport;
+    if (!vv) {
+      dock.style.top = "";
+      dock.style.bottom = "0px";
+      return;
+    }
+    // Align the dock's bottom edge with the visual viewport bottom — fixes the
+    // large empty strip under the nav on iOS PWA first paint.
+    const top = vv.offsetTop + vv.height - dock.offsetHeight;
+    dock.style.bottom = "auto";
+    dock.style.top = `${Math.max(0, Math.round(top))}px`;
   }
 
   function takeBrandLogo() {
@@ -1497,22 +1553,30 @@
     return `<div class="status">${brandBar(false)}<p class="${kind || "error"}">${message}</p></div>`;
   }
 
+  function clearOrphanDock() {
+    const orphan = document.body.querySelector(":scope > nav.dock");
+    if (orphan) orphan.remove();
+  }
+
   function render() {
     applyBrandChrome();
     if (!token) {
       const keep = takeBrandLogo();
+      clearOrphanDock();
       root.innerHTML = statusPage(escapeHtml(t("link_incomplete")));
       restoreBrandLogo(keep);
       return;
     }
     if (error === "invalid_token") {
       const keep = takeBrandLogo();
+      clearOrphanDock();
       root.innerHTML = statusPage(escapeHtml(t("stay_closed")));
       restoreBrandLogo(keep);
       return;
     }
     if (error === "lan_only") {
       const keep = takeBrandLogo();
+      clearOrphanDock();
       root.innerHTML = statusPage(escapeHtml(t("lan_only")));
       restoreBrandLogo(keep);
       return;
@@ -1522,12 +1586,14 @@
         ? `${t("opens_prefix")}${t("opens_on_date")} ${arrivalNote}.`
         : `${t("opens_prefix")}${t("opens_on_day")}.`;
       const keep = takeBrandLogo();
+      clearOrphanDock();
       root.innerHTML = statusPage(escapeHtml(message));
       restoreBrandLogo(keep);
       return;
     }
     if (!state) {
       const keep = takeBrandLogo();
+      clearOrphanDock();
       root.innerHTML = statusPage(escapeHtml(t("loading")), "empty");
       restoreBrandLogo(keep);
       return;
@@ -1568,14 +1634,17 @@
           if (pop) bind(pop);
         }
         bind(stage);
+        placeDock();
         return;
       }
     }
 
     const keepLogo = takeBrandLogo();
+    clearOrphanDock();
     root.innerHTML = appChrome(body, withBack);
     restoreBrandLogo(keepLogo);
     bind();
+    placeDock();
   }
 
   function bind(scope) {
@@ -1968,10 +2037,25 @@
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) return;
     refresh();
+    pinDockToViewport();
   });
+
+  window.addEventListener("resize", pinDockToViewport);
+  window.addEventListener("orientationchange", () => {
+    window.setTimeout(pinDockToViewport, 50);
+    window.setTimeout(pinDockToViewport, 300);
+  });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", pinDockToViewport);
+    window.visualViewport.addEventListener("scroll", pinDockToViewport);
+  }
 
   setupPwaInstall();
   render();
   refresh();
   startStream();
+  // iOS often corrects visualViewport a beat after first standalone paint.
+  window.setTimeout(pinDockToViewport, 0);
+  window.setTimeout(pinDockToViewport, 100);
+  window.setTimeout(pinDockToViewport, 400);
 })();
