@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.89] — 2026-11-23
+
+### Corrigé
+- iPhone : dock en flux sticky (plus de `position:fixed` / visualViewport) — plus de bande vide sous la nav à l’ouverture.
+
+[0.6.89]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.89
+
 ## [0.6.88] — 2026-11-23
 
 ### Modifié

@@ -838,6 +838,9 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert 'data-act="alarm-cancel"' in js
     assert "alarm-sheet" in css
     assert "confirm-pop" in css
+    assert "position: sticky" in css
+    assert "pinDockToViewport" not in js
+    assert "100svh" in css
     assert '"cameras"' in http
     assert "GuestSnapshotView" in http
     assert "guest_alarm_service" in http

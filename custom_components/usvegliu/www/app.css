@@ -82,7 +82,9 @@ html,
 body {
   margin: 0;
   min-height: 100%;
-  min-height: 100dvh;
+  /* svh = stable small viewport — avoids the iOS PWA first-paint jump with dvh */
+  min-height: 100svh;
+  min-height: -webkit-fill-available;
   background: var(--bg);
   color: var(--ink);
   font-family: var(--sans);
@@ -92,8 +94,7 @@ body {
 
 body {
   position: relative;
-  /* iOS standalone: avoid the 100vh / home-indicator jump on first paint */
-  min-height: 100dvh;
+  min-height: 100svh;
   min-height: -webkit-fill-available;
 }
 
@@ -139,12 +140,10 @@ button:active:not(:disabled) {
 }
 
 #app {
-  /* No z-index / transform / filter here — those make position:fixed
-     children (the dock) use #app as containing block on iOS WebKit. */
   position: relative;
   width: var(--app);
   margin: 0 auto;
-  min-height: 100dvh;
+  min-height: 100svh;
   min-height: -webkit-fill-available;
   background: var(--bg);
 }
@@ -153,15 +152,34 @@ button:active:not(:disabled) {
   position: relative;
   display: flex;
   flex-direction: column;
-  min-height: 100dvh;
+  min-height: 100svh;
   min-height: -webkit-fill-available;
-  /* Dock ~72px; safe-area is already inside .dock — do not add it twice.
-     Extra top air so the Ledbury 49/arc is not clipped under the status bar. */
-  padding: calc(28px + env(safe-area-inset-top, 0px)) 22px 88px;
+  /* Top safe-area only — dock is in-flow at the bottom with its own inset. */
+  padding: calc(28px + env(safe-area-inset-top, 0px)) 22px 0;
+}
+
+.shell > .brand {
+  order: 1;
+}
+
+.shell > .stage {
+  order: 2;
+  flex: 1 1 auto;
+  width: 100%;
+  padding-bottom: 18px;
+}
+
+.shell > .dock {
+  order: 3;
+}
+
+.shell > .visio-pop,
+.shell > .confirm-pop {
+  order: 4;
 }
 
 .shell-room {
-  padding-bottom: calc(36px + env(safe-area-inset-bottom));
+  padding-bottom: calc(36px + env(safe-area-inset-bottom, 0px));
 }
 
 .brand {
@@ -1331,26 +1349,22 @@ h1 {
 }
 
 .dock {
-  /* No transform — iOS PWA leaves a gap under transformed fixed footers.
-     bottom/top may be overridden by pinDockToViewport() on iOS. */
-  position: fixed;
-  left: 0;
-  right: 0;
+  /* In-flow sticky footer — no position:fixed (iOS PWA left a gap under fixed docks). */
+  position: sticky;
   bottom: 0;
   z-index: 8;
-  width: 100%;
-  max-width: 100%;
-  margin: 0;
+  flex: 0 0 auto;
+  width: calc(100% + 44px);
+  max-width: none;
+  margin: auto -22px 0;
   display: flex;
   justify-content: space-around;
   align-items: flex-start;
   gap: 2px;
-  /* Safe-area only once (not 10px + inset) — icons sit just above the home indicator. */
-  padding: 8px 8px max(6px, env(safe-area-inset-bottom, 0px));
+  padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
   background: var(--dock, var(--paper));
   border-top: 1px solid var(--line);
-  /* Paint past the home indicator if the visual viewport is short on first open. */
-  box-shadow: 0 120px 0 0 var(--dock, var(--paper));
+  box-shadow: none;
 }
 
 .dock-item {
@@ -1423,6 +1437,16 @@ h1 {
     padding: calc(32px + env(safe-area-inset-top)) 8px 40px;
   }
 
+  /* Desktop: tabs sit under the brand, above the page content. */
+  .shell > .dock {
+    order: 2;
+  }
+
+  .shell > .stage {
+    order: 3;
+    padding-bottom: 0;
+  }
+
   .brand {
     display: block;
     text-align: center;
@@ -1456,6 +1480,7 @@ h1 {
     bottom: auto;
     top: auto;
     width: 100%;
+    max-width: 100%;
     justify-content: flex-start;
     gap: 8px;
     margin: 8px 0 28px;
