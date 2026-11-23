@@ -412,6 +412,7 @@
       opens_on: "Disponible le jour de votre arrivée",
       opens_prefix: "La maison s’ouvre",
       lan_only: "Tablettes : ouvrez cette page sur le Wi‑Fi de la maison.",
+      house_unavailable: "La maison est momentanément indisponible.",
       opens_on_day: " le jour de votre arrivée",
       opens_on_date: " le",
       loading: "La maison s’ouvre…",
@@ -518,6 +519,7 @@
       opens_on: "Available on your arrival day",
       opens_prefix: "The house opens",
       lan_only: "Tablets: open this page on the house Wi‑Fi.",
+      house_unavailable: "The house is temporarily unavailable.",
       opens_on_day: " on your arrival day",
       opens_on_date: " on",
       loading: "Opening the house…",
@@ -2237,7 +2239,7 @@
     }
     error = "error";
     const keep = takeBrandLogo();
-    root.innerHTML = statusPage("La maison est momentanément indisponible.");
+    root.innerHTML = statusPage(escapeHtml(t("house_unavailable")));
     restoreBrandLogo(keep);
   }
 

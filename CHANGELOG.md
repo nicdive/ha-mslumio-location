@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.94] — 2026-11-23
+
+### Corrigé
+- Message « maison indisponible » aussi en anglais (Ledbury).
+
+[0.6.94]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.94
+
 ## [0.6.93] — 2026-11-23
 
 ### Corrigé
