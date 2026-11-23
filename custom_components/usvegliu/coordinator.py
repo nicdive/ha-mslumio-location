@@ -185,6 +185,7 @@ class UsvegliuRuntime:
         self._weather_key: str | None = None
         self._demo_on = False
         self._demo: dict[str, Any] | None = None
+        self.wifi_draft_entity: Any | None = None
 
     def tenant_entity_ids(self) -> list[str]:
         """Entities selected for tenants, including the previous three lists."""
@@ -282,6 +283,17 @@ class UsvegliuRuntime:
         """Shared guest Wi-Fi code when vouchers are entered by hand."""
         code = str(self.entry.options.get(CONF_MANUAL_WIFI_CODE) or "").strip()
         return code or None
+
+    def stay_wifi_code(self, record: dict[str, Any] | None) -> str | None:
+        """Per-stay voucher, else shared manual EasyPass code."""
+        if record is None:
+            return self.manual_wifi_code()
+        if record.get("voucher_revoked"):
+            return None
+        code = str(record.get("voucher_code") or "").strip()
+        if code:
+            return code
+        return self.manual_wifi_code()
 
     def cambium_client(self) -> CambiumClient | None:
         """EasyPass client when Cambium credentials are complete."""
@@ -673,6 +685,15 @@ class UsvegliuRuntime:
         """Entity id of the current Wi-Fi code sensor."""
         return self._entity_id_for("voucher_code", "sensor.usvegliu_code_voucher")
 
+    def _wifi_draft_entity_id(self) -> str:
+        """Entity id of the EasyPass draft text field (Console)."""
+        entity = self.wifi_draft_entity
+        if entity is not None and getattr(entity, "entity_id", None):
+            return str(entity.entity_id)
+        return self._entity_id_for(
+            "wifi_code_draft", "text.usvegliu_brouillon_code_wi_fi"
+        )
+
     def owner_settings(self) -> dict[str, Any]:
         """Options in force for the Console. No API key, alarm code or password."""
         options = self.entry.options
@@ -758,6 +779,8 @@ class UsvegliuRuntime:
                 self._sejours_entity_id(),
                 self._reglages_entity_id(),
                 self._voucher_entity_id(),
+                self._wifi_draft_entity_id(),
+                self.voucher_provider(),
                 self.guest_brand().get("locale", "fr"),
             )
         )
@@ -782,6 +805,8 @@ class UsvegliuRuntime:
                 pool_ph_entity=telemetry.get("pool_ph"),
                 tenant_entities=entities,
                 locale=str(self.guest_brand().get("locale") or "fr"),
+                voucher_provider=self.voucher_provider(),
+                wifi_draft_entity_id=self._wifi_draft_entity_id(),
             )
         except Exception:  # noqa: BLE001
             _LOGGER.warning("Console propriétaire Usvegliu non mise à jour")
@@ -943,7 +968,12 @@ class UsvegliuRuntime:
         if not service:
             return
         days = self._option_int(CONF_GUEST_MAIL_DAYS, DEFAULT_GUEST_MAIL_DAYS)
-        vouchers_on = bool(self.entry.options.get(CONF_ENABLE_VOUCHERS, True))
+        # Auto UniFi/Cambium: wait for a stay code. Manual EasyPass: use the
+        # per-stay code or the shared options fallback — never block the mail.
+        auto_vouchers = (
+            self.voucher_provider() != VOUCHER_PROVIDER_MANUAL
+            and bool(self.entry.options.get(CONF_ENABLE_VOUCHERS, True))
+        )
         sent_any = False
         for key, record in list(self._stays.items()):
             if record.get("preview"):
@@ -954,7 +984,7 @@ class UsvegliuRuntime:
             forced = key in force_keys
             if not forced and not welcome_mail_due(record, now, days=days):
                 continue
-            if vouchers_on and not record.get("voucher_code") and not record.get(
+            if auto_vouchers and not record.get("voucher_code") and not record.get(
                 "voucher_revoked"
             ):
                 continue
@@ -968,9 +998,7 @@ class UsvegliuRuntime:
             link = self.guest_link(record)["url"]
             include_pin = self.nuki_pin_option()
             brand = self.guest_brand()
-            stay_code = str(record.get("voucher_code") or "").strip() or None
-            if not stay_code and not record.get("voucher_revoked"):
-                stay_code = self.manual_wifi_code()
+            stay_code = self.stay_wifi_code(record)
             body = guest_welcome_message(
                 guest=str(record.get("guest") or ""),
                 check_in=str(record.get("check_in") or ""),
@@ -986,6 +1014,7 @@ class UsvegliuRuntime:
                 preview=False,
                 house_name=brand["welcome_house"],
                 team_name=brand["team"],
+                locale=str(brand.get("locale") or "fr"),
             )
             try:
                 await self.hass.services.async_call(
@@ -1107,6 +1136,43 @@ class UsvegliuRuntime:
             raise UpdateFailed("no_active_stay")
         return str(current["key"])
 
+    async def _async_set_stay_voucher(
+        self, key: str, code: object, *, from_draft: bool
+    ) -> str:
+        """Paste an EasyPass code onto one calendar stay (manual Wi-Fi)."""
+        record = self._stays.get(key)
+        if record is None:
+            raise UpdateFailed("unknown_reservation")
+        value = str(code or "").strip()
+        if not value and from_draft and self.wifi_draft_entity is not None:
+            value = await self.wifi_draft_entity.async_take_value()
+        if not value:
+            raise UpdateFailed("missing_wifi_code")
+        record["voucher_code"] = value
+        record.pop("voucher_revoked", None)
+        # Allow the welcome mail to go out again with the new code.
+        record.pop("welcome_mail_sent", None)
+        self.log_filter.update([value], owner=self.entry.entry_id)
+        await self.journal.async_append(
+            {
+                "action": "voucher_manuel",
+                "reservation_id": key,
+                "locataire": str(record.get("guest") or ""),
+                "debut": str(record.get("check_in") or ""),
+                "fin": str(record.get("check_out") or ""),
+                "detail": "code_colle",
+            }
+        )
+        return value
+
+    def _revoke_manual_voucher(self, key: str) -> None:
+        record = self._stays.get(key)
+        if record is None:
+            raise UpdateFailed("unknown_reservation")
+        record["voucher_code"] = None
+        record["voucher_id"] = None
+        record["voucher_revoked"] = True
+
     async def async_handle_service(self, call: ServiceCall) -> dict[str, Any]:
         """Execute a manager service and return a response without extra secrets."""
         await _async_require_manager(self.hass, call)
@@ -1115,6 +1181,7 @@ class UsvegliuRuntime:
         if action == "lien_maison":
             async with self._lock:
                 return await self._async_guest_link(call.data)
+        set_code: str | None = None
         async with self._lock:
             resolved = None
             if action == "reglages_sejour":
@@ -1125,10 +1192,23 @@ class UsvegliuRuntime:
                 "relire_calendrier",
             }:
                 resolved = self._resolve_key(key)
-            if action == "regenerer_voucher" and resolved:
-                self._force_voucher.add(resolved)
+            if action in {"definir_voucher", "regenerer_voucher"} and resolved:
+                if (
+                    action == "definir_voucher"
+                    or self.voucher_provider() == VOUCHER_PROVIDER_MANUAL
+                ):
+                    set_code = await self._async_set_stay_voucher(
+                        resolved, call.data.get("code"), from_draft=True
+                    )
+                    self._dashboard_signature = None
+                else:
+                    self._force_voucher.add(resolved)
             elif action == "revoquer_voucher" and resolved:
-                self._force_revoke_voucher.add(resolved)
+                if self.voucher_provider() == VOUCHER_PROVIDER_MANUAL:
+                    self._revoke_manual_voucher(resolved)
+                    self._dashboard_signature = None
+                else:
+                    self._force_revoke_voucher.add(resolved)
             elif action == "regenerer_nuki" and resolved:
                 self._force_nuki.add(resolved)
             elif action == "revoquer_nuki" and resolved:
@@ -1178,8 +1258,10 @@ class UsvegliuRuntime:
         if action in {"regenerer_acces", "revoquer_acces"}:
             payload["username"] = stay.get("username")
             payload["password"] = stay.get("password")
-        if action in {"regenerer_voucher", "revoquer_voucher"}:
-            payload["code"] = stay.get("voucher_code")
+        if action in {"regenerer_voucher", "revoquer_voucher", "definir_voucher"}:
+            payload["code"] = set_code if set_code is not None else stay.get(
+                "voucher_code"
+            )
         return payload
 
     def diagnostics(self) -> dict[str, Any]:
@@ -1244,6 +1326,7 @@ def _issued_rows(
                 house_name=brand["welcome_house"],
                 team_name=brand["team"],
                 locale=str(brand.get("locale") or "fr"),
+                wifi_code_fallback=runtime.manual_wifi_code(),
             )
         )
     return rows
@@ -1290,7 +1373,7 @@ def _snapshot(
             **common,
         }
     return {
-        "voucher_code": current.get("voucher_code"),
+        "voucher_code": runtime.stay_wifi_code(current),
         "guest": current.get("guest"),
         "check_in": current.get("check_in"),
         "check_out": current.get("check_out"),

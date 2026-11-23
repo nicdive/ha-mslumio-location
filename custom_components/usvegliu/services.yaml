@@ -24,6 +24,24 @@ revoquer_voucher:
       selector:
         text:
 
+definir_voucher:
+  name: Définir le voucher Wi-Fi
+  description: >
+    Colle un code EasyPass sur un séjour du calendrier (mode manuel ou
+    correction). Sans code, lit le brouillon « Brouillon code Wi-Fi » de la Console.
+  fields:
+    reservation_key:
+      name: Réservation
+      description: Vide = séjour affiché par le capteur.
+      selector:
+        text:
+    code:
+      name: Code Wi-Fi
+      description: Vide = utiliser le brouillon de la Console.
+      example: ABCD1234
+      selector:
+        text:
+
 regenerer_nuki:
   name: Régénérer le code porte
   description: >

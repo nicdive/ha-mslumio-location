@@ -14,6 +14,8 @@ from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
     BooleanSelector,
+    DeviceSelector,
+    DeviceSelectorConfig,
     EntitySelector,
     EntitySelectorConfig,
     NumberSelector,
@@ -22,7 +24,6 @@ from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
-    TargetSelector,
     TextSelector,
     TextSelectorConfig,
     TextSelectorType,
@@ -108,7 +109,6 @@ from .target_options import (
     as_id_list as _as_id_list,
     default_entities as _default_entities,
     expand_tenant_target as _expand_tenant_target,
-    tenant_target_default as _tenant_target_default,
 )
 from .unifi import (
     UnifiAuthError,
@@ -186,12 +186,17 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
                     mode=SelectSelectorMode.DROPDOWN,
                 )
             ),
-            # Plain TargetSelector (no empty filters): entity/device/area multi-pick.
-            # Empty entity:{} / area:{} break config-flow load on current HA (400).
+            # Entity/device multi-select with checkboxes (not TargetSelector).
             vol.Optional(
-                CONF_TENANT_TARGET,
-                description={"suggested_value": _tenant_target_default(defaults)},
-            ): TargetSelector(),
+                CONF_TENANT_ENTITIES,
+                description={"suggested_value": _default_entities(defaults)},
+            ): EntitySelector(EntitySelectorConfig(multiple=True)),
+            vol.Optional(
+                CONF_TENANT_DEVICES,
+                description={
+                    "suggested_value": _as_id_list(defaults.get(CONF_TENANT_DEVICES))
+                },
+            ): DeviceSelector(DeviceSelectorConfig(multiple=True)),
             vol.Required(
                 CONF_CONFIRM_SENSITIVE,
                 default=False,

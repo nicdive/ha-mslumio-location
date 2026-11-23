@@ -28,6 +28,7 @@ from .const import (
     SERVICE_REVOKE_VOUCHER,
     SERVICE_STAY_SETTINGS,
     SERVICE_GUEST_LINK,
+    SERVICE_SET_VOUCHER,
     STORAGE_VERSION,
 )
 from .redact import SecretLogFilter
@@ -178,6 +179,7 @@ async def async_unload_entry(hass: Any, entry: Any) -> bool:
                 SERVICE_REFRESH_CALENDAR,
                 SERVICE_STAY_SETTINGS,
                 SERVICE_GUEST_LINK,
+                SERVICE_SET_VOUCHER,
             ):
                 hass.services.async_remove(DOMAIN, service)
     return unloaded
@@ -311,6 +313,12 @@ def _async_register_services(hass: Any) -> None:
             vol.Optional("essai"): bool,
         }
     )
+    set_voucher_schema = vol.Schema(
+        {
+            vol.Optional(ATTR_RESERVATION_KEY): str,
+            vol.Optional("code"): str,
+        }
+    )
     if hass.services.has_service(DOMAIN, SERVICE_REGENERATE_VOUCHER):
         return
 
@@ -321,6 +329,7 @@ def _async_register_services(hass: Any) -> None:
     for service, response in (
         (SERVICE_REGENERATE_VOUCHER, SupportsResponse.OPTIONAL),
         (SERVICE_REVOKE_VOUCHER, SupportsResponse.OPTIONAL),
+        (SERVICE_SET_VOUCHER, SupportsResponse.OPTIONAL),
         (SERVICE_REGENERATE_NUKI, SupportsResponse.OPTIONAL),
         (SERVICE_REVOKE_NUKI, SupportsResponse.OPTIONAL),
         (SERVICE_REGENERATE_ACCESS, SupportsResponse.OPTIONAL),
@@ -337,6 +346,8 @@ def _async_register_services(hass: Any) -> None:
             schema = stay_schema
         elif service == SERVICE_GUEST_LINK:
             schema = guest_schema
+        elif service == SERVICE_SET_VOUCHER:
+            schema = set_voucher_schema
         elif service in {
             SERVICE_APPLY_DASHBOARD,
             SERVICE_EXPORT_JOURNAL,

@@ -4,6 +4,14 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.57] — 2026-11-23
+
+### Amélioré
+- Options : **cases à cocher** multi-entités / multi-appareils (plus TargetSelector).
+- Voucher manuel : code dans le mail / message ; **code par séjour** (brouillon Console + Appliquer, ou service `definir_voucher`).
+
+[0.6.57]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.57
+
 ## [0.6.56] — 2026-11-23
 
 ### Amélioré

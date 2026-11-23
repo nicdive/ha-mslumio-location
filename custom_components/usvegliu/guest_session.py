@@ -474,6 +474,7 @@ def issued_account_view(
     house_name: str | None = None,
     team_name: str | None = None,
     locale: str = "fr",
+    wifi_code_fallback: str | None = None,
 ) -> dict[str, Any]:
     """Admin row for one issued stay, including the HA password.
 
@@ -485,7 +486,10 @@ def issued_account_view(
     revoked = bool(record.get("voucher_revoked"))
     nuki_revoked = bool(record.get("nuki_revoked"))
     active = True if now is None or preview else stay_is_active(record, now)
-    code = str(record.get("voucher_code") or "") or None
+    code = str(record.get("voucher_code") or "").strip() or None
+    if not code and not revoked:
+        fallback = str(wifi_code_fallback or "").strip()
+        code = fallback or None
     door = str(record.get("nuki_code") or "") or None
     ssid = str(wifi_ssid or "").strip() or DEFAULT_WIFI_SSID
     key = str(record.get("key") or "")

@@ -791,7 +791,7 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert "nuki_code" in http
     assert "nuki_revoked" in http
     assert 'CONF_ENABLE_NUKI: Final = "enable_nuki"' in const
-    assert 'PLATFORMS: Final = ["sensor", "switch"]' in const
+    assert 'PLATFORMS: Final = ["sensor", "switch", "text"]' in const
     assert "EVENT_DEMO" in const
     assert "def demo_mode" in coord
     assert 'CONF_NUKI_TOKEN: Final = "nuki_token"' in const

@@ -185,6 +185,36 @@ def test_open_issued_records_keeps_active_stays_and_live_preview():
     assert open_issued_records(stays, preview, datetime(2026, 8, 1, tzinfo=UTC)) == []
 
 
+def test_issued_account_view_uses_manual_wifi_fallback():
+    """Manual EasyPass: shared options code fills message_invite when stay has none."""
+    record = {
+        "key": "ledbury-1",
+        "guest": "Ada Lovelace",
+        "check_in": "2026-07-10T15:00:00+00:00",
+        "check_out": "2026-07-17T10:00:00+00:00",
+        "voucher_code": None,
+        "voucher_revoked": False,
+        "guest_token": "tok",
+        "preview": False,
+    }
+    row = issued_account_view(
+        record,
+        username="loc-ada",
+        password="x",
+        lien_maison="https://home.49ledbury.com/s/tok",
+        path="/usvegliu/s/tok",
+        tableau="/usvegliu-sejour",
+        wifi_ssid="49Ledbury-Guest",
+        house_name="49 Ledbury",
+        team_name="The 49 Ledbury team",
+        locale="en",
+        wifi_code_fallback="EASYPASS99",
+    )
+    assert row["voucher_code"] == "EASYPASS99"
+    assert "Access code: EASYPASS99" in row["message_invite"]
+    assert "49Ledbury-Guest" in row["message_invite"]
+
+
 def test_welcome_mail_due_from_two_days_before_arrival():
     record = {
         "guest_email": "jean@example.com",
