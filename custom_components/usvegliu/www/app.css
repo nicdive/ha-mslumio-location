@@ -170,7 +170,12 @@ button:active:not(:disabled) {
   display: block;
   width: min(100%, 348px);
   height: auto;
+  min-height: 52px;
   margin: 0 auto;
+  /* Hide alt-text flash on iOS while a replaced <img> decodes. */
+  color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .brand-room .brand-logo {

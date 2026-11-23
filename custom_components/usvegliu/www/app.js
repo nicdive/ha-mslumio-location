@@ -643,11 +643,37 @@
 
   function brandBar(withBack) {
     const brand = brandInfo();
-    const alt = `${brand.name}${brand.tagline ? `, ${brand.tagline}` : ""}`;
-    return `<header class="brand${withBack ? " brand-room" : ""}">
+    // Empty alt — iOS flashes alt text for ~500ms when <img> is recreated via innerHTML.
+    return `<header class="brand${withBack ? " brand-room" : ""}" aria-label="${escapeAttr(brand.name)}">
       ${withBack ? backArrow() : ""}
-      <img class="brand-logo" src="${escapeHtml(brand.banner)}" alt="${escapeHtml(alt)}" />
+      <img class="brand-logo" src="${escapeHtml(brand.banner)}" alt="" decoding="async" draggable="false" />
     </header>`;
+  }
+
+  function syncDock() {
+    root.querySelectorAll(".dock-item").forEach((btn) => {
+      const on = btn.getAttribute("data-id") === screen;
+      btn.classList.toggle("on", on);
+      btn.setAttribute("aria-current", on ? "page" : "false");
+    });
+  }
+
+  function preserveBrandLogo(previous) {
+    if (!previous || !previous.getAttribute("src")) return;
+    const next = root.querySelector("img.brand-logo");
+    if (!next) return;
+    if (previous.getAttribute("src") === next.getAttribute("src")) {
+      next.replaceWith(previous);
+    }
+  }
+
+  function stageHtml(withBack) {
+    if (withBack) {
+      const room = (state.climates || []).find((item) => item.entity_id === roomId);
+      if (!room) return null;
+      return `${pageHead(room.name, modeLabel())}${dialView(room)}`;
+    }
+    return pageView();
   }
 
   function welcomeHead() {
@@ -1461,29 +1487,61 @@
       return;
     }
     if (!state) {
+      const keep = root.querySelector("img.brand-logo");
       root.innerHTML = statusPage(escapeHtml(t("loading")), "empty");
+      preserveBrandLogo(keep);
       return;
     }
     normalizeScreen();
+    let withBack = false;
     if (screen === "room") {
       const room = (state.climates || []).find((item) => item.entity_id === roomId);
       if (!room) {
         screen = "climate";
       } else {
-        root.innerHTML = appChrome(
-          `${pageHead(room.name, modeLabel())}${dialView(room)}`,
-          true
-        );
-        bind();
-        return;
+        withBack = true;
       }
     }
-    root.innerHTML = appChrome(pageView(), false);
+    const inner = stageHtml(withBack);
+    if (inner == null) {
+      screen = "climate";
+      withBack = false;
+    }
+    const body = inner != null ? inner : stageHtml(false);
+    const shell = root.querySelector(".shell");
+    const stage = root.querySelector("main.stage");
+    const sameChrome =
+      shell &&
+      stage &&
+      shell.classList.contains("shell-room") === withBack &&
+      Boolean(root.querySelector(".dock")) === !withBack;
+
+    // Tab / live updates: keep logo + dock in the DOM (no iOS alt/text flash).
+    if (sameChrome && !withBack) {
+      stage.innerHTML = body;
+      syncDock();
+      const visio = root.querySelector(".visio-pop");
+      const nextVisio = visioPopup();
+      if (visio && !nextVisio) visio.remove();
+      else if (!visio && nextVisio) shell.insertAdjacentHTML("beforeend", nextVisio);
+      else if (visio && nextVisio) visio.outerHTML = nextVisio;
+      bind(stage);
+      const pop = root.querySelector(".visio-pop");
+      if (pop) bind(pop);
+      return;
+    }
+
+    const keepLogo = root.querySelector("img.brand-logo");
+    root.innerHTML = appChrome(body, withBack);
+    preserveBrandLogo(keepLogo);
     bind();
   }
 
-  function bind() {
-    root.querySelectorAll("[data-act]").forEach((el) => {
+  function bind(scope) {
+    const target = scope || root;
+    target.querySelectorAll("[data-act]").forEach((el) => {
+      if (el.dataset.bound === "1") return;
+      el.dataset.bound = "1";
       el.addEventListener("click", onAction);
       el.addEventListener("mousedown", (event) => event.preventDefault());
     });
