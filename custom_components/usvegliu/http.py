@@ -708,6 +708,8 @@ class GuestPageView(HomeAssistantView):
     async def get(self, request: Any, token: str) -> Any:
         from aiohttp import web
 
+        from .branding import brand_from_options, guest_brand
+
         index = _WWW / "index.html"
         if not index.is_file():
             return web.Response(status=404, text="missing")
@@ -715,6 +717,39 @@ class GuestPageView(HomeAssistantView):
         ver = _package_version()
         html = html.replace("/usvegliu/static/app.css", f"/usvegliu/static/app.css?v={ver}")
         html = html.replace("/usvegliu/static/app.js", f"/usvegliu/static/app.js?v={ver}")
+        # First paint must already have the stay URL + villa name, otherwise
+        # “Add to Home Screen” installs the static Maison manifest (403, wrong title).
+        runtime = _runtime(request.app["hass"])
+        brand = (
+            brand_from_options(runtime.entry.options)
+            if runtime is not None
+            else guest_brand()
+        )
+        brand_name = str(brand.get("name") or "Maison")
+        brand_logo = str(brand.get("logo") or f"/{DOMAIN}/static/logo.png")
+        brand_color = str(brand.get("theme_color") or "#F1EBE2")
+        start_path = str(request.path or "").strip() or f"/{DOMAIN}/s/{token}"
+        from urllib.parse import quote
+
+        manifest_qs = (
+            f"token={quote(token, safe='')}"
+            f"&start={quote(start_path, safe='')}"
+            f"&v={quote(ver, safe='')}"
+        )
+        html = html.replace(
+            'href="/usvegliu/static/manifest.webmanifest"',
+            f'href="/{DOMAIN}/manifest.webmanifest?{manifest_qs}"',
+        )
+        html = html.replace(
+            'content="Maison"',
+            f'content="{brand_name}"',
+        )
+        html = html.replace("<title>Maison</title>", f"<title>{brand_name}</title>")
+        html = html.replace('content="#F1EBE2"', f'content="{brand_color}"')
+        html = html.replace(
+            'href="/usvegliu/static/logo.png"',
+            f'href="{brand_logo}"',
+        )
         return web.Response(
             text=html,
             content_type="text/html",
@@ -758,7 +793,12 @@ class GuestManifestView(HomeAssistantView):
     async def get(self, request: Any) -> Any:
         from aiohttp import web
 
-        from .branding import brand_from_options, guest_brand
+        from .branding import (
+            brand_from_options,
+            guest_brand,
+            pwa_short_name,
+            safe_manifest_start,
+        )
 
         hass = request.app["hass"]
         runtime = _runtime(hass)
@@ -768,23 +808,26 @@ class GuestManifestView(HomeAssistantView):
             else guest_brand()
         )
         token = str(request.query.get("token") or "").strip()
-        if token:
-            start = f"/{DOMAIN}/s/{token}"
-        else:
-            start = f"/{DOMAIN}/static/"
+        start = safe_manifest_start(
+            str(request.query.get("start") or "").strip(),
+            token=token,
+        )
+        scope = f"/{DOMAIN}/" if start.startswith(f"/{DOMAIN}/") else "/"
         logo = str(brand.get("logo") or f"/{DOMAIN}/static/logo.png")
         if brand.get("id") == "ledbury":
             icon_base = f"/{DOMAIN}/static/logo-ledbury"
         else:
             icon_base = f"/{DOMAIN}/static/logo"
         theme = str(brand.get("theme_color") or "#F1EBE2")
+        app_name = str(brand.get("name") or "Maison")
+        short = pwa_short_name(brand)
         payload = {
             "id": start,
-            "name": brand.get("name") or "Maison",
-            "short_name": brand.get("name") or "Maison",
-            "description": brand.get("tagline") or brand.get("name") or "Maison",
+            "name": app_name,
+            "short_name": short,
+            "description": brand.get("tagline") or app_name,
             "start_url": start,
-            "scope": "/",
+            "scope": scope,
             "display": "standalone",
             "orientation": "portrait-primary",
             "background_color": theme,

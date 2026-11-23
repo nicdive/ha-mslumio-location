@@ -12,6 +12,7 @@ from .const import (
     CONF_GUEST_LOCALE,
     CONF_GUEST_THEME,
     DEFAULT_GUEST_THEME,
+    DOMAIN,
     LOCALE_EN,
     LOCALE_FR,
     THEME_LEDBURY,
@@ -121,6 +122,38 @@ def unifi_configured(data: Mapping[str, Any] | None) -> bool:
         and str(data.get(CONF_API_KEY) or "").strip()
     )
 
+
+def safe_manifest_start(raw: str, *, token: str) -> str:
+    """PWA start_url: keep /s/<token> (or /usvegliu/s/<token>), never a token-less path."""
+    start = str(raw or "").strip().split("#", 1)[0]
+    token = str(token or "").strip()
+    if (
+        start.startswith("/")
+        and not start.startswith("//")
+        and "://" not in start
+        and "\\" not in start
+        and "\n" not in start
+        and "\r" not in start
+    ):
+        path = start.split("?", 1)[0].rstrip("/") or "/"
+        parts = [p for p in path.split("/") if p]
+        if token and len(parts) >= 2 and parts[-2] == "s" and parts[-1] == token:
+            return path
+        if not token:
+            return path
+    if token:
+        return f"/{DOMAIN}/s/{token}"
+    return f"/{DOMAIN}/static/"
+
+
+def pwa_short_name(brand: Mapping[str, Any] | None) -> str:
+    """Compact home-screen label (Ledbury → 49Ledbury)."""
+    brand = brand or {}
+    if str(brand.get("id") or "") == THEME_LEDBURY:
+        return "49Ledbury"
+    return str(brand.get("name") or "Maison")
+
+
 # Re-export for callers that import theme ids from this module.
 __all__ = (
     "CONF_GUEST_LOCALE",
@@ -137,5 +170,7 @@ __all__ = (
     "guest_brand",
     "normalize_guest_locale",
     "normalize_guest_theme",
+    "pwa_short_name",
+    "safe_manifest_start",
     "unifi_configured",
 )

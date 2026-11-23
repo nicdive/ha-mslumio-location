@@ -334,7 +334,7 @@
       share_hint: "Scannez pour ouvrir la maison sur un autre téléphone.",
       share_link: "Lien Maison",
       install_app: "Installer l'app",
-      install_hint_ios: "Sur iPhone : Partager → Sur l'écran d'accueil.",
+      install_hint_ios: "Sur iPhone : ouvrez le lien du séjour, puis Partager → Sur l'écran d'accueil (garder l'URL avec le code).",
       install_hint_android: "Installez Maison sur l'écran d'accueil pour un accès rapide.",
       install_hint_manual: "Menu du navigateur ⋮ → Installer l'application (ou Ajouter à l'écran d'accueil).",
       install_dismiss: "Plus tard",
@@ -433,7 +433,7 @@
       share_hint: "Scan to open the house on another phone.",
       share_link: "Home link",
       install_app: "Install app",
-      install_hint_ios: "On iPhone: Share → Add to Home Screen.",
+      install_hint_ios: "On iPhone: open the stay link, then Share → Add to Home Screen (keep the URL with the code).",
       install_hint_android: "Install Maison on your home screen for quick access.",
       install_hint_manual: "Browser menu ⋮ → Install app (or Add to Home screen).",
       install_dismiss: "Not now",
@@ -536,6 +536,8 @@
     }
     const params = new URLSearchParams();
     if (token) params.set("token", token);
+    // Exact path the guest opened (keeps /s/<token> or /usvegliu/s/<token>).
+    params.set("start", window.location.pathname + (window.location.search || ""));
     params.set("v", String(Date.now()));
     link.setAttribute("href", `/usvegliu/manifest.webmanifest?${params.toString()}`);
   }

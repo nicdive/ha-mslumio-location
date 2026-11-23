@@ -905,8 +905,23 @@ def test_guest_app_ships_villa_banner_logo():
         / "http.py"
     ).read_text(encoding="utf-8")
     assert "GuestManifestView" in http_py
+    assert "safe_manifest_start" in http_py
+    assert "manifest.webmanifest?{manifest_qs}" in http_py or "manifest.webmanifest?" in http_py
+    assert "pwa_short_name" in http_py
     assert ".brand-logo" in css
     assert ".wordmark" not in css
+
+
+def test_safe_manifest_start_keeps_guest_token_path():
+    from custom_components.usvegliu.branding import pwa_short_name, safe_manifest_start
+
+    assert safe_manifest_start("/usvegliu/s/abc123", token="abc123") == "/usvegliu/s/abc123"
+    assert safe_manifest_start("/s/abc123", token="abc123") == "/s/abc123"
+    assert safe_manifest_start("/usvegliu/static/", token="abc123") == "/usvegliu/s/abc123"
+    assert safe_manifest_start("https://evil.example/s/abc123", token="abc123") == (
+        "/usvegliu/s/abc123"
+    )
+    assert pwa_short_name({"id": "ledbury", "name": "49 Ledbury"}) == "49Ledbury"
 
 
 def test_guest_stream_is_server_sent_events():

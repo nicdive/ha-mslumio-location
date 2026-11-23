@@ -4,6 +4,14 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.69] — 2026-11-23
+
+### Corrigé
+- PWA / signet : `start_url` garde le chemin avec **token** (plus de 403) ; titre **49 Ledbury** / short_name **49Ledbury** selon le thème.
+- Le HTML servi injecte déjà le bon manifeste (plus le manifeste statique « Maison »).
+
+[0.6.69]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.69
+
 ## [0.6.68] — 2026-11-23
 
 ### Corrigé

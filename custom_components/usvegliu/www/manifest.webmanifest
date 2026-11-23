@@ -1,9 +1,9 @@
 {
   "name": "Maison",
   "short_name": "Maison",
-  "description": "Guest house controls",
-  "start_url": ".",
-  "scope": "/",
+  "description": "Guest house controls — use /usvegliu/manifest.webmanifest?token=…",
+  "start_url": "/usvegliu/static/",
+  "scope": "/usvegliu/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#F1EBE2",
