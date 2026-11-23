@@ -4,6 +4,14 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.72] — 2026-11-23
+
+### Amélioré
+- Ledbury : vert plus doux (`#F2F6F3`), bandeau bas vert légèrement distinct (`--dock`), icônes assorties.
+- iPhone : plus de bande blanche sous le dock (fond opaque + extension sous l’indicateur).
+
+[0.6.72]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.72
+
 ## [0.6.71] — 2026-11-23
 
 ### Corrigé
