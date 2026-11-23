@@ -608,9 +608,15 @@
     const appName = document.querySelector('meta[name="application-name"]');
     if (appName) appName.setAttribute("content", brand.name);
     const icon = document.querySelector('link[rel="icon"]');
-    if (icon) icon.setAttribute("href", brand.logo);
+    if (icon) icon.setAttribute("href", `${brand.logo}?v=${Date.now()}`);
     const touch = document.querySelector('link[rel="apple-touch-icon"]');
-    if (touch) touch.setAttribute("href", brand.logo);
+    if (touch) {
+      const touchHref =
+        brand.id === "ledbury"
+          ? `/usvegliu/static/logo-ledbury-180.png?v=${Date.now()}`
+          : `${brand.logo}?v=${Date.now()}`;
+      touch.setAttribute("href", touchHref);
+    }
     publishWebManifest();
   }
 

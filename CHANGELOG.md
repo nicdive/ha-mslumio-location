@@ -4,6 +4,14 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.71] — 2026-11-23
+
+### Corrigé
+- Icône Ledbury : marge safe pour macOS/iOS + `logo-ledbury-180` (apple-touch).
+- iPhone PWA : dock bas plus collé (plus de double safe-area) ; fond du dock = `--paper` du thème.
+
+[0.6.71]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.71
+
 ## [0.6.70] — 2026-11-23
 
 ### Amélioré

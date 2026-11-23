@@ -728,6 +728,10 @@ class GuestPageView(HomeAssistantView):
         brand_name = str(brand.get("name") or "Maison")
         brand_logo = str(brand.get("logo") or f"/{DOMAIN}/static/logo.png")
         brand_color = str(brand.get("theme_color") or "#F1EBE2")
+        if brand.get("id") == "ledbury":
+            touch_icon = f"/{DOMAIN}/static/logo-ledbury-180.png"
+        else:
+            touch_icon = brand_logo
         start_path = str(request.path or "").strip() or f"/{DOMAIN}/s/{token}"
         from urllib.parse import quote
 
@@ -747,8 +751,12 @@ class GuestPageView(HomeAssistantView):
         html = html.replace("<title>Maison</title>", f"<title>{brand_name}</title>")
         html = html.replace('content="#F1EBE2"', f'content="{brand_color}"')
         html = html.replace(
-            'href="/usvegliu/static/logo.png"',
-            f'href="{brand_logo}"',
+            '<link rel="icon" href="/usvegliu/static/logo.png" type="image/png" />',
+            f'<link rel="icon" href="{brand_logo}?v={ver}" type="image/png" />',
+        )
+        html = html.replace(
+            '<link rel="apple-touch-icon" href="/usvegliu/static/logo.png" />',
+            f'<link rel="apple-touch-icon" href="{touch_icon}?v={ver}" />',
         )
         return web.Response(
             text=html,
@@ -845,6 +853,12 @@ class GuestManifestView(HomeAssistantView):
                     "sizes": "512x512",
                     "type": "image/png",
                     "purpose": "any",
+                },
+                {
+                    "src": f"{icon_base}-512.png",
+                    "sizes": "512x512",
+                    "type": "image/png",
+                    "purpose": "maskable",
                 },
                 {
                     "src": logo,
