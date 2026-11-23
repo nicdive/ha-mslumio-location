@@ -8,17 +8,33 @@ import pytest
 
 from custom_components.usvegliu.access import (
     ADMIN_GROUP_ID,
+    READ_ONLY_GROUP_ID,
     TenantAccessError,
+    USERS_GROUP_ID,
     assert_not_privileged,
     build_tenant_policy,
     generate_password,
     group_id_for_username,
+    is_tenant_user,
     resolve_shared_access,
     resolve_stay_access,
     sensitive_entity_ids,
+    user_can_manage_stays,
 )
 from custom_components.usvegliu.const import SENSITIVE_DOMAINS
-from custom_components.usvegliu.dashboard import build_dashboard_config
+from custom_components.usvegliu.dashboard import (
+    async_apply_console_visibility,
+    async_ensure_dashboard,
+    async_ensure_owner_dashboard,
+    async_set_tenant_default_panel,
+    build_dashboard_config,
+    build_owner_dashboard_config,
+    dashboard_card_count,
+    find_dashboard_collection,
+    frontend_core_with_tenant_panel,
+    frontend_sidebar_with_console,
+)
+from custom_components.usvegliu.guest_session import guest_welcome_message
 from custom_components.usvegliu.journal import Journal, JournalPathError, resolve_journal_path
 from custom_components.usvegliu.redact import SecretLogFilter, redact
 
@@ -96,16 +112,58 @@ async def test_csv_keeps_the_code_and_drops_passwords(tmp_path: Path, caplog):
     assert "s3cret-password" not in caplog.text
 
 
+def test_journal_recent_public_omits_the_wifi_code(tmp_path: Path):
+    journal = Journal(tmp_path / "journal.csv")
+    journal._append(
+        {
+            "action": "voucher_cree",
+            "reservation_id": "stay-1",
+            "locataire": "Jean",
+            "debut": "2026-07-10",
+            "fin": "2026-07-17",
+            "code": "ABCD12",
+            "detail": "",
+        }
+    )
+    journal._append(
+        {
+            "action": "message_envoye",
+            "reservation_id": "stay-1",
+            "locataire": "Jean",
+            "debut": "2026-07-10",
+            "fin": "2026-07-17",
+            "code": "ABCD12",
+            "detail": "mail_accueil",
+        }
+    )
+    rows = journal.recent_public(10)
+    assert rows[0]["action"] == "message_envoye"
+    assert rows[0]["libelle"] == "Mail d'accueil envoyé"
+    assert rows[0]["locataire"] == "Jean"
+    assert all("code" not in row for row in rows)
+    assert all("ABCD12" not in str(row) for row in rows)
+
+
 def test_diagnostics_and_logs_redact_secrets():
     payload = redact(
         {
-            "entry_data": {"api_key": "super-secret-key", "host": "192.168.1.1"},
+            "entry_data": {
+                "api_key": "super-secret-key",
+                "host": "192.168.1.1",
+                "cambium_client_secret": "cnmaestro-secret",
+                "manual_wifi_code": "EASYPASS-99",
+            },
             "stays": [
                 {
                     "guest": "Jean Dupont",
                     "voucher_code": "ABCD12",
+                    "nuki_code": "345678",
+                    "nuki_token": "nuki-web-token-secret",
                     "password": "s3cret-password",
+                    "mot_de_passe": "s3cret-password",
+                    "code_compte": "s3cret-password",
                     "guest_token": "stay-token-secret",
+                    "guest_email": "ada@villa.fr",
                     "voucher_id": "voucher-1",
                 }
             ],
@@ -113,11 +171,24 @@ def test_diagnostics_and_logs_redact_secrets():
         }
     )
     assert payload["entry_data"]["api_key"] == "**REDACTED**"
+    assert payload["entry_data"]["cambium_client_secret"] == "**REDACTED**"
+    assert payload["entry_data"]["manual_wifi_code"] == "**REDACTED**"
     assert payload["entry_data"]["host"] == "192.168.1.1"
     assert payload["stays"][0]["voucher_code"] == "**REDACTED**"
+    assert payload["stays"][0]["nuki_code"] == "**REDACTED**"
+    assert payload["stays"][0]["nuki_token"] == "**REDACTED**"
     assert payload["stays"][0]["password"] == "**REDACTED**"
+    assert payload["stays"][0]["mot_de_passe"] == "**REDACTED**"
+    assert payload["stays"][0]["code_compte"] == "**REDACTED**"
     assert payload["stays"][0]["guest_token"] == "**REDACTED**"
+    assert payload["stays"][0]["guest_email"] == "**REDACTED**"
     assert payload["stays"][0]["guest"] == "**REDACTED**"
+    linked = redact({"lien_maison": "https://www.usvegliu.fr/s/stay-token-secret"})
+    assert linked["lien_maison"] == "**REDACTED**"
+    qr = redact({"qr_svg": "<svg xmlns='http://www.w3.org/2000/svg'></svg>"})
+    assert qr["qr_svg"] == "**REDACTED**"
+    invite = redact({"message_invite": "Bonjour Ada,\nCode d'accès : ABCD12"})
+    assert invite["message_invite"] == "**REDACTED**"
     assert payload["stays"][0]["voucher_id"] == "voucher-1"
     assert payload["empty"]["api_key"] == ""
 
@@ -181,13 +252,44 @@ def test_tenant_policy_is_explicit_and_sensitive_domains_are_flagged():
     assert shared_entities == ["light.salon", "fan.chambre"]
     assert shared_remote is True
 
+    class _Group:
+        def __init__(self, group_id):
+            self.id = group_id
+
     class _Admin:
         is_owner = False
         is_admin = True
         groups = []
 
+    class _Manager:
+        is_owner = False
+        is_admin = False
+        system_generated = False
+        groups = [_Group(USERS_GROUP_ID)]
+
+    class _Tenant:
+        is_owner = False
+        is_admin = False
+        system_generated = False
+        groups = [_Group(group_id_for_username("ada"))]
+
+    class _ReadOnly:
+        is_owner = False
+        is_admin = False
+        system_generated = False
+        groups = [_Group(READ_ONLY_GROUP_ID)]
+
     with pytest.raises(TenantAccessError):
         assert_not_privileged(_Admin())
+    with pytest.raises(TenantAccessError):
+        assert_not_privileged(_Manager())
+    assert_not_privileged(_Tenant())
+    assert user_can_manage_stays(_Admin()) is True
+    assert user_can_manage_stays(_Manager()) is True
+    assert user_can_manage_stays(_Tenant()) is False
+    assert user_can_manage_stays(_ReadOnly()) is False
+    assert is_tenant_user(_Tenant()) is True
+    assert is_tenant_user(_Manager()) is False
 
     password = generate_password()
     assert len(password.encode()) < 72
@@ -198,7 +300,7 @@ def test_dashboard_only_lists_selected_entities():
     config = build_dashboard_config(
         ["climate.salon", "cover.sejour", "light.salon", "media_player.salon"]
     )
-    cards = config["views"][0]["cards"]
+    cards = config["views"][0]["sections"][0]["cards"]
     dumped = str(cards)
     assert "climate.salon" in dumped
     assert "cover.sejour" in dumped
@@ -206,6 +308,662 @@ def test_dashboard_only_lists_selected_entities():
     assert "media_player.salon" in dumped
     assert "camera." not in dumped
     assert "lock." not in dumped
+    assert config["views"][0]["type"] == "sections"
+    assert dashboard_card_count(config) == 5
+
+
+def test_tenant_frontend_core_opens_sejour():
+    core = frontend_core_with_tenant_panel({"language": "fr"})
+    assert core["default_panel"] == "usvegliu-sejour"
+    assert core["language"] == "fr"
+    assert frontend_core_with_tenant_panel(None)["default_panel"] == "usvegliu-sejour"
+    access = (
+        Path(__file__).resolve().parents[1]
+        / "custom_components"
+        / "usvegliu"
+        / "access.py"
+    ).read_text(encoding="utf-8")
+    assert "async_set_tenant_default_panel" in access
+
+
+@pytest.mark.asyncio
+async def test_tenant_default_panel_is_written_to_frontend_store():
+    saved: dict = {}
+
+    class _Store:
+        data: dict = {"core": {"language": "fr"}}
+
+        async def async_set_item(self, key, value):
+            saved[key] = value
+            self.data = {**self.data, key: value}
+
+    store = _Store()
+
+    async def _load_store(hass, user_id):
+        assert user_id == "user-1"
+        return store
+
+    await async_set_tenant_default_panel(object(), None, load_store=_load_store)
+    assert saved == {}
+    await async_set_tenant_default_panel(object(), "user-1", load_store=_load_store)
+    assert saved["core"]["default_panel"] == "usvegliu-sejour"
+    assert saved["core"]["language"] == "fr"
+    assert "usvegliu-proprietaire" in saved["sidebar"]["hiddenPanels"]
+
+
+def test_console_sidebar_is_hidden_only_for_tenants():
+    hidden = frontend_sidebar_with_console({"hiddenPanels": ["map"]}, hidden=True)
+    assert hidden["hiddenPanels"] == ["map", "usvegliu-proprietaire"]
+    shown = frontend_sidebar_with_console(hidden, hidden=False)
+    assert shown["hiddenPanels"] == ["map"]
+
+
+def test_owner_console_dashboard_has_live_credentials_and_actions():
+    stays = [
+        {
+            "guest": "Ada",
+            "reservation_id": "stay-ada",
+            "password": "secret-should-not-be-baked",
+            "lien_maison": "https://www.usvegliu.fr/s/TOKEN",
+        },
+        {
+            "guest": "Essai",
+            "reservation_id": "__usvegliu_preview__",
+            "essai": True,
+        },
+    ]
+    config = build_owner_dashboard_config(
+        stays,
+        sejours_entity_id="sensor.usvegliu_sejours",
+        reglages_entity_id="sensor.usvegliu_reglages",
+    )
+    dumped = str(config)
+    paths = [view.get("path") for view in config["views"]]
+    assert config["views"][0]["type"] == "sections"
+    assert config["views"][0]["path"] == "console"
+    assert config["views"][0]["title"] == "Accueil"
+    assert "liste" in paths
+    assert "historique" in paths
+    assert "reglages" in paths
+    home = str(config["views"][0])
+    assert "usvegliu.regenerer_acces" not in home
+    assert "En cours" in home
+    assert "Prochain" in home
+    assert "selectattr('role', 'equalto', 'current')" in home
+    assert "Ouvrir le séjour" in dumped
+    assert "usvegliu-proprietaire/" in dumped
+    assert any(view.get("subview") for view in config["views"])
+    assert "Nouveau mot de passe" in dumped
+    assert "Révoquer le compte" in dumped
+    assert "Nouveau code Wi-Fi" in dumped
+    assert "Révoquer le Wi-Fi" in dumped
+    assert "Nouveau code porte" in dumped
+    assert "Révoquer le code porte" in dumped
+    assert "usvegliu.regenerer_nuki" in dumped
+    assert "usvegliu.revoquer_nuki" in dumped
+    assert dumped.count("usvegliu.regenerer_nuki") == 1
+    assert "usvegliu.regenerer_acces" in dumped
+    assert "usvegliu.revoquer_acces" in dumped
+    assert "usvegliu.regenerer_voucher" in dumped
+    assert "usvegliu.revoquer_voucher" in dumped
+    assert "stay-ada" in dumped
+    assert "secret-should-not-be-baked" not in dumped
+    assert "TOKEN" not in dumped
+    assert "state_attr('sensor.usvegliu_sejours', 'stays')" in dumped
+    assert "mot_de_passe" in dumped
+    assert "code_compte" in dumped
+    assert "Mot de passe Home Assistant" in dumped
+    assert "compte_stay_ada" in dumped
+    assert "s.password" not in dumped
+    assert "comptes" in dumped
+    assert dumped.count("usvegliu.regenerer_acces") == 1
+    assert "Tous les séjours" in dumped
+    assert "Historique" in dumped
+    assert "Séjours passés" in dumped
+    assert "state_attr('sensor.usvegliu_sejours', 'historique')" in dumped
+    assert "state_attr('sensor.usvegliu_sejours', 'journal')" in dumped
+    assert "usvegliu.relire_calendrier" in dumped
+    assert "Relire le calendrier" in dumped
+    assert "Message à envoyer" in dumped
+    assert "s.acces_actif" in dumped
+    assert "jour d'arrivée" in dumped
+    assert "Les codes d'accès sont déjà dans le message" in dumped
+    assert "s.nuki_code" in dumped
+    assert "Code PIN Nuki" in dumped
+    assert "a.enable_nuki" in dumped
+    assert "a.demo_mode" in dumped
+    assert "Mode démo web app" in dumped
+    assert "mail sans code porte" in dumped
+    assert "Usvegliu-Guest" in dumped
+    assert "reglages.wifi_ssid" in dumped
+    assert "s.message_invite" in dumped
+    assert "L'équipe Usvegliu" not in dumped
+    assert "accueillir à Usvegliu" not in dumped
+    assert "sans compte Home Assistant" in dumped
+    assert "Mail locataire" in dumped
+    assert "s.guest_email" in dumped
+    assert "welcome_mail_sent" in dumped
+    assert "guest_mail_service" in dumped
+    assert "Réglages Usvegliu" in dumped
+    assert "state_attr('sensor.usvegliu_reglages', 'settings')" in dumped
+
+
+def test_owner_console_english_and_ledbury_brand_separated():
+    """English locale labels; welcome copy uses the villa brand, not a hardcode."""
+    usv = guest_welcome_message(
+        guest="Ada",
+        check_in="2026-07-10",
+        check_out="2026-07-17",
+        lien_maison="https://example.test/s/a",
+        wifi_ssid="Usvegliu-Guest",
+        voucher_code="AAAA11",
+        voucher_revoked=False,
+        preview=False,
+        house_name="Usvegliu",
+        team_name="L'équipe Usvegliu",
+        locale="fr",
+    )
+    led = guest_welcome_message(
+        guest="Ada",
+        check_in="2026-07-10",
+        check_out="2026-07-17",
+        lien_maison="https://example.test/s/b",
+        wifi_ssid="49Ledbury-Guest",
+        voucher_code="BBBB22",
+        voucher_revoked=False,
+        preview=False,
+        house_name="49 Ledbury",
+        team_name="The 49 Ledbury team",
+        locale="en",
+    )
+    assert "Usvegliu" in usv and "L'équipe Usvegliu" in usv
+    assert "49 Ledbury" not in usv
+    assert "welcome you to 49 Ledbury" in led
+    assert "The 49 Ledbury team" in led
+    assert "Usvegliu" not in led
+    assert "L'équipe Usvegliu" not in led
+
+    config = build_owner_dashboard_config(
+        [{"guest": "Ada", "reservation_id": "stay-ada", "vue": "stay-ada"}],
+        sejours_entity_id="sensor.usvegliu_sejours",
+        locale="en",
+    )
+    dumped = str(config)
+    assert config["views"][0]["title"] == "Home"
+    assert "Shortcuts" in dumped
+    assert "Open stay" in dumped
+    assert "Current" in dumped
+    assert "Raccourcis" not in dumped
+    assert "Ouvrir le séjour" not in dumped
+    assert "s.message_invite" in dumped
+
+
+@pytest.mark.asyncio
+async def test_owner_dashboard_saves_when_lovelace_already_has_the_path():
+    saved: list[dict] = []
+
+    class _Dash:
+        async def async_save(self, config):
+            saved.append(config)
+
+    class _Hass:
+        data = {"lovelace": {"dashboards": {"usvegliu-proprietaire": _Dash()}}}
+
+    result = await async_ensure_owner_dashboard(
+        _Hass(),
+        [{"guest": "Ada", "reservation_id": "stay-ada"}],
+        sejours_entity_id="sensor.usvegliu_sejours",
+    )
+    assert result["ok"] is True
+    assert result["url"] == "usvegliu-proprietaire"
+    assert saved and saved[0]["views"][0]["path"] == "console"
+
+
+@pytest.mark.asyncio
+async def test_owner_dashboard_saves_when_url_path_is_on_the_object():
+    saved: list[dict] = []
+
+    class _Dash:
+        url_path = "usvegliu-proprietaire"
+        config = {"url_path": "usvegliu-proprietaire", "id": "dashboard_abc"}
+
+        async def async_save(self, config):
+            saved.append(config)
+
+    class _Hass:
+        data = {"lovelace": {"dashboards": {None: object(), "dashboard_abc": _Dash()}}}
+
+    result = await async_ensure_owner_dashboard(
+        _Hass(),
+        [{"guest": "Ada", "reservation_id": "stay-ada"}],
+        sejours_entity_id="sensor.usvegliu_sejours",
+    )
+    assert result["ok"] is True
+    assert saved
+
+
+@pytest.mark.asyncio
+async def test_owner_dashboard_is_created_from_websocket_collection():
+    saved: list[dict] = []
+
+    class _Dash:
+        async def async_save(self, config):
+            saved.append(config)
+
+    dashboards: dict[str, object] = {}
+
+    class _Collection:
+        def __init__(self):
+            self.items: list[dict] = []
+
+        def async_items(self):
+            return list(self.items)
+
+        async def async_create_item(self, data):
+            item = {**data, "id": data["url_path"]}
+            self.items.append(item)
+            dashboards[data["url_path"]] = _Dash()
+            return item
+
+    class _Websocket:
+        def __init__(self, collection):
+            self.storage_collection = collection
+
+        def ws_create_item(self):
+            return None
+
+    collection = _Collection()
+    websocket = _Websocket(collection)
+
+    class _Hass:
+        data = {
+            "lovelace": {"dashboards": dashboards},
+            "websocket_api": {
+                "lovelace/dashboards/create": (websocket.ws_create_item, {})
+            },
+        }
+
+    result = await async_ensure_owner_dashboard(
+        _Hass(),
+        [{"guest": "Ada", "reservation_id": "stay-ada"}],
+        sejours_entity_id="sensor.usvegliu_sejours",
+    )
+    assert result["ok"] is True
+    assert collection.items[0]["url_path"] == "usvegliu-proprietaire"
+    assert collection.items[0]["require_admin"] is False
+    assert saved
+
+
+@pytest.mark.asyncio
+async def test_owner_dashboard_drops_admin_only_flag_on_existing_console():
+    updated: list[tuple] = []
+
+    class _Dash:
+        async def async_save(self, config):
+            return None
+
+    class _Collection:
+        def async_items(self):
+            return [
+                {
+                    "id": "usvegliu-proprietaire",
+                    "url_path": "usvegliu-proprietaire",
+                    "require_admin": True,
+                    "show_in_sidebar": True,
+                }
+            ]
+
+        async def async_update_item(self, item_id, data):
+            updated.append((item_id, data))
+
+        async def async_create_item(self, data):
+            raise AssertionError("should update, not create")
+
+    class _Websocket:
+        def __init__(self, collection):
+            self.storage_collection = collection
+
+        def ws_create_item(self):
+            return None
+
+    websocket = _Websocket(_Collection())
+
+    class _Hass:
+        data = {
+            "lovelace": {"dashboards": {"usvegliu-proprietaire": _Dash()}},
+            "websocket_api": {
+                "lovelace/dashboards/create": (websocket.ws_create_item, {})
+            },
+        }
+
+    result = await async_ensure_owner_dashboard(
+        _Hass(),
+        [{"guest": "Ada", "reservation_id": "stay-ada"}],
+        sejours_entity_id="sensor.usvegliu_sejours",
+    )
+    assert result["ok"] is True
+    assert updated == [
+        (
+            "usvegliu-proprietaire",
+            {"require_admin": False, "show_in_sidebar": True},
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_console_visibility_hides_from_tenants_not_managers():
+    saved: dict[str, dict] = {}
+
+    class _Group:
+        def __init__(self, group_id):
+            self.id = group_id
+
+    class _Store:
+        def __init__(self, user_id, hidden=None):
+            self.user_id = user_id
+            self.data: dict = {
+                "core": {},
+                "sidebar": {"hiddenPanels": list(hidden or [])},
+            }
+
+        async def async_set_item(self, key, value):
+            saved.setdefault(self.user_id, {})[key] = value
+            self.data = {**self.data, key: value}
+
+    stores = {
+        "tenant-1": _Store("tenant-1"),
+        "user-1": _Store("user-1", hidden=["usvegliu-proprietaire"]),
+    }
+
+    async def _load_store(hass, user_id):
+        return stores[user_id]
+
+    class _Tenant:
+        id = "tenant-1"
+        is_admin = False
+        is_owner = False
+        system_generated = False
+        groups = [_Group(group_id_for_username("ada"))]
+
+    class _Manager:
+        id = "user-1"
+        is_admin = False
+        is_owner = False
+        system_generated = False
+        groups = [_Group(USERS_GROUP_ID)]
+
+    async def _list_users():
+        return [_Tenant(), _Manager()]
+
+    await async_apply_console_visibility(
+        object(), load_store=_load_store, list_users=_list_users
+    )
+    assert saved["tenant-1"]["core"]["default_panel"] == "usvegliu-sejour"
+    assert "usvegliu-proprietaire" in saved["tenant-1"]["sidebar"]["hiddenPanels"]
+    assert "usvegliu-proprietaire" not in saved["user-1"]["sidebar"]["hiddenPanels"]
+
+
+def test_dashboard_collection_is_found_on_websocket_commands_object():
+    class _Collection:
+        def async_items(self):
+            return [{"url_path": "usvegliu-sejour"}]
+
+        async def async_create_item(self, data):
+            return data
+
+    class _Websocket:
+        def __init__(self, collection):
+            self.storage_collection = collection
+
+        def ws_create_item(self):
+            return None
+
+    class _Commands:
+        def __init__(self, websocket):
+            self.commands = {
+                "lovelace/dashboards/create": (websocket.ws_create_item, {})
+            }
+
+    collection = _Collection()
+
+    class _Hass:
+        data = {"websocket_api": _Commands(_Websocket(collection))}
+
+    assert find_dashboard_collection(_Hass()) is collection
+
+
+@pytest.mark.asyncio
+async def test_dashboard_saves_when_lovelace_already_has_the_path():
+    saved: list[dict] = []
+
+    class _Dash:
+        async def async_save(self, config):
+            saved.append(config)
+
+    class _Hass:
+        data = {"lovelace": {"dashboards": {"usvegliu-sejour": _Dash()}}}
+
+    result = await async_ensure_dashboard(_Hass(), ["climate.salon"])
+    assert result["ok"] is True
+    assert result["reason"] == "saved"
+    assert result["cards"] == 2
+    assert saved and saved[0]["views"][0]["sections"][0]["cards"]
+
+
+def test_admin_roster_sensor_lists_stays_and_passwords():
+    root = Path(__file__).resolve().parents[1] / "custom_components" / "usvegliu"
+    sensor = (root / "sensor.py").read_text(encoding="utf-8")
+    http = (root / "http.py").read_text(encoding="utf-8")
+    assert "IssuedAccountsSensor" in sensor
+    assert "OwnerSettingsSensor" in sensor
+    assert 'translation_key = "sejours"' in sensor
+    assert "lien_maison" in sensor
+    assert "mot_de_passe" in sensor
+    assert "code_compte" in sensor
+    assert "comptes" in sensor
+    assert "credential_attribute_key" in sensor
+    assert "_unrecorded_attributes" in sensor
+    assert "password" not in http
+    assert "mot_de_passe" not in http
+    assert "code_compte" not in http
+
+
+def test_guest_snapshot_exposes_wifi_and_voucher():
+    root = Path(__file__).resolve().parents[1] / "custom_components" / "usvegliu"
+    const = (root / "const.py").read_text(encoding="utf-8")
+    http = (root / "http.py").read_text(encoding="utf-8")
+    js = (root / "www" / "app.js").read_text(encoding="utf-8")
+    flow = (root / "config_flow.py").read_text(encoding="utf-8")
+    coord = (root / "coordinator.py").read_text(encoding="utf-8")
+    assert 'CONF_WIFI_SSID: Final = "wifi_ssid"' in const
+    assert 'DEFAULT_WIFI_SSID: Final = "Usvegliu-Guest"' in const
+    assert "CONF_WIFI_SSID" in flow
+    assert "def wifi_ssid" in coord
+    assert '"informations"' in http
+    assert "runtime.wifi_ssid()" in http
+    assert 'record.get("voucher_code")' in http
+    assert "voucher_revoked" in http
+    assert "function infoSection" in js
+    assert "Good afternoon" in js
+    assert "Réseau Wi-Fi" in js
+    assert "Code Wi-Fi" in js
+    assert "Code porte" in js
+    assert "nuki_code" in http
+    assert "nuki_revoked" in http
+    assert 'CONF_ENABLE_NUKI: Final = "enable_nuki"' in const
+    assert 'PLATFORMS: Final = ["sensor", "switch"]' in const
+    assert "EVENT_DEMO" in const
+    assert "def demo_mode" in coord
+    assert 'CONF_NUKI_TOKEN: Final = "nuki_token"' in const
+    assert "def nuki_pin_option" in coord
+    assert "Code PIN Nuki" in flow or "CONF_ENABLE_NUKI" in flow
+    assert "data-act=\"copy\"" in js
+    assert "too_early" in http
+    assert "too_early" in js
+    assert "stay_is_active" in http
+    assert "qr_svg" in http
+    assert "_guest_share_url" in http
+    assert "X-Forwarded-Host" in http
+    assert "function shareSection" in js
+    assert "Partager l'app" in js
+    assert "safeQrSvg" in js
+    assert '"pool_lights"' in http
+    assert '"chargers"' in http
+    assert '"doorbells"' in http
+    assert "GUEST_KIND_POOL_LIGHT" in http
+    assert "function poolLights" in js
+    assert 'lightRow(light, "pool-light")' in js
+    assert "Quelqu'un sonne" in js
+    assert "En charge" in js
+    assert "Charge terminée" in js
+    assert "chargerIsPlugged" in js
+    assert "carGlyph" in js
+    assert "accessGlyph" in js
+    assert "access-mark" in js
+    assert "car-mark" in js
+    assert "Véhicule" in js
+    assert "combine_charger_views" in http
+    assert "overlay_demo_snapshot" in http
+    assert "Mode démo" in js
+    assert "demo-flag" in js
+    assert "state.demo" in js
+    assert "Armer" in js
+    assert "Désarmer" in js
+    assert '"cameras"' in http
+    assert "GuestSnapshotView" in http
+    assert "guest_alarm_service" in http
+    assert "TYDOM_SET_MODE" in http
+    assert "function visioPopup" in js
+    assert '"speakers"' in http
+    assert "GUEST_KIND_SPEAKER" in http
+    assert "function soundSection" in js
+    assert "Tout couper" in js
+    assert "data-act=\"sound-cut\"" in js
+    assert "media_player" in http
+    assert "Ouvrir le portail" in js
+    assert "data-act=\"visio-open\"" in js
+    assert "data-act=\"visio-close\"" in js
+    assert "/api/usvegliu/guest/snapshot" in js
+    assert "function visioBlock" not in js
+    assert "Actualiser" not in js
+
+
+def test_guest_app_javascript_parses():
+    import subprocess
+
+    js = (
+        Path(__file__).resolve().parents[1]
+        / "custom_components"
+        / "usvegliu"
+        / "www"
+        / "app.js"
+    )
+    subprocess.run(["node", "--check", str(js)], check=True)
+
+
+def test_guest_app_ships_villa_banner_logo():
+    www = Path(__file__).resolve().parents[1] / "custom_components" / "usvegliu" / "www"
+    banner = www / "logo-banner.png"
+    mark = www / "logo.png"
+    assert banner.is_file() and banner.stat().st_size > 1000
+    assert mark.is_file() and mark.stat().st_size > 1000
+    import struct
+
+    def png_size(path):
+        with path.open("rb") as handle:
+            assert handle.read(8) == b"\x89PNG\r\n\x1a\n"
+            length, chunk = struct.unpack(">I4s", handle.read(8))
+            assert chunk == b"IHDR" and length == 13
+            width, height = struct.unpack(">II", handle.read(8))
+        return width, height
+
+    assert png_size(banner)[0] >= 1400
+    assert png_size(mark) == (256, 256)
+    js = (www / "app.js").read_text(encoding="utf-8")
+    assert 'class="brand-logo"' in js
+    assert "brand.banner" in js
+    assert "setupPwaInstall" in js
+    assert "/usvegliu/sw.js" in js
+    assert (www / "sw.js").is_file()
+    assert (www / "manifest.webmanifest").is_file()
+    assert (www / "logo-192.png").is_file()
+    assert (www / "logo-512.png").is_file()
+    html = (www / "index.html").read_text(encoding="utf-8")
+    css = (www / "app.css").read_text(encoding="utf-8")
+    assert "logo-banner.png" in js
+    assert 'rel="apple-touch-icon"' in html
+    assert 'rel="manifest"' in html
+    assert "/usvegliu/static/logo.png" in html
+    assert "install-banner" in css
+    assert ".brand-logo" in css
+    assert ".wordmark" not in css
+
+
+def test_guest_stream_is_server_sent_events():
+    text = (
+        Path(__file__).resolve().parents[1]
+        / "custom_components"
+        / "usvegliu"
+        / "http.py"
+    ).read_text(encoding="utf-8")
+    assert "/guest/stream" in text
+    assert "text/event-stream" in text
+    js = (
+        Path(__file__).resolve().parents[1]
+        / "custom_components"
+        / "usvegliu"
+        / "www"
+        / "app.js"
+    ).read_text(encoding="utf-8")
+    assert "EventSource" in js
+    assert "guest/stream" in js
+    assert "pendingClimate" in js
+    assert "flushClimate" in js
+    assert "modeLabel" in js
+    assert "heating" in js
+    assert "cooling" in js
+    assert "house_mode_entity_id" in text
+    assert "mode_label" in text
+    assert "/guest/command" in text
+    assert "Lumière" in js
+    assert "Accès" in js
+    assert "Good afternoon" in js
+    assert "infoSection" in js
+    assert "infoPage" in js
+    assert "homePage" in js
+    assert "installBanner()" in js
+    assert "welcomeHead()}${installBanner()" not in js
+    assert "pageHead(t(\"info\"))}${install}" in js or '${install}${body' in js
+    assert 'data-act="tab"' in js
+    assert "dock" in js
+    assert "windGlyph" in js
+    assert "modeTabLabel" in js
+    assert "homeNote" not in js
+    assert "Ventilation" in js
+    assert "Copier" in js
+    assert "copy-btn" in js
+    assert "group-label" not in js
+    assert "wifi_ssid" in text
+    assert "voucher_code" in text
+    assert "informations" in text
+    assert "qr_svg" in text
+    assert "lien_maison" in text
+    assert "share-sheet" in js
+    assert "qr-frame" in js
+    assert "weatherCard" in js
+    assert "Lumio" in js
+    assert "poolPage" in js
+    assert "outdoorChip" in js
+    assert "metricsView" not in js
+    assert "weather" in text
+    assert "Allumée" in js
+    assert "lampGlyph" in js
+    assert "lamp-mark" in js
+    assert "brand-logo" in js
+    assert "logo-banner.png" in js
+    assert "wordmark" not in js
+    assert "Bonsoir" in js
+    assert "alarm_code" in text
 
 
 def test_sources_do_not_embed_a_credential():

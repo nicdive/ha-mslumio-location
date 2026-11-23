@@ -17,10 +17,15 @@ from .const import (
     PLATFORMS,
     SERVICE_APPLY_DASHBOARD,
     SERVICE_EXPORT_JOURNAL,
+    SERVICE_REFRESH_CALENDAR,
     SERVICE_PRINT,
     SERVICE_REGENERATE_ACCESS,
+    SERVICE_REGENERATE_NUKI,
     SERVICE_REGENERATE_VOUCHER,
     SERVICE_RESEND,
+    SERVICE_REVOKE_ACCESS,
+    SERVICE_REVOKE_NUKI,
+    SERVICE_REVOKE_VOUCHER,
     SERVICE_STAY_SETTINGS,
     SERVICE_GUEST_LINK,
     STORAGE_VERSION,
@@ -41,38 +46,69 @@ async def async_setup_entry(hass: Any, entry: Any) -> bool:
     from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
     from .const import UPDATE_INTERVAL
+    from .branding import unifi_configured
     from .coordinator import UsvegliuRuntime, build_client, build_journal, store_key
     from .unifi import UnifiAuthError, UnifiError
     _install_log_filter()
     _LOG_FILTER.update([str(entry.data.get(CONF_API_KEY) or "")], owner=entry.entry_id)
-    if not entry.data.get(CONF_VERIFY_SSL, False):
-        _LOGGER.warning(
-            "Vérification TLS désactivée pour %s. Réservé au certificat "
-            "auto-signé de l'UDM, sur le réseau local uniquement.",
-            entry.data.get("host"),
-        )
-
     session = aiohttp.ClientSession()
     client = build_client(hass, entry, session)
-    try:
-        if not client.base_path:
-            await client.async_probe_base_path()
-        else:
-            await client.async_get_info()
-    except UnifiAuthError as err:
-        await session.close()
-        raise ConfigEntryAuthFailed from err
-    except UnifiError as err:
-        if client.base_path:
-            client.base_path = ""
-            try:
+    if client is not None:
+        if not entry.data.get(CONF_VERIFY_SSL, False):
+            _LOGGER.warning(
+                "Vérification TLS désactivée pour %s. Réservé au certificat "
+                "auto-signé de l'UDM, sur le réseau local uniquement.",
+                entry.data.get("host"),
+            )
+        try:
+            if not client.base_path:
                 await client.async_probe_base_path()
-            except UnifiError as probe_err:
-                await session.close()
-                raise ConfigEntryNotReady from probe_err
-        else:
+            else:
+                await client.async_get_info()
+        except UnifiAuthError as err:
             await session.close()
-            raise ConfigEntryNotReady from err
+            raise ConfigEntryAuthFailed from err
+        except UnifiError as err:
+            if client.base_path:
+                client.base_path = ""
+                try:
+                    await client.async_probe_base_path()
+                except UnifiError as probe_err:
+                    await session.close()
+                    raise ConfigEntryNotReady from probe_err
+            else:
+                await session.close()
+                raise ConfigEntryNotReady from err
+    elif not unifi_configured(entry.data):
+        # Cambium-only: validate OAuth before the first sync when possible.
+        from .const import (
+            CONF_CAMBIUM_CLIENT_ID,
+            CONF_CAMBIUM_CLIENT_SECRET,
+            CONF_CAMBIUM_PORTAL,
+            CONF_CAMBIUM_VOUCHER_PLAN,
+        )
+        from .cambium import CambiumAuthError, CambiumClient, CambiumError
+
+        cid = str(entry.options.get(CONF_CAMBIUM_CLIENT_ID) or "").strip()
+        secret = str(entry.options.get(CONF_CAMBIUM_CLIENT_SECRET) or "").strip()
+        portal = str(entry.options.get(CONF_CAMBIUM_PORTAL) or "").strip()
+        plan = str(entry.options.get(CONF_CAMBIUM_VOUCHER_PLAN) or "").strip()
+        if cid and secret and portal and plan:
+            probe = CambiumClient(
+                session,
+                client_id=cid,
+                client_secret=secret,
+                portal_name=portal,
+                voucher_plan=plan,
+            )
+            try:
+                await probe.async_ensure_token()
+            except CambiumAuthError as err:
+                await session.close()
+                raise ConfigEntryAuthFailed from err
+            except CambiumError as err:
+                await session.close()
+                raise ConfigEntryNotReady from err
 
     journal = build_journal(hass, entry)
     store: Store = Store(hass, STORAGE_VERSION, store_key(entry.entry_id), private=True)
@@ -130,11 +166,16 @@ async def async_unload_entry(hass: Any, entry: Any) -> bool:
         if not hass.data[DOMAIN]:
             for service in (
                 SERVICE_REGENERATE_VOUCHER,
+                SERVICE_REVOKE_VOUCHER,
+                SERVICE_REGENERATE_NUKI,
+                SERVICE_REVOKE_NUKI,
                 SERVICE_REGENERATE_ACCESS,
+                SERVICE_REVOKE_ACCESS,
                 SERVICE_RESEND,
                 SERVICE_PRINT,
                 SERVICE_EXPORT_JOURNAL,
                 SERVICE_APPLY_DASHBOARD,
+                SERVICE_REFRESH_CALENDAR,
                 SERVICE_STAY_SETTINGS,
                 SERVICE_GUEST_LINK,
             ):
@@ -158,22 +199,75 @@ async def async_remove_entry(hass: Any, entry: Any) -> None:
     session = aiohttp.ClientSession()
     try:
         client = build_client(hass, entry, session)
-        if not client.base_path:
+        if client is not None and not client.base_path:
             try:
                 await client.async_probe_base_path()
             except UnifiError:
-                client = None  # type: ignore[assignment]
+                client = None
                 _LOGGER.warning(
                     "UniFi injoignable : les vouchers restent sur le contrôleur"
                 )
+        from .const import (
+            CONF_CAMBIUM_CLIENT_ID,
+            CONF_CAMBIUM_CLIENT_SECRET,
+            CONF_CAMBIUM_PORTAL,
+            CONF_CAMBIUM_VOUCHER_PLAN,
+            CONF_ENABLE_VOUCHERS,
+            CONF_NUKI_SMARTLOCK_ID,
+            CONF_NUKI_TOKEN,
+            CONF_VOUCHER_PROVIDER,
+            DEFAULT_VOUCHER_PROVIDER,
+            VOUCHER_PROVIDER_CAMBIUM,
+        )
+        from .cambium import CambiumClient, CambiumError
+        from .nuki import NukiClient, NukiError
+
+        token = str(entry.options.get(CONF_NUKI_TOKEN) or "").strip()
+        nuki = None
+        if token:
+            raw_id = str(entry.options.get(CONF_NUKI_SMARTLOCK_ID) or "").strip()
+            lock_id = None
+            if raw_id:
+                try:
+                    lock_id = int(raw_id)
+                except ValueError:
+                    lock_id = None
+            nuki = NukiClient(session, token, smartlock_id=lock_id)
+        voucher_dir = client
+        provider = str(
+            entry.options.get(CONF_VOUCHER_PROVIDER) or DEFAULT_VOUCHER_PROVIDER
+        ).strip()
+        if provider == VOUCHER_PROVIDER_CAMBIUM:
+            cid = str(entry.options.get(CONF_CAMBIUM_CLIENT_ID) or "").strip()
+            secret = str(entry.options.get(CONF_CAMBIUM_CLIENT_SECRET) or "").strip()
+            portal = str(entry.options.get(CONF_CAMBIUM_PORTAL) or "").strip()
+            plan = str(entry.options.get(CONF_CAMBIUM_VOUCHER_PLAN) or "").strip()
+            if cid and secret and portal and plan:
+                voucher_dir = CambiumClient(
+                    session,
+                    client_id=cid,
+                    client_secret=secret,
+                    portal_name=portal,
+                    voucher_plan=plan,
+                )
+            else:
+                voucher_dir = None
+        elif not bool(entry.options.get(CONF_ENABLE_VOUCHERS, True)):
+            voucher_dir = None
         stays = raw.get("stays") if isinstance(raw.get("stays"), dict) else {}
         for record in stays.values():
             voucher_id = record.get("voucher_id")
-            if client is not None and voucher_id:
+            if voucher_dir is not None and voucher_id:
                 try:
-                    await client.async_delete_voucher(str(voucher_id))
-                except UnifiError:
+                    await voucher_dir.async_delete_voucher(str(voucher_id))
+                except (UnifiError, CambiumError):
                     _LOGGER.warning("Voucher non supprimé à la désinstallation")
+            auth_id = record.get("nuki_auth_id")
+            if nuki is not None and auth_id:
+                try:
+                    await nuki.async_delete_code(str(auth_id))
+                except NukiError:
+                    _LOGGER.warning("Code porte non supprimé à la désinstallation")
             user_id = record.get("user_id")
             if user_id:
                 from .access import TenantAccessError, async_revoke_user
@@ -226,11 +320,16 @@ def _async_register_services(hass: Any) -> None:
 
     for service, response in (
         (SERVICE_REGENERATE_VOUCHER, SupportsResponse.OPTIONAL),
+        (SERVICE_REVOKE_VOUCHER, SupportsResponse.OPTIONAL),
+        (SERVICE_REGENERATE_NUKI, SupportsResponse.OPTIONAL),
+        (SERVICE_REVOKE_NUKI, SupportsResponse.OPTIONAL),
         (SERVICE_REGENERATE_ACCESS, SupportsResponse.OPTIONAL),
+        (SERVICE_REVOKE_ACCESS, SupportsResponse.OPTIONAL),
         (SERVICE_RESEND, SupportsResponse.OPTIONAL),
         (SERVICE_PRINT, SupportsResponse.OPTIONAL),
         (SERVICE_EXPORT_JOURNAL, SupportsResponse.OPTIONAL),
-        (SERVICE_APPLY_DASHBOARD, SupportsResponse.NONE),
+        (SERVICE_APPLY_DASHBOARD, SupportsResponse.OPTIONAL),
+        (SERVICE_REFRESH_CALENDAR, SupportsResponse.OPTIONAL),
         (SERVICE_STAY_SETTINGS, SupportsResponse.OPTIONAL),
         (SERVICE_GUEST_LINK, SupportsResponse.OPTIONAL),
     ):
@@ -238,7 +337,11 @@ def _async_register_services(hass: Any) -> None:
             schema = stay_schema
         elif service == SERVICE_GUEST_LINK:
             schema = guest_schema
-        elif service in {SERVICE_APPLY_DASHBOARD, SERVICE_EXPORT_JOURNAL}:
+        elif service in {
+            SERVICE_APPLY_DASHBOARD,
+            SERVICE_EXPORT_JOURNAL,
+            SERVICE_REFRESH_CALENDAR,
+        }:
             schema = vol.Schema({})
         else:
             schema = service_schema

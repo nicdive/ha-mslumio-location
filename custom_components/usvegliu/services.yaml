@@ -2,7 +2,8 @@ regenerer_voucher:
   name: Régénérer le voucher
   description: >
     Supprime le voucher UniFi du séjour et en crée un nouveau.
-    Réservé aux administrateurs. Le code complet n'est pas écrit dans le journal HA.
+    Administrateurs et utilisateurs avec droits. Pas les locataires.
+    Le code complet n'est pas écrit dans le journal HA.
   fields:
     reservation_key:
       name: Réservation
@@ -11,11 +12,48 @@ regenerer_voucher:
       selector:
         text:
 
+revoquer_voucher:
+  name: Révoquer le voucher
+  description: >
+    Supprime le code Wi-Fi du séjour. Il n'est pas recréé tant que vous
+    n'appelez pas Régénérer le voucher.
+  fields:
+    reservation_key:
+      name: Réservation
+      description: Vide = séjour affiché par le capteur.
+      selector:
+        text:
+
+regenerer_nuki:
+  name: Régénérer le code porte
+  description: >
+    Supprime le code Keypad Nuki du séjour et en crée un nouveau.
+    Administrateurs et utilisateurs avec droits. Pas les locataires.
+    Le PIN n'est pas écrit dans le journal HA.
+  fields:
+    reservation_key:
+      name: Réservation
+      description: Vide = séjour affiché par le capteur.
+      selector:
+        text:
+
+revoquer_nuki:
+  name: Révoquer le code porte
+  description: >
+    Supprime le code Keypad du séjour. Il n'est pas recréé tant que vous
+    n'appelez pas Régénérer le code porte.
+  fields:
+    reservation_key:
+      name: Réservation
+      description: Vide = séjour affiché par le capteur.
+      selector:
+        text:
+
 regenerer_acces:
   name: Régénérer l'accès Home Assistant
   description: >
-    Change le mot de passe du locataire. Le nouveau mot de passe est envoyé
-    dans la notification et le CSV, jamais dans les logs.
+    Change le mot de passe du locataire. Le nouveau mot de passe apparaît
+    sur la console propriétaire.
   fields:
     reservation_key:
       name: Réservation
@@ -23,9 +61,23 @@ regenerer_acces:
       selector:
         text:
 
+revoquer_acces:
+  name: Révoquer l'accès Home Assistant
+  description: >
+    Supprime le compte locataire. Il n'est pas recréé tant que vous
+    n'appelez pas Régénérer l'accès.
+  fields:
+    reservation_key:
+      name: Réservation
+      description: Vide = séjour affiché par le capteur.
+      selector:
+        text:
+
 renvoyer_notification:
   name: Renvoyer la notification
-  description: Renvoie le code et, s'il est connu, le mot de passe à l'administrateur.
+  description: >
+    Renvoie la notification propriétaire, et le mail d'accueil au locataire
+    s'il a une adresse (admins et utilisateurs avec droits).
   fields:
     reservation_key:
       name: Réservation
@@ -49,7 +101,13 @@ exporter_journal:
 
 appliquer_tableau:
   name: Appliquer le tableau de bord
-  description: Recrée ou met à jour le tableau de bord usvegliu-sejour.
+  description: Recrée le tableau locataire et la console propriétaire.
+
+relire_calendrier:
+  name: Relire le calendrier
+  description: >
+    Relance tout de suite un cycle Usvegliu (calendrier, vouchers, comptes HA).
+    Sans attendre les 15 minutes. Administrateurs et utilisateurs avec droits.
 
 reglages_sejour:
   name: Réglages d'un séjour
