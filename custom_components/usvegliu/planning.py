@@ -353,11 +353,15 @@ def select_current(
     now: datetime,
     extra_days: int = DEFAULT_EXTRA_DAYS,
 ) -> dict | None:
-    """Pick the stay whose code the sensor should show."""
+    """Pick the stay in progress (or next), for the Wi-Fi sensor and services.
+
+    Manual EasyPass stays may have no per-stay ``voucher_code`` yet (code is
+    pasted later or shared via options). Still select them by calendar window.
+    """
     covering: list[tuple[datetime, dict]] = []
     upcoming: list[tuple[datetime, dict]] = []
     for record in stored.values():
-        if not record.get("voucher_code"):
+        if record.get("preview"):
             continue
         try:
             start = datetime.fromisoformat(str(record.get("check_in")))
