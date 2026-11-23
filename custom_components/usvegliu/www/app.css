@@ -23,22 +23,22 @@
   --atmosphere: radial-gradient(rgba(43, 36, 28, 0.055) 0.6px, transparent 0.7px);
 }
 
-/* 49 Ledbury — clearly green Notting Hill screen (logos unchanged) */
+/* 49 Ledbury — very light green wash (same softness as Usvegliu rose) */
 body[data-theme="ledbury"] {
-  --bg: #c8e2d7;
-  --bg-deep: #b5d7c8;
-  --paper: #ddf0e7;
+  --bg: #e8f4ee;
+  --bg-deep: #dceee5;
+  --paper: #f3faf6;
   --ink: #1c2e26;
   --ink-soft: #3d5a4c;
-  --muted: #5f7d70;
-  --faint: #9bb5a8;
+  --muted: #6a8578;
+  --faint: #b5c9be;
   --bronze: #258d60;
-  --bronze-soft: rgba(37, 141, 96, 0.16);
+  --bronze-soft: rgba(37, 141, 96, 0.14);
   --heat: #c45c6a;
-  --line: rgba(37, 141, 96, 0.14);
-  --line-strong: rgba(37, 141, 96, 0.26);
-  --shadow: 0 1px 0 rgba(37, 141, 96, 0.06), 0 18px 40px rgba(37, 141, 96, 0.1);
-  --atmosphere: radial-gradient(rgba(37, 141, 96, 0.09) 0.6px, transparent 0.7px);
+  --line: rgba(37, 141, 96, 0.12);
+  --line-strong: rgba(37, 141, 96, 0.22);
+  --shadow: 0 1px 0 rgba(37, 141, 96, 0.05), 0 18px 40px rgba(37, 141, 96, 0.08);
+  --atmosphere: radial-gradient(rgba(37, 141, 96, 0.07) 0.6px, transparent 0.7px);
 }
 
 body[data-theme="ledbury"] .fan-chip,

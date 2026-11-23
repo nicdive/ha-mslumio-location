@@ -106,7 +106,7 @@ def test_ledbury_logo_assets_ship():
     assert 'data-theme="ledbury"' in css or "data-theme=\"ledbury\"" in css
     assert "body[data-theme=\"ledbury\"]" in css
     assert "#258d60" in css
-    assert "--bg: #c8e2d7" in css
+    assert "--bg: #e8f4ee" in css
     assert "fan-line" in css
     assert "display: none !important" in css
     assert "roomHasFan" in js
