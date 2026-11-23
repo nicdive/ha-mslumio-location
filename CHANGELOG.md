@@ -4,6 +4,14 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.63] — 2026-11-23
+
+### Retour arrière
+- Contenu identique à **0.6.50** (dernier point jugé stable avant les régressions UI récentes).
+- Publié en 0.6.63 pour que HACS propose la version au-dessus de 0.6.62.
+
+[0.6.63]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.63
+
 ## [0.6.50] — 2026-11-23
 
 ### Ajouté
