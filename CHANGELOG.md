@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.81] — 2026-11-23
+
+### Corrigé
+- Bandeau Ledbury : fond crème (plus noir), « Notting Hill · London » plus grand et mieux espacé.
+
+[0.6.81]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.81
+
 ## [0.6.80] — 2026-11-23
 
 ### Amélioré
