@@ -114,6 +114,8 @@ def test_ledbury_logo_assets_ship():
     assert "climateFans" in js
     assert 'I18N' in js and 'Good afternoon' in js
     assert "applyBrandChrome" in js
+    assert "__USVEGLIU_BRAND__" in js
+    assert "logo-ledbury-180.png" in js
     assert "logo-banner-ledbury.png" in js or "brand.banner" in js
     flow = (
         Path(__file__).resolve().parents[1]

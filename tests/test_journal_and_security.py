@@ -908,6 +908,9 @@ def test_guest_app_ships_villa_banner_logo():
     assert "safe_manifest_start" in http_py
     assert "manifest.webmanifest?{manifest_qs}" in http_py or "manifest.webmanifest?" in http_py
     assert "pwa_short_name" in http_py
+    assert "__USVEGLIU_BRAND__" in http_py
+    assert "__USVEGLIU_BRAND__" in js
+    assert "__USVEGLIU_BRAND__" in html
     assert ".brand-logo" in css
     assert ".wordmark" not in css
 

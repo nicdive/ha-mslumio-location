@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.73] — 2026-11-23
+
+### Corrigé
+- macOS / Safari : l’icône dock ne retombe plus sur **Usvegliu** — le thème Ledbury est injecté dans le HTML avant `app.js` (plus d’écrasement au premier render).
+
+[0.6.73]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.73
+
 ## [0.6.72] — 2026-11-23
 
 ### Amélioré

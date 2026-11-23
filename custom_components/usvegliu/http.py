@@ -726,6 +726,7 @@ class GuestPageView(HomeAssistantView):
             else guest_brand()
         )
         brand_name = str(brand.get("name") or "Maison")
+        brand_id = str(brand.get("id") or "usvegliu")
         brand_logo = str(brand.get("logo") or f"/{DOMAIN}/static/logo.png")
         brand_color = str(brand.get("theme_color") or "#F1EBE2")
         if brand.get("id") == "ledbury":
@@ -740,6 +741,25 @@ class GuestPageView(HomeAssistantView):
             f"&start={quote(start_path, safe='')}"
             f"&v={quote(ver, safe='')}"
         )
+        # Seed the client brand before app.js runs — otherwise the first render
+        # falls back to Usvegliu and macOS/Safari grabs the wrong dock icon.
+        brand_boot = {
+            "id": brand_id,
+            "name": brand_name,
+            "tagline": str(brand.get("tagline") or ""),
+            "place": str(brand.get("place") or ""),
+            "logo": brand_logo,
+            "banner": str(brand.get("banner") or brand_logo),
+            "theme_color": brand_color,
+            "locale": str(brand.get("locale") or "fr"),
+            "climate_fans": str(brand.get("climate_fans") or "1"),
+            "climate_heat_only": str(brand.get("climate_heat_only") or "0"),
+        }
+        html = html.replace(
+            "window.__USVEGLIU_BRAND__ = window.__USVEGLIU_BRAND__ || null;",
+            f"window.__USVEGLIU_BRAND__ = {json.dumps(brand_boot, ensure_ascii=False)};",
+        )
+        html = html.replace("<body>", f'<body data-theme="{brand_id}">')
         html = html.replace(
             'href="/usvegliu/static/manifest.webmanifest"',
             f'href="/{DOMAIN}/manifest.webmanifest?{manifest_qs}"',
@@ -756,7 +776,7 @@ class GuestPageView(HomeAssistantView):
         )
         html = html.replace(
             '<link rel="apple-touch-icon" href="/usvegliu/static/logo.png" />',
-            f'<link rel="apple-touch-icon" href="{touch_icon}?v={ver}" />',
+            f'<link rel="apple-touch-icon" sizes="180x180" href="{touch_icon}?v={ver}" />',
         )
         return web.Response(
             text=html,
@@ -829,6 +849,8 @@ class GuestManifestView(HomeAssistantView):
         theme = str(brand.get("theme_color") or "#F1EBE2")
         app_name = str(brand.get("name") or "Maison")
         short = pwa_short_name(brand)
+        ver = _package_version()
+        bust = f"?v={ver}"
         payload = {
             "id": start,
             "name": app_name,
@@ -843,25 +865,25 @@ class GuestManifestView(HomeAssistantView):
             "lang": brand.get("locale") or "fr",
             "icons": [
                 {
-                    "src": f"{icon_base}-192.png",
+                    "src": f"{icon_base}-192.png{bust}",
                     "sizes": "192x192",
                     "type": "image/png",
                     "purpose": "any",
                 },
                 {
-                    "src": f"{icon_base}-512.png",
+                    "src": f"{icon_base}-512.png{bust}",
                     "sizes": "512x512",
                     "type": "image/png",
                     "purpose": "any",
                 },
                 {
-                    "src": f"{icon_base}-512.png",
+                    "src": f"{icon_base}-512.png{bust}",
                     "sizes": "512x512",
                     "type": "image/png",
                     "purpose": "maskable",
                 },
                 {
-                    "src": logo,
+                    "src": f"{logo}{bust}",
                     "sizes": "256x256",
                     "type": "image/png",
                     "purpose": "any",

@@ -249,28 +249,42 @@
   }
 
   function brandInfo() {
-    const brand = (state && state.brand) || {};
+    // Prefer live state, then the HTML-injected bootstrap (Ledbury must not
+    // flash Usvegliu icons — macOS/Safari snapshot apple-touch on first paint).
+    const brand = (state && state.brand) || window.__USVEGLIU_BRAND__ || {};
+    const id = brand.id || "usvegliu";
     return {
-      id: brand.id || "usvegliu",
-      name: brand.name || "U Svegliu",
-      tagline: brand.tagline || "Villa Lumio, Corse",
-      place: brand.place || "Lumio",
-      banner: brand.banner || "/usvegliu/static/logo-banner.png",
-      logo: brand.logo || "/usvegliu/static/logo.png",
-      themeColor: brand.theme_color || "#F1EBE2",
+      id,
+      name: brand.name || (id === "ledbury" ? "49 Ledbury" : "U Svegliu"),
+      tagline:
+        brand.tagline ||
+        (id === "ledbury" ? "Notting Hill · Portobello" : "Villa Lumio, Corse"),
+      place: brand.place || (id === "ledbury" ? "London" : "Lumio"),
+      banner:
+        brand.banner ||
+        (id === "ledbury"
+          ? "/usvegliu/static/logo-banner-ledbury.png"
+          : "/usvegliu/static/logo-banner.png"),
+      logo:
+        brand.logo ||
+        (id === "ledbury"
+          ? "/usvegliu/static/logo-ledbury.png"
+          : "/usvegliu/static/logo.png"),
+      themeColor:
+        brand.theme_color || (id === "ledbury" ? "#F2F6F3" : "#F1EBE2"),
       climateFans: !(
         brand.climate_fans === "0" ||
         brand.climate_fans === false ||
-        brand.id === "ledbury"
+        id === "ledbury"
       ),
       heatOnly: Boolean(
         brand.climate_heat_only === "1" ||
           brand.climate_heat_only === true ||
-          brand.id === "ledbury"
+          id === "ledbury"
       ),
       locale: brand.locale === "en" || brand.locale === "fr"
         ? brand.locale
-        : brand.id === "ledbury"
+        : id === "ledbury"
           ? "en"
           : "fr",
     };
@@ -607,15 +621,22 @@
     if (appTitle) appTitle.setAttribute("content", brand.name);
     const appName = document.querySelector('meta[name="application-name"]');
     if (appName) appName.setAttribute("content", brand.name);
+    const iconHref =
+      brand.id === "ledbury"
+        ? "/usvegliu/static/logo-ledbury.png"
+        : brand.logo;
+    const touchHref =
+      brand.id === "ledbury"
+        ? "/usvegliu/static/logo-ledbury-180.png"
+        : brand.logo;
     const icon = document.querySelector('link[rel="icon"]');
-    if (icon) icon.setAttribute("href", `${brand.logo}?v=${Date.now()}`);
+    if (icon && !String(icon.getAttribute("href") || "").includes(iconHref)) {
+      icon.setAttribute("href", `${iconHref}?v=${Date.now()}`);
+    }
     const touch = document.querySelector('link[rel="apple-touch-icon"]');
-    if (touch) {
-      const touchHref =
-        brand.id === "ledbury"
-          ? `/usvegliu/static/logo-ledbury-180.png?v=${Date.now()}`
-          : `${brand.logo}?v=${Date.now()}`;
-      touch.setAttribute("href", touchHref);
+    if (touch && !String(touch.getAttribute("href") || "").includes(touchHref)) {
+      touch.setAttribute("href", `${touchHref}?v=${Date.now()}`);
+      touch.setAttribute("sizes", "180x180");
     }
     publishWebManifest();
   }
