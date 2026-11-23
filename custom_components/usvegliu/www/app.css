@@ -1403,14 +1403,15 @@ body[data-theme="ledbury"] .light-dim-fill {
   margin: 0;
   display: flex;
   justify-content: space-around;
-  align-items: flex-start;
+  align-items: flex-end;
   gap: 2px;
-  /* Safe-area once — icons sit just above the home indicator. */
-  padding: 8px 10px max(8px, env(safe-area-inset-bottom, 0px));
+  /* JS caps safe-area padding; keep a modest CSS fallback. */
+  padding: 8px 10px 8px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
   background: var(--dock, var(--paper));
   border-top: 1px solid var(--line);
-  /* Cover any residual iOS strip under the bar with the dock colour. */
-  box-shadow: 0 48px 0 0 var(--dock, var(--paper));
+  /* Fill any leftover strip under the bar with the dock colour. */
+  box-shadow: 0 64px 0 0 var(--dock, var(--paper));
 }
 
 .dock-item {

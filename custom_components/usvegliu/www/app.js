@@ -688,6 +688,17 @@
     pinDockFlush();
   }
 
+  function readSafeAreaBottom() {
+    const probe = document.createElement("div");
+    probe.setAttribute("aria-hidden", "true");
+    probe.style.cssText =
+      "position:fixed;left:0;bottom:0;width:0;height:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none;";
+    document.body.appendChild(probe);
+    const value = probe.getBoundingClientRect().height || 0;
+    probe.remove();
+    return value;
+  }
+
   function pinDockFlush() {
     const dock = dockEl();
     if (!dock) return;
@@ -701,7 +712,7 @@
       dock.style.cssText = "";
       return;
     }
-    // Mobile: keep dock on <body>, flush to the visual bottom.
+    // Mobile: dock on <body>, flush to the real screen bottom.
     if (dock.parentElement !== document.body) {
       document.body.appendChild(dock);
     }
@@ -711,17 +722,29 @@
     dock.style.width = "100%";
     dock.style.margin = "0px";
     dock.style.top = "auto";
-    // Prefer 0; if the bar still sits high, nudge into the visible gap.
     dock.style.bottom = "0px";
+    // Cap safe-area padding — some iOS builds report an oversized inset.
+    const sab = Math.min(40, Math.max(0, readSafeAreaBottom()));
+    dock.style.paddingBottom = `${Math.max(8, sab)}px`;
+
     window.requestAnimationFrame(() => {
       const live = dockEl();
       if (!live || window.matchMedia("(min-width: 700px)").matches) return;
       const rect = live.getBoundingClientRect();
-      const viewBottom = window.visualViewport
-        ? window.visualViewport.offsetTop + window.visualViewport.height
-        : window.innerHeight;
-      const gap = viewBottom - rect.bottom;
-      // Only push DOWN into empty space (never pull the bar up).
+      let viewBottom = window.innerHeight;
+      if (window.visualViewport) {
+        viewBottom = Math.max(
+          viewBottom,
+          window.visualViewport.offsetTop + window.visualViewport.height
+        );
+      }
+      viewBottom = Math.max(viewBottom, document.documentElement.clientHeight || 0);
+      let gap = viewBottom - rect.bottom;
+      // iOS PWA: layout viewport can be shorter than the screen (~50–70px).
+      if (window.screen && screen.height) {
+        const shortfall = screen.height - viewBottom;
+        if (shortfall > 2 && shortfall < 100) gap = Math.max(gap, shortfall);
+      }
       if (gap > 2 && gap < 120) {
         live.style.bottom = `${-Math.round(gap)}px`;
       } else {
@@ -2344,6 +2367,6 @@
       root.textContent = "Unavailable";
     }
   }
-  // Re-pin after standalone chrome settles (no missing helpers).
-  [0, 100, 400].forEach((ms) => window.setTimeout(pinDockFlush, ms));
+  // Re-pin after standalone chrome settles (iOS often corrects height late).
+  [0, 50, 150, 400, 1000, 2000].forEach((ms) => window.setTimeout(pinDockFlush, ms));
 })();
