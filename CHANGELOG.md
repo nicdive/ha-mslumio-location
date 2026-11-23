@@ -4,6 +4,14 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.51] — 2026-11-23
+
+### Amélioré
+- Console propriétaire en **Français / English** selon l’option Langue.
+- Message d’accueil / copie console : **marque de la villa** (Usvegliu ou 49 Ledbury), plus de texte Usvegliu en dur.
+
+[0.6.51]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.51
+
 ## [0.6.50] — 2026-11-23
 
 ### Ajouté

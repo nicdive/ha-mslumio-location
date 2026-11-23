@@ -34,6 +34,7 @@ from custom_components.usvegliu.dashboard import (
     frontend_core_with_tenant_panel,
     frontend_sidebar_with_console,
 )
+from custom_components.usvegliu.guest_session import guest_welcome_message
 from custom_components.usvegliu.journal import Journal, JournalPathError, resolve_journal_path
 from custom_components.usvegliu.redact import SecretLogFilter, redact
 
@@ -428,17 +429,16 @@ def test_owner_console_dashboard_has_live_credentials_and_actions():
     assert "jour d'arrivée" in dumped
     assert "Les codes d'accès sont déjà dans le message" in dumped
     assert "s.nuki_code" in dumped
-    assert "Code porte (Keypad)" in dumped
     assert "Code PIN Nuki" in dumped
     assert "a.enable_nuki" in dumped
     assert "a.demo_mode" in dumped
     assert "Mode démo web app" in dumped
     assert "mail sans code porte" in dumped
-    assert "reglages.enable_nuki" in dumped
-    assert "Réseau Wi-Fi :" in dumped
     assert "Usvegliu-Guest" in dumped
     assert "reglages.wifi_ssid" in dumped
     assert "s.message_invite" in dumped
+    assert "L'équipe Usvegliu" not in dumped
+    assert "accueillir à Usvegliu" not in dumped
     assert "sans compte Home Assistant" in dumped
     assert "Mail locataire" in dumped
     assert "s.guest_email" in dumped
@@ -446,6 +446,56 @@ def test_owner_console_dashboard_has_live_credentials_and_actions():
     assert "guest_mail_service" in dumped
     assert "Réglages Usvegliu" in dumped
     assert "state_attr('sensor.usvegliu_reglages', 'settings')" in dumped
+
+
+def test_owner_console_english_and_ledbury_brand_separated():
+    """English locale labels; welcome copy uses the villa brand, not a hardcode."""
+    usv = guest_welcome_message(
+        guest="Ada",
+        check_in="2026-07-10",
+        check_out="2026-07-17",
+        lien_maison="https://example.test/s/a",
+        wifi_ssid="Usvegliu-Guest",
+        voucher_code="AAAA11",
+        voucher_revoked=False,
+        preview=False,
+        house_name="Usvegliu",
+        team_name="L'équipe Usvegliu",
+        locale="fr",
+    )
+    led = guest_welcome_message(
+        guest="Ada",
+        check_in="2026-07-10",
+        check_out="2026-07-17",
+        lien_maison="https://example.test/s/b",
+        wifi_ssid="49Ledbury-Guest",
+        voucher_code="BBBB22",
+        voucher_revoked=False,
+        preview=False,
+        house_name="49 Ledbury",
+        team_name="The 49 Ledbury team",
+        locale="en",
+    )
+    assert "Usvegliu" in usv and "L'équipe Usvegliu" in usv
+    assert "49 Ledbury" not in usv
+    assert "welcome you to 49 Ledbury" in led
+    assert "The 49 Ledbury team" in led
+    assert "Usvegliu" not in led
+    assert "L'équipe Usvegliu" not in led
+
+    config = build_owner_dashboard_config(
+        [{"guest": "Ada", "reservation_id": "stay-ada", "vue": "stay-ada"}],
+        sejours_entity_id="sensor.usvegliu_sejours",
+        locale="en",
+    )
+    dumped = str(config)
+    assert config["views"][0]["title"] == "Home"
+    assert "Shortcuts" in dumped
+    assert "Open stay" in dumped
+    assert "Current" in dumped
+    assert "Raccourcis" not in dumped
+    assert "Ouvrir le séjour" not in dumped
+    assert "s.message_invite" in dumped
 
 
 @pytest.mark.asyncio

@@ -678,10 +678,9 @@ class UsvegliuRuntime:
         options = self.entry.options
         data = self.entry.data
         mode = str(options.get(CONF_ACCESS_MODE) or DEFAULT_ACCESS_MODE)
-        labels = {
-            ACCESS_PER_STAY: "un compte par séjour",
-            ACCESS_SHARED: "compte locataire unique",
-        }
+        from .console_i18n import access_mode_label
+
+        locale = str(self.guest_brand().get("locale") or "fr")
         telemetry = self.telemetry_entity_ids()
         journal_path = ""
         path = getattr(self.journal, "path", None)
@@ -706,7 +705,7 @@ class UsvegliuRuntime:
             "enable_nuki": self.nuki_pin_option(),
             "nuki_configured": self.nuki_client() is not None,
             "access_mode": mode,
-            "access_mode_label": labels.get(mode, mode),
+            "access_mode_label": access_mode_label(mode, locale),
             "allow_remote": bool(options.get(CONF_ALLOW_REMOTE, False)),
             "tenant_entity_count": len(self.tenant_entity_ids()),
             "tenant_device_count": len(self.tenant_device_ids()),
@@ -733,6 +732,11 @@ class UsvegliuRuntime:
             "guest_theme": self.guest_brand()["id"],
             "guest_locale": self.guest_brand().get("locale", "fr"),
             "brand_name": self.guest_brand()["name"],
+            "brand_team": self.guest_brand()["team"],
+            "brand_house": self.guest_brand()["welcome_house"],
+            "brand_wifi_default": self.guest_brand().get(
+                "wifi_ssid_default", "Usvegliu-Guest"
+            ),
             "wifi_ssid": self.wifi_ssid(),
             "demo_mode": self.demo_mode(),
         }
@@ -754,6 +758,7 @@ class UsvegliuRuntime:
                 self._sejours_entity_id(),
                 self._reglages_entity_id(),
                 self._voucher_entity_id(),
+                self.guest_brand().get("locale", "fr"),
             )
         )
         if signature == self._dashboard_signature:
@@ -776,6 +781,7 @@ class UsvegliuRuntime:
                 pool_temp_entity=telemetry.get("pool_temp"),
                 pool_ph_entity=telemetry.get("pool_ph"),
                 tenant_entities=entities,
+                locale=str(self.guest_brand().get("locale") or "fr"),
             )
         except Exception:  # noqa: BLE001
             _LOGGER.warning("Console propriétaire Usvegliu non mise à jour")
@@ -1237,6 +1243,7 @@ def _issued_rows(
                 now=now,  # type: ignore[arg-type]
                 house_name=brand["welcome_house"],
                 team_name=brand["team"],
+                locale=str(brand.get("locale") or "fr"),
             )
         )
     return rows

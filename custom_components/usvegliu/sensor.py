@@ -61,11 +61,14 @@ class VoucherCodeSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def native_value(self) -> str | None:
-        """Return the code, or ``aucun`` when no stay is provisioned."""
+        """Return the code, or empty-label when no stay is provisioned."""
+        from .console_i18n import empty_sensor_value
+
         data = self.coordinator.data or {}
         code = data.get("voucher_code")
         if not code:
-            return "aucun"
+            locale = str(self._runtime.guest_brand().get("locale") or "fr")
+            return empty_sensor_value(locale)
         return str(code)
 
     @property
@@ -113,11 +116,14 @@ class IssuedAccountsSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def native_value(self) -> str:
-        """Guest of the first stay, or ``aucun``."""
+        """Guest of the first stay, or empty-label."""
+        from .console_i18n import console_t, empty_sensor_value
+
         stays = list((self.coordinator.data or {}).get("stays") or [])
+        locale = str(self._runtime.guest_brand().get("locale") or "fr")
         if not stays:
-            return "aucun"
-        first = str(stays[0].get("guest") or "Séjour")
+            return empty_sensor_value(locale)
+        first = str(stays[0].get("guest") or console_t(locale, "stay"))
         extra = len(stays) - 1
         if extra:
             return f"{first} (+{extra})"

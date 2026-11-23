@@ -252,12 +252,14 @@ def _action_row(
     }
 
 
-def _navigate_row(name: str, icon: str, path: str) -> dict[str, Any]:
+def _navigate_row(
+    name: str, icon: str, path: str, *, action_name: str = "Ouvrir"
+) -> dict[str, Any]:
     return {
         "type": "button",
         "name": name,
         "icon": icon,
-        "action_name": "Ouvrir",
+        "action_name": action_name,
         "tap_action": {"action": "navigate", "navigation_path": path},
     }
 
@@ -276,14 +278,16 @@ def _stay_markdown(
     entity_id: str,
     reservation_id: str,
     reglages_entity_id: str = "",
+    *,
+    locale: str = "fr",
 ) -> str:
     """Live Jinja: secrets stay on the sensor, not in the Lovelace file.
 
-    The frontend hides attributes named ``password``. Read ``code_compte`` /
-    ``mot_de_passe`` (and the parallel ``comptes`` map) so the owner sees
-    the HA login. The guest paste is built here so the SSID comes from the
-    stay row or the live settings sensor.
+    Guest paste uses ``s.message_invite`` (built per villa brand: Usvegliu
+    or 49 Ledbury), never a hardcoded house name.
     """
+    from .console_i18n import console_t as t
+
     entity = _jinja_quote(entity_id)
     key = _jinja_quote(reservation_id)
     attr = _jinja_quote(credential_attribute_key(reservation_id))
@@ -292,6 +296,60 @@ def _stay_markdown(
         f"{{% set reglages = state_attr('{reglages}', 'settings') or {{}} %}}\n"
         if reglages
         else "{% set reglages = {} %}\n"
+    )
+    en = locale == "en"
+    back = t(locale, "back_home")
+    all_stays = t(locale, "all_stays")
+    open_home = t(locale, "open_stay") if en else "Ouvrir la maison"
+    msg_title = "Message to send" if en else "Message à envoyer"
+    msg_hint = (
+        "Select the text, then copy. Maison link and Wi-Fi only — no Home Assistant account."
+        if en
+        else "Sélectionnez le texte, puis copiez. Lien Maison et Wi-Fi seulement, sans compte Home Assistant."
+    )
+    ha_account = "Home Assistant account" if en else "Compte Home Assistant"
+    username_l = "Username" if en else "Identifiant"
+    password_l = "Password" if en else "Mot de passe"
+    revoked = "revoked" if en else "révoqué"
+    door_l = "Door" if en else "Porte"
+    stay_board = "Stay dashboard" if en else "Tableau séjour"
+    early = (
+        "*HA account and Maison link open on arrival day. Access codes are already in the message.*"
+        if en
+        else "*Compte HA et lien Maison s'ouvrent le jour d'arrivée. Les codes d'accès sont déjà dans le message.*"
+    )
+    trial_note = (
+        "*24 h trial link — no HA account or Wi-Fi.*"
+        if en
+        else "*Lien d'essai 24 h — pas de compte HA ni de Wi-Fi.*"
+    )
+    no_pwd = (
+        "Password: *not stored.* Tap **New password** below to show one."
+        if en
+        else "Mot de passe : *non enregistré.* Touchez **Nouveau mot de passe** ci-dessous pour en afficher un."
+    )
+    guest_mail = "Guest email" if en else "Mail locataire"
+    sent = "sent" if en else "envoyé"
+    send_j = "send J−" if en else "envoi J−"
+    copy_smtp = (
+        " — copy the message (no SMTP service)"
+        if en
+        else " — copiez le message (aucun service SMTP)"
+    )
+    no_email = (
+        "*No address in the calendar description — copy the message below.*"
+        if en
+        else "*Pas d'adresse dans la description du calendrier — copiez le message ci-dessous.*"
+    )
+    no_ssid = (
+        "*Network name missing. Set **Wi-Fi network name** in Usvegliu options.*"
+        if en
+        else "*Nom du réseau manquant. Renseigner **Nom du réseau Wi-Fi** dans les options Usvegliu.*"
+    )
+    closed = (
+        "*Stay closed or not yet provisioned.*"
+        if en
+        else "*Séjour clos ou pas encore provisionné.*"
     )
     return (
         f"{{% set rows = state_attr('{entity}', 'stays') or [] %}}\n"
@@ -308,9 +366,10 @@ def _stay_markdown(
         "or (s.mot_de_passe if s else none) %}\n"
         f"{{% set ssid = ((s.wifi_ssid if s else '') or (s.reseau_wifi if s else '') "
         f"or reglages.wifi_ssid or state_attr('{entity}', 'reseau_wifi') "
-        f"or state_attr('{entity}', 'wifi_ssid') or 'Usvegliu-Guest') | trim %}}\n"
-        f"[← Accueil](/{OWNER_DASHBOARD_URL}/console) · "
-        f"[Tous les séjours](/{OWNER_DASHBOARD_URL}/liste)\n"
+        f"or state_attr('{entity}', 'wifi_ssid') "
+        f"or reglages.brand_wifi_default or 'Usvegliu-Guest') | trim %}}\n"
+        f"[{back}](/{OWNER_DASHBOARD_URL}/console) · "
+        f"[{all_stays}](/{OWNER_DASHBOARD_URL}/liste)\n"
         "\n"
         "{% if s %}\n"
         "{% set debut = (s.check_in or '')[:10] %}\n"
@@ -318,111 +377,71 @@ def _stay_markdown(
         "**{{ debut }} → {{ fin }}**\n"
         "\n"
         "{% if not s.essai and s.acces_actif == False %}\n"
-        "*Compte HA et lien Maison s'ouvrent le jour d'arrivée. "
-        "Les codes d'accès sont déjà dans le message.*\n"
+        f"{early}\n"
         "\n"
         "{% endif %}\n"
         "{% if s.essai %}\n"
-        "*Lien d'essai 24 h — pas de compte HA ni de Wi-Fi.*\n"
+        f"{trial_note}\n"
         "\n"
-        "{% if s.lien_maison %}[Ouvrir la maison]({{ s.lien_maison }}){% endif %}\n"
+        f"{{% if s.lien_maison %}}[{open_home}]({{{{ s.lien_maison }}}}){{% endif %}}\n"
         "{% else %}\n"
         "{% if s.access_revoked %}\n"
-        "**Compte Home Assistant** — *révoqué*\n"
+        f"**{ha_account}** — *{revoked}*\n"
         "{% else %}\n"
-        "### Compte Home Assistant\n"
-        "Identifiant : `{{ identifiant or '—' }}`\n"
+        f"### {ha_account}\n"
+        f"{username_l} : `{{{{ identifiant or '—' }}}}`\n"
         "\n"
         "{% if mdp %}\n"
-        "Mot de passe :\n"
+        f"{password_l} :\n"
         "\n"
         "## `{{ mdp }}`\n"
         "{% else %}\n"
-        "Mot de passe : *non enregistré.* Touchez **Nouveau mot de passe** "
-        "ci-dessous pour en afficher un.\n"
+        f"{no_pwd}\n"
         "{% endif %}\n"
         "{% endif %}\n"
         "\n"
         "**Wi-Fi** : "
         "{% if ssid %}{{ ssid }} · {% endif %}"
-        "{% if s.voucher_revoked %}*révoqué*\n"
+        f"{{% if s.voucher_revoked %}}*{revoked}*\n"
         "{% else %}`{{ s.voucher_code or '—' }}`\n"
         "{% endif %}\n"
         "\n"
-        "**Porte** : "
-        "{% if s.nuki_revoked %}*révoqué*\n"
+        f"**{door_l}** : "
+        f"{{% if s.nuki_revoked %}}*{revoked}*\n"
         "{% elif s.nuki_code %}`{{ s.nuki_code }}`\n"
         "{% else %}—\n"
         "{% endif %}\n"
         "\n"
         "{% if s.lien_maison %}[Maison]({{ s.lien_maison }}){% endif %}"
-        " · [Tableau séjour](/"
+        f" · [{stay_board}](/"
         f"{DASHBOARD_URL})\n"
         "{% endif %}\n"
         "\n"
-        "### Message à envoyer\n"
-        "Sélectionnez le texte, puis copiez. Lien Maison et Wi-Fi seulement, "
-        "sans compte Home Assistant.\n"
+        f"### {msg_title}\n"
+        f"{msg_hint}\n"
         "{% if not s.essai %}\n"
         "{% if s.guest_email %}\n"
-        "Mail locataire : `{{ s.guest_email }}`"
+        f"{guest_mail} : `{{{{ s.guest_email }}}}`"
         "{% if reglages.guest_mail_service %}"
-        "{% if s.welcome_mail_sent %} — envoyé"
-        "{% else %} — envoi J−{{ reglages.guest_mail_days or 2 }}"
+        f"{{% if s.welcome_mail_sent %}} — {sent}"
+        f"{{% else %}} — {send_j}{{{{ reglages.guest_mail_days or 2 }}}}"
         "{% endif %}\n"
-        "{% else %} — copiez le message (aucun service SMTP)\n"
+        f"{{% else %}}{copy_smtp}\n"
         "{% endif %}\n"
         "{% else %}\n"
-        "*Pas d'adresse dans la description du calendrier — "
-        "copiez le message ci-dessous.*\n"
+        f"{no_email}\n"
         "{% endif %}\n"
         "{% endif %}\n"
         "{% if not s.essai and not ssid %}\n"
         "\n"
-        "*Nom du réseau manquant. Renseigner **Nom du réseau Wi-Fi** "
-        "dans les options Usvegliu.*\n"
+        f"{no_ssid}\n"
         "{% endif %}\n"
         "\n"
         "```\n"
-        "{% if s.essai %}\n"
         "{{ s.message_invite }}\n"
-        "{% else %}\n"
-        "Bonjour{% if s.prenom %} {{ s.prenom }}{% elif s.guest %} {{ s.guest.split(' ')[0] }}{% endif %},\n"
-        "\n"
-        "Nous avons le plaisir de vous accueillir à Usvegliu"
-        "{% if s.sejour_libelle %} pour votre séjour du {{ s.sejour_libelle }}{% endif %}.\n"
-        "\n"
-        "Votre maison s'ouvre ici, sur votre lien personnel :\n"
-        "\n"
-        "{{ s.lien_maison }}\n"
-        "\n"
-        "Réseau Wi-Fi : {{ ssid }}\n"
-        "{% if s.voucher_revoked %}"
-        "Le code Wi-Fi a été révoqué. Nous vous en ferons parvenir un autre.\n"
-        "{% else %}"
-        "Code d'accès : {{ s.voucher_code }}\n"
-        "{% endif %}"
-        "\n"
-        "Ouvrez le lien depuis votre téléphone, rejoignez le réseau, "
-        "puis saisissez le code sur la page d'accueil Wi-Fi.\n"
-        "{% if reglages.enable_nuki %}"
-        "{% if s.nuki_revoked %}"
-        "\n"
-        "Le code porte a été révoqué. Nous vous en ferons parvenir un autre.\n"
-        "{% elif s.nuki_code %}"
-        "\n"
-        "Code porte (Keypad) : {{ s.nuki_code }}\n"
-        "Saisissez-le sur le clavier de la porte d'entrée.\n"
-        "{% endif %}"
-        "{% endif %}"
-        "\n"
-        "Nous vous souhaitons un séjour d'exception.\n"
-        "\n"
-        "L'équipe Usvegliu\n"
-        "{% endif %}\n"
         "```\n"
         "{% else %}\n"
-        "*Séjour clos ou pas encore provisionné.*\n"
+        f"{closed}\n"
         "{% endif %}\n"
     )
 
@@ -482,10 +501,14 @@ def _settings_markdown(entity_id: str) -> str:
     )
 
 
-def _featured_markdown(entity_id: str, role: str, empty: str) -> str:
+def _featured_markdown(
+    entity_id: str, role: str, empty: str, *, open_label: str, trial_badge: str
+) -> str:
     """Live card for the current or next stay. No secrets."""
     entity = _jinja_quote(entity_id)
     role_q = _jinja_quote(role)
+    open_q = _jinja_quote(open_label)
+    trial_q = _jinja_quote(trial_badge)
     return (
         f"{{% set rows = state_attr('{entity}', 'stays') or [] %}}\n"
         f"{{% set found = rows | selectattr('role', 'equalto', '{role_q}') | list %}}\n"
@@ -498,17 +521,19 @@ def _featured_markdown(entity_id: str, role: str, empty: str) -> str:
         "{% endif %}\n"
         "\n"
         "**{{ s.role_label }}**"
-        "{% if s.essai %} · lien d'essai{% endif %}\n"
+        f"{{% if s.essai %}} · {trial_q}{{% endif %}}\n"
         "\n"
-        f"[Ouvrir le séjour](/{OWNER_DASHBOARD_URL}/{{{{ s.vue }}}})\n"
+        f"[{open_q}](/{OWNER_DASHBOARD_URL}/{{{{ s.vue }}}})\n"
         "{% else %}\n"
         f"*{empty}*\n"
         "{% endif %}\n"
     )
 
 
-def _roster_markdown(entity_id: str) -> str:
+def _roster_markdown(entity_id: str, *, locale: str = "fr") -> str:
     """Ordered clickable stay list. Secrets stay on the detail subview."""
+    from .console_i18n import console_t as t
+
     entity = _jinja_quote(entity_id)
     link = f"/{OWNER_DASHBOARD_URL}/{{{{ s.vue }}}}"
     group = (
@@ -523,46 +548,46 @@ def _roster_markdown(entity_id: str) -> str:
     )
     return (
         f"{{% set rows = state_attr('{entity}', 'stays') or [] %}}\n"
-        "Du séjour **en cours** au plus lointain. Touchez un nom pour le compte, "
-        "le Wi-Fi et le message.\n"
+        f"{t(locale, 'roster_intro')}\n"
         "{% if not rows %}\n"
-        "\n*Aucun séjour ouvert.*\n"
+        f"\n{t(locale, 'no_open_stays')}\n"
         "{% endif %}\n"
         "{% set group = rows | selectattr('role', 'equalto', 'current') | list %}\n"
-        "{% set titre = 'En cours' %}\n"
+        f"{{% set titre = '{t(locale, 'current')}' %}}\n"
         f"{group}"
         "{% set group = rows | selectattr('role', 'equalto', 'upcoming') | list %}\n"
-        "{% set titre = 'À venir' %}\n"
+        f"{{% set titre = '{t(locale, 'upcoming')}' %}}\n"
         f"{group}"
         "{% set group = rows | selectattr('role', 'equalto', 'departing') | list %}\n"
-        "{% set titre = 'Wi-Fi encore actif' %}\n"
+        f"{{% set titre = '{t(locale, 'wifi_still_active')}' %}}\n"
         f"{group}"
         "{% set group = rows | selectattr('role', 'equalto', 'preview') | list %}\n"
-        "{% set titre = 'Essai' %}\n"
+        f"{{% set titre = '{t(locale, 'trial')}' %}}\n"
         f"{group}"
     )
 
 
-def _history_markdown(entity_id: str) -> str:
+def _history_markdown(entity_id: str, *, locale: str = "fr") -> str:
     """Closed stays and journal actions. No voucher codes."""
+    from .console_i18n import console_t as t
+
     entity = _jinja_quote(entity_id)
     return (
         f"{{% set hist = state_attr('{entity}', 'historique') or [] %}}\n"
         f"{{% set journal = state_attr('{entity}', 'journal') or [] %}}\n"
-        "Séjours **clos** et dernières créations / retraits d'accès. "
-        "Les codes Wi-Fi restent dans le fichier CSV.\n"
+        f"{t(locale, 'history_intro')}\n"
         "\n"
-        "### Séjours passés\n"
+        f"### {t(locale, 'past_stays')}\n"
         "{% if hist %}\n"
         "{% for h in hist | reverse %}\n"
         "- **{{ h.guest }}** · {{ (h.check_in or '')[:10] }} → "
         "{{ (h.check_out or '')[:10] }}\n"
         "{% endfor %}\n"
         "{% else %}\n"
-        "*Aucun séjour clos enregistré pour l'instant.*\n"
+        f"{t(locale, 'no_past')}\n"
         "{% endif %}\n"
         "\n"
-        "### Accès\n"
+        f"### {t(locale, 'access')}\n"
         "{% if journal %}\n"
         "{% for j in journal %}\n"
         "- `{{ j.horodatage }}` · **{{ j.libelle or j.action }}**"
@@ -570,7 +595,7 @@ def _history_markdown(entity_id: str) -> str:
         "{% if j.debut %} · {{ j.debut }} → {{ j.fin }}{% endif %}\n"
         "{% endfor %}\n"
         "{% else %}\n"
-        "*Pas encore d'événement.*\n"
+        f"{t(locale, 'no_events')}\n"
         "{% endif %}\n"
     )
 
@@ -594,113 +619,119 @@ def _tile(entity_id: str, name: str, icon: str) -> dict[str, Any]:
     }
 
 
-def _stay_action_rows(guest: str, reservation_id: str) -> list[dict[str, Any]]:
+def _stay_action_rows(
+    guest: str, reservation_id: str, *, locale: str = "fr"
+) -> list[dict[str, Any]]:
+    from .console_i18n import console_t as t
+
     return [
         _action_row(
-            "Nouveau mot de passe",
+            t(locale, "new_password"),
             "mdi:account-key",
             SERVICE_REGENERATE_ACCESS,
-            f"Générer un nouveau mot de passe pour {guest} ?",
+            t(locale, "new_password_confirm", guest=guest),
             reservation_id=reservation_id,
-            action_name="Générer",
+            action_name=t(locale, "generate"),
         ),
         _action_row(
-            "Révoquer le compte HA",
+            t(locale, "revoke_ha"),
             "mdi:account-off",
             SERVICE_REVOKE_ACCESS,
-            f"Révoquer le compte Home Assistant de {guest} ?",
+            t(locale, "revoke_ha_confirm", guest=guest),
             reservation_id=reservation_id,
-            action_name="Révoquer",
+            action_name=t(locale, "revoke"),
         ),
         _action_row(
-            "Nouveau code Wi-Fi",
+            t(locale, "new_wifi"),
             "mdi:wifi-sync",
             SERVICE_REGENERATE_VOUCHER,
-            f"Générer un nouveau code Wi-Fi pour {guest} ?",
+            t(locale, "new_wifi_confirm", guest=guest),
             reservation_id=reservation_id,
-            action_name="Générer",
+            action_name=t(locale, "generate"),
         ),
         _action_row(
-            "Révoquer le Wi-Fi",
+            t(locale, "revoke_wifi"),
             "mdi:wifi-off",
             SERVICE_REVOKE_VOUCHER,
-            f"Révoquer le voucher Wi-Fi de {guest} ?",
+            t(locale, "revoke_wifi_confirm", guest=guest),
             reservation_id=reservation_id,
-            action_name="Révoquer",
+            action_name=t(locale, "revoke"),
         ),
         _action_row(
-            "Nouveau code porte",
+            t(locale, "new_door"),
             "mdi:dialpad",
             SERVICE_REGENERATE_NUKI,
-            f"Générer un nouveau code porte pour {guest} ?",
+            t(locale, "new_door_confirm", guest=guest),
             reservation_id=reservation_id,
-            action_name="Générer",
+            action_name=t(locale, "generate"),
         ),
         _action_row(
-            "Révoquer le code porte",
+            t(locale, "revoke_door"),
             "mdi:lock-off",
             SERVICE_REVOKE_NUKI,
-            f"Révoquer le code porte de {guest} ?",
+            t(locale, "revoke_door_confirm", guest=guest),
             reservation_id=reservation_id,
-            action_name="Révoquer",
+            action_name=t(locale, "revoke"),
         ),
         _action_row(
-            "Renvoyer la notification",
+            t(locale, "resend"),
             "mdi:bell-ring",
             SERVICE_RESEND,
-            f"Renvoyer le message d'accueil et la notification de {guest} ?",
+            t(locale, "resend_confirm", guest=guest),
             reservation_id=reservation_id,
-            action_name="Envoyer",
+            action_name=t(locale, "send"),
         ),
         _action_row(
-            "Imprimer le voucher",
+            t(locale, "print_voucher"),
             "mdi:printer",
             SERVICE_PRINT,
-            f"Émettre l'événement d'impression pour {guest} ?",
+            t(locale, "print_confirm", guest=guest),
             reservation_id=reservation_id,
-            action_name="Imprimer",
+            action_name=t(locale, "print"),
         ),
     ]
 
 
-def _tools_card() -> dict[str, Any]:
+def _tools_card(locale: str = "fr") -> dict[str, Any]:
+    from .console_i18n import console_t as t
+
     return _entities_actions(
-        "Outils",
+        t(locale, "tools"),
         [
             _action_row(
-                "Relire le calendrier",
+                t(locale, "reread_calendar"),
                 "mdi:calendar-refresh",
                 SERVICE_REFRESH_CALENDAR,
-                "Relire le calendrier maintenant ? Les accès Wi-Fi et HA suivront les réservations.",
-                action_name="Lire",
+                t(locale, "reread_calendar_confirm"),
+                action_name=t(locale, "read"),
             ),
             _action_row(
-                "Rafraîchir les tableaux",
+                t(locale, "refresh_dashboards"),
                 "mdi:view-dashboard-edit",
                 SERVICE_APPLY_DASHBOARD,
-                "Réécrire Séjour et Console maintenant ?",
-                action_name="Appliquer",
+                t(locale, "refresh_dashboards_confirm"),
+                action_name=t(locale, "apply"),
             ),
             _action_row(
-                "Lien d'essai 24 h",
+                t(locale, "trial_link"),
                 "mdi:link-plus",
                 SERVICE_GUEST_LINK,
-                "Créer un lien maison d'essai (24 h, sans calendrier) ?",
+                t(locale, "trial_link_confirm"),
                 extra={"essai": True},
-                action_name="Créer",
+                action_name=t(locale, "create"),
             ),
             _action_row(
-                "Exporter le journal",
+                t(locale, "export_journal"),
                 "mdi:file-download-outline",
                 SERVICE_EXPORT_JOURNAL,
                 "",
-                action_name="Chemin",
+                action_name=t(locale, "path"),
             ),
             {
                 "type": "button",
-                "name": "Modifier les réglages",
+                "name": t(locale, "edit_settings"),
                 "icon": "mdi:cog",
-                "action_name": "Ouvrir",
+                "action_name": t(locale, "open"),
                 "tap_action": {
                     "action": "navigate",
                     "navigation_path": "/config/integrations/integration/usvegliu",
@@ -710,39 +741,44 @@ def _tools_card() -> dict[str, Any]:
     )
 
 
-def _home_tools_card() -> dict[str, Any]:
+def _home_tools_card(locale: str = "fr") -> dict[str, Any]:
+    from .console_i18n import console_t as t
+
     return _entities_actions(
-        "Raccourcis",
+        t(locale, "shortcuts"),
         [
             _action_row(
-                "Relire le calendrier",
+                t(locale, "reread_calendar"),
                 "mdi:calendar-refresh",
                 SERVICE_REFRESH_CALENDAR,
-                "Relire le calendrier maintenant ? Les accès Wi-Fi et HA suivront les réservations.",
-                action_name="Lire",
+                t(locale, "reread_calendar_confirm"),
+                action_name=t(locale, "read"),
             ),
             _action_row(
-                "Lien d'essai 24 h",
+                t(locale, "trial_link"),
                 "mdi:link-plus",
                 SERVICE_GUEST_LINK,
-                "Créer un lien maison d'essai (24 h, sans calendrier) ?",
+                t(locale, "trial_link_confirm"),
                 extra={"essai": True},
-                action_name="Créer",
+                action_name=t(locale, "create"),
             ),
             _navigate_row(
-                "Tous les séjours",
+                t(locale, "all_stays"),
                 "mdi:format-list-bulleted",
                 f"/{OWNER_DASHBOARD_URL}/liste",
+                action_name=t(locale, "open"),
             ),
             _navigate_row(
-                "Historique",
+                t(locale, "history"),
                 "mdi:history",
                 f"/{OWNER_DASHBOARD_URL}/historique",
+                action_name=t(locale, "open"),
             ),
             _navigate_row(
-                "Réglages",
+                t(locale, "settings"),
                 "mdi:tune",
                 f"/{OWNER_DASHBOARD_URL}/reglages",
+                action_name=t(locale, "open"),
             ),
         ],
     )
@@ -753,30 +789,33 @@ def _home_view_sections(
     sejours_entity_id: str,
     voucher_entity_id: str,
     house_mode_entity: str | None,
+    locale: str = "fr",
 ) -> list[dict[str, Any]]:
+    from .console_i18n import console_t as t
+
     status: list[dict[str, Any]] = [
-        _heading("Console", "mdi:desk"),
+        _heading(t(locale, "console"), "mdi:desk"),
         {
             "type": "markdown",
-            "content": (
-                "Séjour **en cours** et **prochain** à venir. "
-                "Ouvrez une fiche pour le compte HA, le Wi-Fi et le message. "
-                "Les locataires ne voient pas cette page."
-            ),
+            "content": t(locale, "console_intro"),
         },
     ]
     tiles: list[dict[str, Any]] = []
     if sejours_entity_id:
-        tiles.append(_tile(sejours_entity_id, "Séjours ouverts", "mdi:account-group"))
+        tiles.append(
+            _tile(sejours_entity_id, t(locale, "open_stays"), "mdi:account-group")
+        )
     if voucher_entity_id:
-        tiles.append(_tile(voucher_entity_id, "Code Wi-Fi courant", "mdi:wifi"))
+        tiles.append(
+            _tile(voucher_entity_id, t(locale, "current_wifi"), "mdi:wifi")
+        )
     if house_mode_entity:
         tiles.append(
-            _tile(house_mode_entity, "Chauffage / climatisation", "mdi:sun-snowflake")
+            _tile(house_mode_entity, t(locale, "heat_cool"), "mdi:sun-snowflake")
         )
     if tiles:
         status.extend(tiles)
-    status.append(_home_tools_card())
+    status.append(_home_tools_card(locale))
     sections: list[dict[str, Any]] = [
         {"type": "grid", "column_span": 2, "cards": status}
     ]
@@ -785,13 +824,15 @@ def _home_view_sections(
             {
                 "type": "grid",
                 "cards": [
-                    _heading("En cours", "mdi:home-account", subtitle=True),
+                    _heading(t(locale, "current"), "mdi:home-account", subtitle=True),
                     {
                         "type": "markdown",
                         "content": _featured_markdown(
                             sejours_entity_id,
                             "current",
-                            "Aucun séjour en cours.",
+                            t(locale, "no_current"),
+                            open_label=t(locale, "open_stay"),
+                            trial_badge=t(locale, "trial_badge"),
                         ),
                     },
                 ],
@@ -801,13 +842,17 @@ def _home_view_sections(
             {
                 "type": "grid",
                 "cards": [
-                    _heading("Prochain", "mdi:calendar-arrow-right", subtitle=True),
+                    _heading(
+                        t(locale, "next"), "mdi:calendar-arrow-right", subtitle=True
+                    ),
                     {
                         "type": "markdown",
                         "content": _featured_markdown(
                             sejours_entity_id,
                             "upcoming",
-                            "Pas de réservation suivante dans la fenêtre.",
+                            t(locale, "no_next"),
+                            open_label=t(locale, "open_stay"),
+                            trial_badge=t(locale, "trial_badge"),
                         ),
                     },
                 ],
@@ -816,42 +861,50 @@ def _home_view_sections(
     return sections
 
 
-def _liste_view_sections(*, sejours_entity_id: str) -> list[dict[str, Any]]:
+def _liste_view_sections(
+    *, sejours_entity_id: str, locale: str = "fr"
+) -> list[dict[str, Any]]:
+    from .console_i18n import console_t as t
+
     return [
         {
             "type": "grid",
             "column_span": 2,
             "cards": [
-                _heading("Séjours", "mdi:format-list-bulleted"),
+                _heading(t(locale, "stays"), "mdi:format-list-bulleted"),
                 {
                     "type": "markdown",
-                    "content": _roster_markdown(sejours_entity_id)
+                    "content": _roster_markdown(sejours_entity_id, locale=locale)
                     if sejours_entity_id
-                    else "*Capteur séjours indisponible.*",
+                    else t(locale, "sensor_missing"),
                 },
             ],
         }
     ]
 
 
-def _history_view_sections(*, sejours_entity_id: str) -> list[dict[str, Any]]:
+def _history_view_sections(
+    *, sejours_entity_id: str, locale: str = "fr"
+) -> list[dict[str, Any]]:
+    from .console_i18n import console_t as t
+
     cards: list[dict[str, Any]] = [
-        _heading("Historique", "mdi:history"),
+        _heading(t(locale, "history"), "mdi:history"),
         {
             "type": "markdown",
-            "content": _history_markdown(sejours_entity_id)
+            "content": _history_markdown(sejours_entity_id, locale=locale)
             if sejours_entity_id
-            else "*Capteur séjours indisponible.*",
+            else t(locale, "sensor_missing"),
         },
         _entities_actions(
-            "Journal",
+            t(locale, "journal"),
             [
                 _action_row(
-                    "Exporter le journal",
+                    t(locale, "export_journal"),
                     "mdi:file-download-outline",
                     SERVICE_EXPORT_JOURNAL,
                     "",
-                    action_name="Chemin",
+                    action_name=t(locale, "path"),
                 )
             ],
         ),
@@ -864,9 +917,12 @@ def _stay_subview(
     *,
     sejours_entity_id: str,
     reglages_entity_id: str,
+    locale: str = "fr",
 ) -> dict[str, Any]:
+    from .console_i18n import console_t as t
+
     reservation_id = str(stay.get("reservation_id") or stay.get("key") or "")
-    guest = str(stay.get("guest") or "Séjour")
+    guest = str(stay.get("guest") or t(locale, "stay"))
     path = str(stay.get("vue") or stay_view_path(reservation_id))
     cards: list[dict[str, Any]] = [
         _heading(guest, "mdi:home-account"),
@@ -876,6 +932,7 @@ def _stay_subview(
                 sejours_entity_id,
                 reservation_id,
                 reglages_entity_id,
+                locale=locale,
             ),
         },
     ]
@@ -890,14 +947,21 @@ def _stay_subview(
                 "type": "entity",
                 "entity": sejours_entity_id,
                 "attribute": credential_attribute_key(reservation_id),
-                "name": "Mot de passe Home Assistant",
+                "name": (
+                    "Home Assistant password"
+                    if locale == "en"
+                    else "Mot de passe Home Assistant"
+                ),
                 "icon": "mdi:form-textbox-password",
                 "state_color": False,
             }
         )
     if not stay.get("essai") and reservation_id:
         cards.append(
-            _entities_actions("Actions", _stay_action_rows(guest, reservation_id))
+            _entities_actions(
+                "Actions",
+                _stay_action_rows(guest, reservation_id, locale=locale),
+            )
         )
     return {
         "type": "sections",
@@ -918,13 +982,19 @@ def _settings_view_sections(
     pool_temp_entity: str | None,
     pool_ph_entity: str | None,
     tenant_entities: list[str],
+    locale: str = "fr",
 ) -> list[dict[str, Any]]:
+    from .console_i18n import console_t as t
+
     overview: list[dict[str, Any]] = [
-        _heading("Réglages Usvegliu", "mdi:tune"),
+        _heading(t(locale, "settings_usvegliu"), "mdi:tune"),
         {
             "type": "markdown",
             "content": (
-                "Valeurs en vigueur. Pour les changer : **Modifier les réglages**. "
+                "Live values. To change them: **Edit settings**. "
+                "API key and alarm code are not shown."
+                if locale == "en"
+                else "Valeurs en vigueur. Pour les changer : **Modifier les réglages**. "
                 "La clé API et le code alarme ne sont pas affichés."
             ),
         },
@@ -936,17 +1006,29 @@ def _settings_view_sections(
                 "content": _settings_markdown(reglages_entity_id),
             }
         )
-    overview.append(_tools_card())
+    overview.append(_tools_card(locale))
     sections: list[dict[str, Any]] = [
         {"type": "grid", "column_span": 2, "cards": overview}
     ]
     house_tiles = [
         _tile(entity, name, icon)
         for entity, name, icon in (
-            (house_mode_entity, "Chauffage / climatisation", "mdi:sun-snowflake"),
-            (outdoor_entity, "Température extérieure", "mdi:thermometer"),
-            (pool_temp_entity, "Température piscine", "mdi:pool-thermometer"),
-            (pool_ph_entity, "pH piscine", "mdi:ph"),
+            (house_mode_entity, t(locale, "heat_cool"), "mdi:sun-snowflake"),
+            (
+                outdoor_entity,
+                "Outdoor temperature" if locale == "en" else "Température extérieure",
+                "mdi:thermometer",
+            ),
+            (
+                pool_temp_entity,
+                "Pool temperature" if locale == "en" else "Température piscine",
+                "mdi:pool-thermometer",
+            ),
+            (
+                pool_ph_entity,
+                "Pool pH" if locale == "en" else "pH piscine",
+                "mdi:ph",
+            ),
         )
         if entity
     ]
@@ -956,7 +1038,11 @@ def _settings_view_sections(
                 "type": "grid",
                 "column_span": 2,
                 "cards": [
-                    _heading("Maison", "mdi:home-thermometer", subtitle=True),
+                    _heading(
+                        "House" if locale == "en" else "Maison",
+                        "mdi:home-thermometer",
+                        subtitle=True,
+                    ),
                     *house_tiles,
                 ],
             }
@@ -967,10 +1053,18 @@ def _settings_view_sections(
                 "type": "grid",
                 "column_span": 2,
                 "cards": [
-                    _heading("Équipements locataire", "mdi:dots-grid", subtitle=True),
+                    _heading(
+                        "Guest equipment" if locale == "en" else "Équipements locataire",
+                        "mdi:dots-grid",
+                        subtitle=True,
+                    ),
                     {
                         "type": "entities",
-                        "title": "Autorisés pour les séjours",
+                        "title": (
+                            "Allowed for stays"
+                            if locale == "en"
+                            else "Autorisés pour les séjours"
+                        ),
                         "show_header_toggle": False,
                         "entities": tenant_entities[:24],
                     },
@@ -991,12 +1085,15 @@ def build_owner_dashboard_config(
     pool_temp_entity: str | None = None,
     pool_ph_entity: str | None = None,
     tenant_entities: list[str] | None = None,
+    locale: str = "fr",
 ) -> dict[str, Any]:
     """Owner console: current + next, clickable stays, history, settings."""
+    from .console_i18n import console_t as t
+
     views: list[dict[str, Any]] = [
         {
             "type": "sections",
-            "title": "Accueil",
+            "title": t(locale, "home"),
             "path": "console",
             "icon": "mdi:desk",
             "max_columns": 2,
@@ -1004,27 +1101,32 @@ def build_owner_dashboard_config(
                 sejours_entity_id=sejours_entity_id,
                 voucher_entity_id=voucher_entity_id,
                 house_mode_entity=house_mode_entity,
+                locale=locale,
             ),
         },
         {
             "type": "sections",
-            "title": "Séjours",
+            "title": t(locale, "stays"),
             "path": "liste",
             "icon": "mdi:format-list-bulleted",
             "max_columns": 1,
-            "sections": _liste_view_sections(sejours_entity_id=sejours_entity_id),
+            "sections": _liste_view_sections(
+                sejours_entity_id=sejours_entity_id, locale=locale
+            ),
         },
         {
             "type": "sections",
-            "title": "Historique",
+            "title": t(locale, "history"),
             "path": "historique",
             "icon": "mdi:history",
             "max_columns": 1,
-            "sections": _history_view_sections(sejours_entity_id=sejours_entity_id),
+            "sections": _history_view_sections(
+                sejours_entity_id=sejours_entity_id, locale=locale
+            ),
         },
         {
             "type": "sections",
-            "title": "Réglages",
+            "title": t(locale, "settings"),
             "path": "reglages",
             "icon": "mdi:tune",
             "max_columns": 2,
@@ -1035,6 +1137,7 @@ def build_owner_dashboard_config(
                 pool_temp_entity=pool_temp_entity,
                 pool_ph_entity=pool_ph_entity,
                 tenant_entities=list(tenant_entities or []),
+                locale=locale,
             ),
         },
     ]
@@ -1045,6 +1148,7 @@ def build_owner_dashboard_config(
                     stay,
                     sejours_entity_id=sejours_entity_id,
                     reglages_entity_id=reglages_entity_id,
+                    locale=locale,
                 )
             )
     return {"views": views}
@@ -1368,6 +1472,7 @@ async def async_ensure_owner_dashboard(
     pool_temp_entity: str | None = None,
     pool_ph_entity: str | None = None,
     tenant_entities: list[str] | None = None,
+    locale: str = "fr",
 ) -> dict[str, Any]:
     """Create the owner console dashboard and save its cards."""
     config = build_owner_dashboard_config(
@@ -1380,6 +1485,7 @@ async def async_ensure_owner_dashboard(
         pool_temp_entity=pool_temp_entity,
         pool_ph_entity=pool_ph_entity,
         tenant_entities=tenant_entities,
+        locale=locale,
     )
     result = await _async_save_named_dashboard(
         hass,
