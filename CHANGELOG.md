@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.96] — 2026-11-23
+
+### Corrigé
+- iPhone : crash au lancement (`syncFrameHeight` manquant → écran vert) et dock trop haut sur toutes les pages.
+
+[0.6.96]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.96
+
 ## [0.6.95] — 2026-11-23
 
 ### Corrigé

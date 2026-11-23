@@ -1405,9 +1405,12 @@ body[data-theme="ledbury"] .light-dim-fill {
   justify-content: space-around;
   align-items: flex-start;
   gap: 2px;
-  padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+  /* Safe-area once — icons sit just above the home indicator. */
+  padding: 8px 10px max(8px, env(safe-area-inset-bottom, 0px));
   background: var(--dock, var(--paper));
   border-top: 1px solid var(--line);
+  /* Cover any residual iOS strip under the bar with the dock colour. */
+  box-shadow: 0 48px 0 0 var(--dock, var(--paper));
 }
 
 .dock-item {

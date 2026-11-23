@@ -698,17 +698,10 @@
       if (shell && stage && dock.parentElement !== shell) {
         shell.insertBefore(dock, stage);
       }
-      dock.style.position = "";
-      dock.style.left = "";
-      dock.style.right = "";
-      dock.style.width = "";
-      dock.style.margin = "";
-      dock.style.top = "";
-      dock.style.bottom = "";
+      dock.style.cssText = "";
       return;
     }
-    // Mobile: dock on <body> so position:fixed tracks the locked viewport,
-    // not the scrolling #app (iOS WebKit quirk).
+    // Mobile: keep dock on <body>, flush to the visual bottom.
     if (dock.parentElement !== document.body) {
       document.body.appendChild(dock);
     }
@@ -718,7 +711,23 @@
     dock.style.width = "100%";
     dock.style.margin = "0px";
     dock.style.top = "auto";
+    // Prefer 0; if the bar still sits high, nudge into the visible gap.
     dock.style.bottom = "0px";
+    window.requestAnimationFrame(() => {
+      const live = dockEl();
+      if (!live || window.matchMedia("(min-width: 700px)").matches) return;
+      const rect = live.getBoundingClientRect();
+      const viewBottom = window.visualViewport
+        ? window.visualViewport.offsetTop + window.visualViewport.height
+        : window.innerHeight;
+      const gap = viewBottom - rect.bottom;
+      // Only push DOWN into empty space (never pull the bar up).
+      if (gap > 2 && gap < 120) {
+        live.style.bottom = `${-Math.round(gap)}px`;
+      } else {
+        live.style.bottom = "0px";
+      }
+    });
   }
 
   function takeBrandLogo() {
@@ -2322,10 +2331,19 @@
 
   setupPwaInstall();
   clearOrphanDock();
-  syncFrameHeight();
-  render();
-  refresh();
-  startStream();
-  // iOS often corrects innerHeight a beat after standalone launch.
-  [0, 50, 150, 400, 1000].forEach((ms) => window.setTimeout(pinDockFlush, ms));
+  try {
+    render();
+    refresh();
+    startStream();
+  } catch (err) {
+    // Never leave a blank green frame if boot throws on iOS WebKit.
+    try {
+      root.textContent = "";
+      root.innerHTML = statusPage(escapeHtml(t("house_unavailable")));
+    } catch (err2) {
+      root.textContent = "Unavailable";
+    }
+  }
+  // Re-pin after standalone chrome settles (no missing helpers).
+  [0, 100, 400].forEach((ms) => window.setTimeout(pinDockFlush, ms));
 })();
