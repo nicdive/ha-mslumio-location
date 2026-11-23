@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.59] — 2026-11-23
+
+### Corrigé
+- Install web app : manifest HTTPS (plus `blob:`) pour que Chrome propose **Installer** ; sinon consigne menu ⋮ au lieu de seulement « Not now ».
+
+[0.6.59]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.59
+
 ## [0.6.58] — 2026-11-23
 
 ### Corrigé

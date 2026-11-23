@@ -895,6 +895,10 @@ def test_guest_app_ships_villa_banner_logo():
     assert 'rel="manifest"' in html
     assert "/usvegliu/static/logo.png" in html
     assert "install-banner" in css
+    assert "install_hint_manual" in js
+    assert "/usvegliu/manifest.webmanifest" in js
+    assert "createObjectURL" not in js
+    assert "GuestManifestView" in text
     assert ".brand-logo" in css
     assert ".wordmark" not in css
 
