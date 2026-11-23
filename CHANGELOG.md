@@ -4,6 +4,14 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.68] — 2026-11-23
+
+### Corrigé
+- Console : plus d’**Entity not found** sur le brouillon Wi‑Fi (entité `text` réelle uniquement, mode manuel).
+- Maison Infos : bandeau install avec consigne **menu ⋮ / Installer** (manifest HTTPS, plus `blob:`) — plus seulement « Not now ».
+
+[0.6.68]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.68
+
 ## [0.6.67] — 2026-11-23
 
 ### Amélioré

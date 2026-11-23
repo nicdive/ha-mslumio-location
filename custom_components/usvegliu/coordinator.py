@@ -658,14 +658,16 @@ class UsvegliuRuntime:
             blocking=False,
         )
 
-    def _entity_id_for(self, unique_suffix: str, fallback: str) -> str:
-        """Resolve a sensor entity id from the registry, with a stable fallback."""
+    def _entity_id_for(
+        self, unique_suffix: str, fallback: str, *, domain: str = "sensor"
+    ) -> str:
+        """Resolve an entity id from the registry, with a stable fallback."""
         unique = f"{self.entry.entry_id}_{unique_suffix}"
         try:
             from homeassistant.helpers import entity_registry as er
 
             entity_id = er.async_get(self.hass).async_get_entity_id(
-                "sensor", DOMAIN, unique
+                domain, DOMAIN, unique
             )
             if entity_id:
                 return str(entity_id)
@@ -686,13 +688,14 @@ class UsvegliuRuntime:
         return self._entity_id_for("voucher_code", "sensor.usvegliu_code_voucher")
 
     def _wifi_draft_entity_id(self) -> str:
-        """Entity id of the EasyPass draft text field (Console)."""
+        """Entity id of the EasyPass draft text field, or '' if missing."""
+        if self.voucher_provider() != VOUCHER_PROVIDER_MANUAL:
+            return ""
         entity = self.wifi_draft_entity
         if entity is not None and getattr(entity, "entity_id", None):
             return str(entity.entity_id)
-        return self._entity_id_for(
-            "wifi_code_draft", "text.usvegliu_brouillon_code_wi_fi"
-        )
+        # Never invent a fake id — that shows Entity not found on the Console.
+        return self._entity_id_for("wifi_code_draft", "", domain="text")
 
     def owner_settings(self) -> dict[str, Any]:
         """Options in force for the Console. No API key, alarm code or password."""

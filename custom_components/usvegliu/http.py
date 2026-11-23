@@ -114,6 +114,7 @@ def async_setup_http(hass: Any) -> None:
 
     hass.http.register_view(GuestPageView())
     hass.http.register_view(GuestServiceWorkerView())
+    hass.http.register_view(GuestManifestView())
     hass.http.register_view(GuestStateView())
     hass.http.register_view(GuestStreamView())
     hass.http.register_view(GuestClimateView())
@@ -743,6 +744,78 @@ class GuestServiceWorkerView(HomeAssistantView):
                 "Service-Worker-Allowed": "/",
                 "Cache-Control": "no-cache",
             },
+        )
+
+
+class GuestManifestView(HomeAssistantView):
+    """HTTPS web app manifest — blob: URLs block Chrome's install prompt."""
+
+    requires_auth = False
+    cors_allowed = True
+    url = f"/{DOMAIN}/manifest.webmanifest"
+    name = f"api:{DOMAIN}:guest_manifest"
+
+    async def get(self, request: Any) -> Any:
+        from aiohttp import web
+
+        from .branding import brand_from_options, guest_brand
+
+        hass = request.app["hass"]
+        runtime = _runtime(hass)
+        brand = (
+            brand_from_options(runtime.entry.options)
+            if runtime is not None
+            else guest_brand()
+        )
+        token = str(request.query.get("token") or "").strip()
+        if token:
+            start = f"/{DOMAIN}/s/{token}"
+        else:
+            start = f"/{DOMAIN}/static/"
+        logo = str(brand.get("logo") or f"/{DOMAIN}/static/logo.png")
+        if brand.get("id") == "ledbury":
+            icon_base = f"/{DOMAIN}/static/logo-ledbury"
+        else:
+            icon_base = f"/{DOMAIN}/static/logo"
+        theme = str(brand.get("theme_color") or "#F1EBE2")
+        payload = {
+            "id": start,
+            "name": brand.get("name") or "Maison",
+            "short_name": brand.get("name") or "Maison",
+            "description": brand.get("tagline") or brand.get("name") or "Maison",
+            "start_url": start,
+            "scope": "/",
+            "display": "standalone",
+            "orientation": "portrait-primary",
+            "background_color": theme,
+            "theme_color": theme,
+            "lang": brand.get("locale") or "fr",
+            "icons": [
+                {
+                    "src": f"{icon_base}-192.png",
+                    "sizes": "192x192",
+                    "type": "image/png",
+                    "purpose": "any",
+                },
+                {
+                    "src": f"{icon_base}-512.png",
+                    "sizes": "512x512",
+                    "type": "image/png",
+                    "purpose": "any",
+                },
+                {
+                    "src": logo,
+                    "sizes": "256x256",
+                    "type": "image/png",
+                    "purpose": "any",
+                },
+            ],
+        }
+        return web.Response(
+            text=json.dumps(payload, ensure_ascii=False),
+            content_type="application/manifest+json",
+            charset="utf-8",
+            headers={"Cache-Control": "no-cache"},
         )
 
 

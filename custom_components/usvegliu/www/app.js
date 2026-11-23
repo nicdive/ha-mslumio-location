@@ -335,7 +335,8 @@
       share_link: "Lien Maison",
       install_app: "Installer l'app",
       install_hint_ios: "Sur iPhone : Partager → Sur l'écran d'accueil.",
-      install_hint_android: "Ajoutez Maison à l'écran d'accueil pour un accès rapide.",
+      install_hint_android: "Installez Maison sur l'écran d'accueil pour un accès rapide.",
+      install_hint_manual: "Menu du navigateur ⋮ → Installer l'application (ou Ajouter à l'écran d'accueil).",
       install_dismiss: "Plus tard",
       wifi_network: "Réseau Wi-Fi",
       wifi_code: "Code Wi-Fi",
@@ -433,7 +434,8 @@
       share_link: "Home link",
       install_app: "Install app",
       install_hint_ios: "On iPhone: Share → Add to Home Screen.",
-      install_hint_android: "Add Maison to your home screen for quick access.",
+      install_hint_android: "Install Maison on your home screen for quick access.",
+      install_hint_manual: "Browser menu ⋮ → Install app (or Add to Home screen).",
       install_dismiss: "Not now",
       wifi_network: "Wi-Fi network",
       wifi_code: "Wi-Fi code",
@@ -520,29 +522,7 @@
   }
 
   function publishWebManifest() {
-    const brand = brandInfo();
-    const base = pwaIconBase();
-    const start = window.location.pathname + window.location.search;
-    const manifest = {
-      id: start,
-      name: brand.name,
-      short_name: brand.name,
-      description: brand.tagline || brand.name,
-      start_url: start,
-      scope: "/",
-      display: "standalone",
-      orientation: "portrait-primary",
-      background_color: brand.themeColor || "#F1EBE2",
-      theme_color: brand.themeColor || "#F1EBE2",
-      lang: locale(),
-      icons: [
-        { src: `${base}-192.png`, sizes: "192x192", type: "image/png", purpose: "any" },
-        { src: `${base}-512.png`, sizes: "512x512", type: "image/png", purpose: "any" },
-        { src: brand.logo, sizes: "256x256", type: "image/png", purpose: "any" },
-      ],
-    };
-    const blob = new Blob([JSON.stringify(manifest)], { type: "application/manifest+json" });
-    const url = URL.createObjectURL(blob);
+    // Real HTTPS URL required — Chrome ignores blob: manifests for install.
     let link = document.getElementById("maison-manifest");
     if (!link) {
       link = document.createElement("link");
@@ -550,9 +530,14 @@
       link.rel = "manifest";
       document.head.appendChild(link);
     }
-    if (link.dataset.blobUrl) URL.revokeObjectURL(link.dataset.blobUrl);
-    link.dataset.blobUrl = url;
-    link.setAttribute("href", url);
+    if (link.dataset.blobUrl) {
+      URL.revokeObjectURL(link.dataset.blobUrl);
+      delete link.dataset.blobUrl;
+    }
+    const params = new URLSearchParams();
+    if (token) params.set("token", token);
+    params.set("v", String(Date.now()));
+    link.setAttribute("href", `/usvegliu/manifest.webmanifest?${params.toString()}`);
   }
 
   function registerMaisonServiceWorker() {
@@ -581,7 +566,9 @@
     if (!window.isSecureContext) return "";
     const canPrompt = Boolean(deferredInstallPrompt);
     const ios = isIosSafari();
-    const hint = ios ? t("install_hint_ios") : t("install_hint_android");
+    let hint = t("install_hint_manual");
+    if (ios) hint = t("install_hint_ios");
+    else if (canPrompt) hint = t("install_hint_android");
     const action = canPrompt
       ? `<button type="button" class="install-action" data-act="install-app">${escapeHtml(t("install_app"))}</button>`
       : "";
