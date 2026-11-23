@@ -82,8 +82,9 @@ html,
 body {
   margin: 0;
   min-height: 100%;
-  /* svh = stable small viewport — avoids the iOS PWA first-paint jump with dvh */
-  min-height: 100svh;
+  /* Prefer large / fill-available — 100svh was shorter than the iPhone PWA screen. */
+  min-height: var(--frame-height, 100dvh);
+  min-height: var(--frame-height, 100lvh);
   min-height: -webkit-fill-available;
   background: var(--bg);
   color: var(--ink);
@@ -94,7 +95,8 @@ body {
 
 body {
   position: relative;
-  min-height: 100svh;
+  min-height: var(--frame-height, 100dvh);
+  min-height: var(--frame-height, 100lvh);
   min-height: -webkit-fill-available;
 }
 
@@ -143,7 +145,8 @@ button:active:not(:disabled) {
   position: relative;
   width: var(--app);
   margin: 0 auto;
-  min-height: 100svh;
+  min-height: var(--frame-height, 100dvh);
+  min-height: var(--frame-height, 100lvh);
   min-height: -webkit-fill-available;
   background: var(--bg);
 }
@@ -152,10 +155,12 @@ button:active:not(:disabled) {
   position: relative;
   display: flex;
   flex-direction: column;
-  min-height: 100svh;
+  min-height: var(--frame-height, 100dvh);
+  min-height: var(--frame-height, 100lvh);
   min-height: -webkit-fill-available;
-  /* Top safe-area only — dock is in-flow at the bottom with its own inset. */
-  padding: calc(28px + env(safe-area-inset-top, 0px)) 22px 0;
+  /* Leave room for the fixed dock + home indicator. */
+  padding: calc(28px + env(safe-area-inset-top, 0px)) 22px
+    calc(88px + env(safe-area-inset-bottom, 0px));
 }
 
 .shell > .brand {
@@ -166,7 +171,6 @@ button:active:not(:disabled) {
   order: 2;
   flex: 1 1 auto;
   width: 100%;
-  padding-bottom: 18px;
 }
 
 .shell > .dock {
@@ -1349,14 +1353,15 @@ h1 {
 }
 
 .dock {
-  /* In-flow sticky footer — no position:fixed (iOS PWA left a gap under fixed docks). */
-  position: sticky;
+  /* Fixed to the screen bottom — JS may set a negative bottom to close an iOS gap. */
+  position: fixed;
+  left: 0;
+  right: 0;
   bottom: 0;
   z-index: 8;
-  flex: 0 0 auto;
-  width: calc(100% + 44px);
-  max-width: none;
-  margin: auto -22px 0;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
   display: flex;
   justify-content: space-around;
   align-items: flex-start;
@@ -1364,7 +1369,8 @@ h1 {
   padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px));
   background: var(--dock, var(--paper));
   border-top: 1px solid var(--line);
-  box-shadow: none;
+  /* Paint below the bar if the layout viewport is short on first paint. */
+  box-shadow: 0 80px 0 0 var(--dock, var(--paper));
 }
 
 .dock-item {
@@ -1444,7 +1450,6 @@ h1 {
 
   .shell > .stage {
     order: 3;
-    padding-bottom: 0;
   }
 
   .brand {

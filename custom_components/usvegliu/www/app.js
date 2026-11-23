@@ -675,6 +675,62 @@
       btn.classList.toggle("on", on);
       btn.setAttribute("aria-current", on ? "page" : "false");
     });
+    pinDockFlush();
+  }
+
+  function syncFrameHeight() {
+    const vv = window.visualViewport;
+    let height = window.innerHeight || 0;
+    if (vv) height = Math.max(height, Math.ceil(vv.height + vv.offsetTop));
+    if (document.documentElement.clientHeight) {
+      height = Math.max(height, document.documentElement.clientHeight);
+    }
+    if (height > 0) {
+      document.documentElement.style.setProperty("--frame-height", `${height}px`);
+    }
+  }
+
+  function pinDockFlush() {
+    const dock = root.querySelector(".dock");
+    if (!dock) return;
+    if (window.matchMedia("(min-width: 700px)").matches) {
+      dock.style.position = "";
+      dock.style.left = "";
+      dock.style.right = "";
+      dock.style.width = "";
+      dock.style.margin = "";
+      dock.style.top = "";
+      dock.style.bottom = "";
+      return;
+    }
+    syncFrameHeight();
+    dock.style.position = "fixed";
+    dock.style.left = "0px";
+    dock.style.right = "0px";
+    dock.style.width = "100%";
+    dock.style.margin = "0px";
+    dock.style.top = "auto";
+    dock.style.bottom = "0px";
+    window.requestAnimationFrame(() => {
+      const live = root.querySelector(".dock");
+      if (!live || window.matchMedia("(min-width: 700px)").matches) return;
+      const rect = live.getBoundingClientRect();
+      let viewBottom = window.innerHeight;
+      if (window.visualViewport) {
+        viewBottom = Math.max(
+          viewBottom,
+          window.visualViewport.offsetTop + window.visualViewport.height
+        );
+      }
+      // iOS standalone sometimes reports a short layout viewport while the
+      // screen still shows a strip below — push the dock into that strip.
+      let gap = viewBottom - rect.bottom;
+      if (window.screen && screen.height && screen.height - window.innerHeight > 10) {
+        const shortfall = screen.height - window.innerHeight;
+        if (shortfall < 140) gap = Math.max(gap, shortfall);
+      }
+      live.style.bottom = gap > 2 ? `${-Math.round(gap)}px` : "0px";
+    });
   }
 
   function takeBrandLogo() {
@@ -1548,7 +1604,6 @@
   }
 
   function appChrome(inner, withBack) {
-    // Dock after main: in-flow sticky footer (avoids iOS fixed/visualViewport gaps).
     return `<div class="shell${withBack ? " shell-room" : ""}">${brandBar(withBack)}<main class="stage">${inner}</main>${withBack ? "" : dock()}${visioPopup()}${alarmConfirmPopup()}</div>`;
   }
 
@@ -1647,6 +1702,7 @@
         bind(stage);
         syncShellOverlay(".visio-pop", visioPopup());
         syncShellOverlay(".confirm-pop", alarmConfirmPopup());
+        pinDockFlush();
         return;
       }
     }
@@ -1655,6 +1711,7 @@
     root.innerHTML = appChrome(body, withBack);
     restoreBrandLogo(keepLogo);
     bind();
+    pinDockFlush();
   }
 
   function bind(scope) {
@@ -2065,11 +2122,25 @@
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) return;
     refresh();
+    pinDockFlush();
   });
+
+  window.addEventListener("resize", pinDockFlush);
+  window.addEventListener("orientationchange", () => {
+    window.setTimeout(pinDockFlush, 50);
+    window.setTimeout(pinDockFlush, 350);
+  });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", pinDockFlush);
+  }
+  window.addEventListener("pageshow", pinDockFlush);
 
   setupPwaInstall();
   clearOrphanDock();
+  syncFrameHeight();
   render();
   refresh();
   startStream();
+  // iOS often corrects innerHeight a beat after standalone launch.
+  [0, 50, 150, 400, 1000].forEach((ms) => window.setTimeout(pinDockFlush, ms));
 })();
