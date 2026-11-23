@@ -380,6 +380,7 @@
       opening: "Ouverture…",
       closing: "Fermeture…",
       alarm: "Alarme",
+      home_alarm: "Home Alarm",
       arming: "Armement…",
       armed: "Armée",
       disarmed: "Désarmée",
@@ -485,6 +486,7 @@
       opening: "Opening…",
       closing: "Closing…",
       alarm: "Alarm",
+      home_alarm: "Home Alarm",
       arming: "Arming…",
       armed: "Armed",
       disarmed: "Disarmed",
@@ -1134,11 +1136,10 @@
     return alarms
       .map((alarm) => {
         const tone = alarmTone(alarm);
-        return `<section class="status-sheet alarm-sheet ${tone}" aria-label="${escapeAttr(t("alarm"))}">
+        return `<section class="status-sheet alarm-sheet ${tone}" aria-label="${escapeAttr(t("home_alarm"))}">
         ${accessGlyph("alarm", alarm)}
         <div class="charger-copy">
-          <div class="status-label">${escapeHtml(t("alarm"))}</div>
-          <div class="status-name">${escapeHtml(alarm.name)}</div>
+          <div class="status-name">${escapeHtml(t("home_alarm"))}</div>
           <div class="status-value">${escapeHtml(alarmStatus(alarm))}</div>
         </div>
       </section>`;

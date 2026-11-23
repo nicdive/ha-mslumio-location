@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.88] — 2026-11-23
+
+### Modifié
+- Accueil alarme : libellé court « Home Alarm » (plus le nom HA complet).
+
+[0.6.88]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.88
+
 ## [0.6.87] — 2026-11-23
 
 ### Modifié
