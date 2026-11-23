@@ -845,9 +845,10 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert "alarm-sheet" in css
     assert "confirm-pop" in css
     assert "pinDockFlush" in js
-    assert "--frame-height" in css
-    assert "100lvh" in css
+    assert "function dockEl" in js
+    assert "position: fixed" in css
     assert "pinDockToViewport" not in js
+    assert "-webkit-fill-available" in css
     assert '"cameras"' in http
     assert "GuestSnapshotView" in http
     assert "guest_alarm_service" in http

@@ -671,8 +671,14 @@
     </header>`;
   }
 
+  function dockEl() {
+    return root.querySelector(".dock") || document.body.querySelector(":scope > nav.dock");
+  }
+
   function syncDock() {
-    root.querySelectorAll(".dock-item").forEach((btn) => {
+    const dock = dockEl();
+    if (!dock) return;
+    dock.querySelectorAll(".dock-item").forEach((btn) => {
       const on = btn.getAttribute("data-id") === screen;
       btn.classList.toggle("on", on);
       btn.setAttribute("aria-current", on ? "page" : "false");
@@ -680,22 +686,16 @@
     pinDockFlush();
   }
 
-  function syncFrameHeight() {
-    const vv = window.visualViewport;
-    let height = window.innerHeight || 0;
-    if (vv) height = Math.max(height, Math.ceil(vv.height + vv.offsetTop));
-    if (document.documentElement.clientHeight) {
-      height = Math.max(height, document.documentElement.clientHeight);
-    }
-    if (height > 0) {
-      document.documentElement.style.setProperty("--frame-height", `${height}px`);
-    }
-  }
-
   function pinDockFlush() {
-    const dock = root.querySelector(".dock");
+    const dock = dockEl();
     if (!dock) return;
     if (window.matchMedia("(min-width: 700px)").matches) {
+      // Desktop: keep the dock in the shell under the brand.
+      const shell = root.querySelector(".shell");
+      const stage = root.querySelector("main.stage");
+      if (shell && stage && dock.parentElement !== shell) {
+        shell.insertBefore(dock, stage);
+      }
       dock.style.position = "";
       dock.style.left = "";
       dock.style.right = "";
@@ -705,7 +705,11 @@
       dock.style.bottom = "";
       return;
     }
-    syncFrameHeight();
+    // Mobile: dock on <body> so position:fixed tracks the locked viewport,
+    // not the scrolling #app (iOS WebKit quirk).
+    if (dock.parentElement !== document.body) {
+      document.body.appendChild(dock);
+    }
     dock.style.position = "fixed";
     dock.style.left = "0px";
     dock.style.right = "0px";
@@ -713,26 +717,6 @@
     dock.style.margin = "0px";
     dock.style.top = "auto";
     dock.style.bottom = "0px";
-    window.requestAnimationFrame(() => {
-      const live = root.querySelector(".dock");
-      if (!live || window.matchMedia("(min-width: 700px)").matches) return;
-      const rect = live.getBoundingClientRect();
-      let viewBottom = window.innerHeight;
-      if (window.visualViewport) {
-        viewBottom = Math.max(
-          viewBottom,
-          window.visualViewport.offsetTop + window.visualViewport.height
-        );
-      }
-      // iOS standalone sometimes reports a short layout viewport while the
-      // screen still shows a strip below — push the dock into that strip.
-      let gap = viewBottom - rect.bottom;
-      if (window.screen && screen.height && screen.height - window.innerHeight > 10) {
-        const shortfall = screen.height - window.innerHeight;
-        if (shortfall < 140) gap = Math.max(gap, shortfall);
-      }
-      live.style.bottom = gap > 2 ? `${-Math.round(gap)}px` : "0px";
-    });
   }
 
   function takeBrandLogo() {
@@ -1722,7 +1706,7 @@
     const body = inner != null ? inner : stageHtml(false);
     const shell = root.querySelector(".shell");
     const stage = root.querySelector("main.stage");
-    const hasDock = Boolean(root.querySelector(".dock"));
+    const hasDock = Boolean(dockEl());
     // Same shell mode (tabs ↔ tabs, or room ↔ room): never touch the logo node.
     // All iOS browsers are WebKit — recreating <img> flashes title text for ~500ms.
     if (shell && stage && shell.classList.contains("shell-room") === withBack) {
