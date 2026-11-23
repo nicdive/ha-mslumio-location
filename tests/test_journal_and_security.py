@@ -898,7 +898,13 @@ def test_guest_app_ships_villa_banner_logo():
     assert "install_hint_manual" in js
     assert "/usvegliu/manifest.webmanifest" in js
     assert "createObjectURL" not in js
-    assert "GuestManifestView" in text
+    http_py = (
+        Path(__file__).resolve().parents[1]
+        / "custom_components"
+        / "usvegliu"
+        / "http.py"
+    ).read_text(encoding="utf-8")
+    assert "GuestManifestView" in http_py
     assert ".brand-logo" in css
     assert ".wordmark" not in css
 

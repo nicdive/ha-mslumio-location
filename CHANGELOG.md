@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.60] — 2026-11-23
+
+### Corrigé
+- Test PWA manifest (régression 0.6.59).
+
+[0.6.60]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.60
+
 ## [0.6.59] — 2026-11-23
 
 ### Corrigé
