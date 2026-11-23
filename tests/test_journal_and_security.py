@@ -848,7 +848,7 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert "function dockEl" in js
     assert "position: fixed" in css
     assert "pinDockToViewport" not in js
-    assert "-webkit-fill-available" in css
+    assert "position: fixed;\n    inset: 0" not in css.replace(" ", "")
     assert '"cameras"' in http
     assert "GuestSnapshotView" in http
     assert "guest_alarm_service" in http

@@ -81,6 +81,7 @@ html,
 body {
   margin: 0;
   min-height: 100%;
+  min-height: 100dvh;
   background: var(--bg);
   color: var(--ink);
   font-family: var(--sans);
@@ -90,39 +91,7 @@ body {
 
 body {
   position: relative;
-}
-
-/* iPhone PWA: lock the frame to the visible screen so fixed bottom:0
-   matches the home indicator (avoids the empty strip under the dock). */
-@media (max-width: 699.98px) {
-  html,
-  body {
-    height: 100%;
-    overflow: hidden;
-    overscroll-behavior: none;
-  }
-
-  body {
-    position: fixed;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    height: 100dvh;
-    height: -webkit-fill-available;
-  }
-
-  #app {
-    height: 100%;
-    min-height: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: contain;
-  }
-
-  .shell {
-    min-height: 100%;
-  }
+  min-height: 100dvh;
 }
 
 body::before {
@@ -170,7 +139,7 @@ button:active:not(:disabled) {
   position: relative;
   width: var(--app);
   margin: 0 auto;
-  min-height: 100%;
+  min-height: 100dvh;
   background: var(--bg);
 }
 
@@ -178,7 +147,7 @@ button:active:not(:disabled) {
   position: relative;
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  min-height: 100dvh;
   /* Leave room for the fixed dock + home indicator. */
   padding: calc(28px + env(safe-area-inset-top, 0px)) 22px
     calc(88px + env(safe-area-inset-bottom, 0px));
