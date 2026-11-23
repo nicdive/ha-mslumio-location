@@ -34,6 +34,7 @@ from custom_components.usvegliu.dashboard import (
     frontend_core_with_tenant_panel,
     frontend_sidebar_with_console,
 )
+from custom_components.usvegliu.guest_session import guest_welcome_message
 from custom_components.usvegliu.journal import Journal, JournalPathError, resolve_journal_path
 from custom_components.usvegliu.redact import SecretLogFilter, redact
 
@@ -146,7 +147,12 @@ def test_journal_recent_public_omits_the_wifi_code(tmp_path: Path):
 def test_diagnostics_and_logs_redact_secrets():
     payload = redact(
         {
-            "entry_data": {"api_key": "super-secret-key", "host": "192.168.1.1"},
+            "entry_data": {
+                "api_key": "super-secret-key",
+                "host": "192.168.1.1",
+                "cambium_client_secret": "cnmaestro-secret",
+                "manual_wifi_code": "EASYPASS-99",
+            },
             "stays": [
                 {
                     "guest": "Jean Dupont",
@@ -165,6 +171,8 @@ def test_diagnostics_and_logs_redact_secrets():
         }
     )
     assert payload["entry_data"]["api_key"] == "**REDACTED**"
+    assert payload["entry_data"]["cambium_client_secret"] == "**REDACTED**"
+    assert payload["entry_data"]["manual_wifi_code"] == "**REDACTED**"
     assert payload["entry_data"]["host"] == "192.168.1.1"
     assert payload["stays"][0]["voucher_code"] == "**REDACTED**"
     assert payload["stays"][0]["nuki_code"] == "**REDACTED**"
@@ -421,15 +429,16 @@ def test_owner_console_dashboard_has_live_credentials_and_actions():
     assert "jour d'arrivée" in dumped
     assert "Les codes d'accès sont déjà dans le message" in dumped
     assert "s.nuki_code" in dumped
-    assert "Code porte (Keypad)" in dumped
     assert "Code PIN Nuki" in dumped
     assert "a.enable_nuki" in dumped
+    assert "a.demo_mode" in dumped
+    assert "Mode démo web app" in dumped
     assert "mail sans code porte" in dumped
-    assert "reglages.enable_nuki" in dumped
-    assert "Réseau Wi-Fi :" in dumped
     assert "Usvegliu-Guest" in dumped
     assert "reglages.wifi_ssid" in dumped
     assert "s.message_invite" in dumped
+    assert "L'équipe Usvegliu" not in dumped
+    assert "accueillir à Usvegliu" not in dumped
     assert "sans compte Home Assistant" in dumped
     assert "Mail locataire" in dumped
     assert "s.guest_email" in dumped
@@ -437,6 +446,56 @@ def test_owner_console_dashboard_has_live_credentials_and_actions():
     assert "guest_mail_service" in dumped
     assert "Réglages Usvegliu" in dumped
     assert "state_attr('sensor.usvegliu_reglages', 'settings')" in dumped
+
+
+def test_owner_console_english_and_ledbury_brand_separated():
+    """English locale labels; welcome copy uses the villa brand, not a hardcode."""
+    usv = guest_welcome_message(
+        guest="Ada",
+        check_in="2026-07-10",
+        check_out="2026-07-17",
+        lien_maison="https://example.test/s/a",
+        wifi_ssid="Usvegliu-Guest",
+        voucher_code="AAAA11",
+        voucher_revoked=False,
+        preview=False,
+        house_name="Usvegliu",
+        team_name="L'équipe Usvegliu",
+        locale="fr",
+    )
+    led = guest_welcome_message(
+        guest="Ada",
+        check_in="2026-07-10",
+        check_out="2026-07-17",
+        lien_maison="https://example.test/s/b",
+        wifi_ssid="49Ledbury-Guest",
+        voucher_code="BBBB22",
+        voucher_revoked=False,
+        preview=False,
+        house_name="49 Ledbury",
+        team_name="The 49 Ledbury team",
+        locale="en",
+    )
+    assert "Usvegliu" in usv and "L'équipe Usvegliu" in usv
+    assert "49 Ledbury" not in usv
+    assert "welcome you to 49 Ledbury" in led
+    assert "The 49 Ledbury team" in led
+    assert "Usvegliu" not in led
+    assert "L'équipe Usvegliu" not in led
+
+    config = build_owner_dashboard_config(
+        [{"guest": "Ada", "reservation_id": "stay-ada", "vue": "stay-ada"}],
+        sejours_entity_id="sensor.usvegliu_sejours",
+        locale="en",
+    )
+    dumped = str(config)
+    assert config["views"][0]["title"] == "Home"
+    assert "Shortcuts" in dumped
+    assert "Open stay" in dumped
+    assert "Current" in dumped
+    assert "Raccourcis" not in dumped
+    assert "Ouvrir le séjour" not in dumped
+    assert "s.message_invite" in dumped
 
 
 @pytest.mark.asyncio
@@ -725,13 +784,16 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert 'record.get("voucher_code")' in http
     assert "voucher_revoked" in http
     assert "function infoSection" in js
-    assert "Informations" in js
+    assert "Good afternoon" in js
     assert "Réseau Wi-Fi" in js
     assert "Code Wi-Fi" in js
     assert "Code porte" in js
     assert "nuki_code" in http
     assert "nuki_revoked" in http
     assert 'CONF_ENABLE_NUKI: Final = "enable_nuki"' in const
+    assert 'PLATFORMS: Final = ["sensor", "switch", "text"]' in const
+    assert "EVENT_DEMO" in const
+    assert "def demo_mode" in coord
     assert 'CONF_NUKI_TOKEN: Final = "nuki_token"' in const
     assert "def nuki_pin_option" in coord
     assert "Code PIN Nuki" in flow or "CONF_ENABLE_NUKI" in flow
@@ -750,13 +812,21 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert '"doorbells"' in http
     assert "GUEST_KIND_POOL_LIGHT" in http
     assert "function poolLights" in js
-    assert "data-act=\"pool-light\"" in js
+    assert 'lightRow(light, "pool-light")' in js
     assert "Quelqu'un sonne" in js
     assert "En charge" in js
     assert "Charge terminée" in js
     assert "chargerIsPlugged" in js
+    assert "carGlyph" in js
+    assert "accessGlyph" in js
+    assert "access-mark" in js
+    assert "car-mark" in js
     assert "Véhicule" in js
     assert "combine_charger_views" in http
+    assert "overlay_demo_snapshot" in http
+    assert "Mode démo" in js
+    assert "demo-flag" in js
+    assert "state.demo" in js
     assert "Armer" in js
     assert "Désarmer" in js
     assert '"cameras"' in http
@@ -809,12 +879,32 @@ def test_guest_app_ships_villa_banner_logo():
 
     assert png_size(banner)[0] >= 1400
     assert png_size(mark) == (256, 256)
-    assert 'width="1490"' in (www / "app.js").read_text(encoding="utf-8")
+    js = (www / "app.js").read_text(encoding="utf-8")
+    assert 'class="brand-logo"' in js
+    assert "brand.banner" in js
+    assert "setupPwaInstall" in js
+    assert "/usvegliu/sw.js" in js
+    assert (www / "sw.js").is_file()
+    assert (www / "manifest.webmanifest").is_file()
+    assert (www / "logo-192.png").is_file()
+    assert (www / "logo-512.png").is_file()
     html = (www / "index.html").read_text(encoding="utf-8")
     css = (www / "app.css").read_text(encoding="utf-8")
-    assert "logo-banner.png" in (www / "app.js").read_text(encoding="utf-8")
+    assert "logo-banner.png" in js
     assert 'rel="apple-touch-icon"' in html
+    assert 'rel="manifest"' in html
     assert "/usvegliu/static/logo.png" in html
+    assert "install-banner" in css
+    assert "install_hint_manual" in js
+    assert "/usvegliu/manifest.webmanifest" in js
+    assert "createObjectURL" not in js
+    http_py = (
+        Path(__file__).resolve().parents[1]
+        / "custom_components"
+        / "usvegliu"
+        / "http.py"
+    ).read_text(encoding="utf-8")
+    assert "GuestManifestView" in http_py
     assert ".brand-logo" in css
     assert ".wordmark" not in css
 
@@ -847,10 +937,13 @@ def test_guest_stream_is_server_sent_events():
     assert "/guest/command" in text
     assert "Lumière" in js
     assert "Accès" in js
-    assert "Informations" in js
+    assert "Good afternoon" in js
     assert "infoSection" in js
     assert "infoPage" in js
     assert "homePage" in js
+    assert "installBanner()" in js
+    assert "welcomeHead()}${installBanner()" not in js
+    assert "pageHead(t(\"info\"))}${install}" in js or '${install}${body' in js
     assert 'data-act="tab"' in js
     assert "dock" in js
     assert "windGlyph" in js
@@ -874,6 +967,8 @@ def test_guest_stream_is_server_sent_events():
     assert "metricsView" not in js
     assert "weather" in text
     assert "Allumée" in js
+    assert "lampGlyph" in js
+    assert "lamp-mark" in js
     assert "brand-logo" in js
     assert "logo-banner.png" in js
     assert "wordmark" not in js

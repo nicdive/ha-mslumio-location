@@ -10,6 +10,7 @@
   --line-strong: rgba(43, 36, 28, 0.18);
   --bronze: #8d6a45;
   --bronze-soft: rgba(141, 106, 69, 0.14);
+  --lamp-on: #d4a017;
   --heat: #b4533c;
   --cool: #5a7582;
   --danger: #8e3a32;
@@ -19,6 +20,43 @@
   --shadow: 0 1px 0 rgba(43, 36, 28, 0.04), 0 18px 40px rgba(43, 36, 28, 0.07);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --app: min(440px, 100%);
+  --atmosphere: radial-gradient(rgba(43, 36, 28, 0.055) 0.6px, transparent 0.7px);
+}
+
+/* 49 Ledbury — very light green wash (same softness as Usvegliu rose) */
+body[data-theme="ledbury"] {
+  --bg: #e8f4ee;
+  --bg-deep: #dceee5;
+  --paper: #f3faf6;
+  --ink: #1c2e26;
+  --ink-soft: #3d5a4c;
+  --muted: #6a8578;
+  --faint: #b5c9be;
+  --bronze: #258d60;
+  --bronze-soft: rgba(37, 141, 96, 0.14);
+  --heat: #c45c6a;
+  --line: rgba(37, 141, 96, 0.12);
+  --line-strong: rgba(37, 141, 96, 0.22);
+  --shadow: 0 1px 0 rgba(37, 141, 96, 0.05), 0 18px 40px rgba(37, 141, 96, 0.08);
+  --atmosphere: radial-gradient(rgba(37, 141, 96, 0.07) 0.6px, transparent 0.7px);
+}
+
+body[data-theme="ledbury"] .fan-chip,
+body[data-theme="ledbury"] .fan-line {
+  display: none !important;
+}
+
+/* Ledbury horizontal banner — door left, wordmark right (compact height) */
+body[data-theme="ledbury"] .brand-logo {
+  width: min(100%, 400px);
+}
+
+body[data-theme="ledbury"] .brand-room .brand-logo {
+  width: min(78%, 250px);
+}
+
+body[data-theme="ledbury"] .status .brand {
+  width: min(100%, 340px);
 }
 
 * {
@@ -46,7 +84,7 @@ body::before {
   inset: 0;
   pointer-events: none;
   opacity: 0.35;
-  background-image: radial-gradient(rgba(43, 36, 28, 0.055) 0.6px, transparent 0.7px);
+  background-image: var(--atmosphere);
   background-size: 3px 3px;
 }
 
@@ -120,6 +158,50 @@ button:active:not(:disabled) {
 
 .brand-room .brand-logo {
   width: min(70%, 228px);
+}
+
+.install-banner {
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+
+.install-banner p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.install-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.install-action,
+.install-dismiss {
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  font-size: 13px;
+  letter-spacing: 0.03em;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.install-action {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.install-dismiss {
+  color: var(--muted);
 }
 
 .hero {
@@ -215,6 +297,39 @@ button:active:not(:disabled) {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+}
+
+.charger-sheet {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.car-mark,
+.access-mark {
+  display: block;
+  flex-shrink: 0;
+  color: var(--bronze);
+}
+
+.status-sheet.live .car-mark,
+.access.live .car-mark,
+.access.live .access-mark {
+  color: var(--cool);
+}
+
+.access.ringing .access-mark,
+.access.triggered .access-mark {
+  color: var(--danger);
+}
+
+.charger-copy {
+  min-width: 0;
+}
+
+.charger-access .car-mark {
+  width: 56px;
+  height: 38px;
 }
 
 .status-sheet + .status-sheet,
@@ -469,10 +584,21 @@ h1 {
 }
 
 .stay-dates {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
   margin: 10px 0 0;
   font-size: 14px;
   letter-spacing: 0.02em;
   color: var(--muted);
+}
+
+.demo-flag {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
 .home-note {
@@ -661,6 +787,27 @@ h1 {
   box-shadow: 0 1px 2px rgba(43, 36, 28, 0.08);
 }
 
+.light-room {
+  margin: 0 0 18px;
+}
+
+.light-room:last-child {
+  margin-bottom: 0;
+}
+
+.light-room-title {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.scenes-block .scenes {
+  margin-bottom: 0;
+}
+
 .scenes {
   display: flex;
   flex-wrap: wrap;
@@ -720,11 +867,24 @@ h1 {
 
 .room-card-temp,
 .adjust .measured,
-.row span:last-child {
+.row span:last-child:not(.lamp) {
   font-family: var(--serif);
   font-size: 20px;
   font-variant-numeric: oldstyle-nums;
   letter-spacing: -0.02em;
+}
+
+.row .lamp {
+  display: flex;
+  color: var(--lamp-on);
+}
+
+.row .lamp.off {
+  color: var(--muted);
+}
+
+.lamp-mark {
+  display: block;
 }
 
 .row .off,
@@ -1122,6 +1282,18 @@ h1 {
     width: min(46%, 280px);
   }
 
+  body[data-theme="ledbury"] .brand-logo {
+    width: min(100%, 500px);
+  }
+
+  body[data-theme="ledbury"] .brand-room .brand-logo {
+    width: min(52%, 300px);
+  }
+
+  body[data-theme="ledbury"] .status .brand {
+    width: min(100%, 420px);
+  }
+
   .dock {
     position: static;
     left: auto;
@@ -1174,6 +1346,7 @@ h1 {
     grid-column: 2;
     grid-row: 1 / span 2;
     align-self: end;
+    align-items: flex-end;
     margin: 0;
     text-align: right;
   }

@@ -10,6 +10,11 @@
       "reglages": {
         "default": "mdi:tune"
       }
+    },
+    "switch": {
+      "demo_mode": {
+        "default": "mdi:theater"
+      }
     }
   },
   "services": {

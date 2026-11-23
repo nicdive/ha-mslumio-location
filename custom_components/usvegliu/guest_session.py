@@ -35,6 +35,9 @@ _MONTHS_FR = (
 
 _OFF_HVAC = frozenset({"off", "idle"})
 _HVAC_ON_ORDER = ("heat", "cool", "heat_cool", "fan_only", "dry", "auto")
+# Heatmiser Neo: no HVAC off — Standby/Away presets are frost protection.
+_OFF_PRESETS = frozenset({"standby", "away"})
+_ON_PRESET_ORDER = ("home", "none", "schedule", "boost")
 HOUSE_HEAT = "heat"
 HOUSE_COOL = "cool"
 _COOL_STATES = frozenset(
@@ -166,6 +169,12 @@ ROLE_LABELS = {
 }
 
 
+def _role_label(role: str, locale: str = "fr") -> str:
+    from .console_i18n import role_label
+
+    return role_label(role, locale)
+
+
 def stay_console_role(record: dict[str, Any], now: datetime) -> str:
     """Where a stay sits on the owner Console."""
     if record.get("preview"):
@@ -230,30 +239,38 @@ def _parse_stay_date(value: str) -> datetime | None:
         return None
 
 
-def format_arrival_day(check_in: str) -> str:
-    """``7 novembre``, or empty when the date cannot be parsed."""
+def format_arrival_day(check_in: str, *, locale: str = "fr") -> str:
+    """``7 novembre`` / ``7 November``, or empty when the date cannot be parsed."""
+    from .console_i18n import month_name, normalize_console_locale
+
     start = _parse_stay_date(check_in)
     if start is None:
         return ""
-    return f"{start.day} {_MONTHS_FR[start.month - 1]}"
+    return f"{start.day} {month_name(start.month, locale)}"
 
 
-def format_stay_span(check_in: str, check_out: str) -> str:
-    """Human stay window in French, or empty if the dates are missing."""
+def format_stay_span(check_in: str, check_out: str, *, locale: str = "fr") -> str:
+    """Human stay window, or empty if the dates are missing."""
+    from .console_i18n import month_name, normalize_console_locale
+
     start = _parse_stay_date(check_in)
     end = _parse_stay_date(check_out)
     if start is None or end is None:
         return ""
+    english = normalize_console_locale(locale) == "en"
+    joiner = " to " if english else " au "
     if start.month == end.month and start.year == end.year:
-        return f"{start.day} au {end.day} {_MONTHS_FR[start.month - 1]}"
+        return (
+            f"{start.day}{joiner}{end.day} {month_name(start.month, locale)}"
+        )
     if start.year == end.year:
         return (
-            f"{start.day} {_MONTHS_FR[start.month - 1]} au "
-            f"{end.day} {_MONTHS_FR[end.month - 1]}"
+            f"{start.day} {month_name(start.month, locale)}{joiner}"
+            f"{end.day} {month_name(end.month, locale)}"
         )
     return (
-        f"{start.day} {_MONTHS_FR[start.month - 1]} {start.year} au "
-        f"{end.day} {_MONTHS_FR[end.month - 1]} {end.year}"
+        f"{start.day} {month_name(start.month, locale)} {start.year}{joiner}"
+        f"{end.day} {month_name(end.month, locale)} {end.year}"
     )
 
 
@@ -298,33 +315,106 @@ def guest_welcome_message(
     preview: bool,
     nuki_code: str | None = None,
     nuki_revoked: bool = False,
+    house_name: str | None = None,
+    team_name: str | None = None,
+    locale: str | None = None,
 ) -> str:
-    """Copy-ready note for the guest. No Home Assistant login."""
+    """Copy-ready note for the guest. Brand (house + team) comes from the villa theme."""
+    from .branding import guest_brand
+    from .console_i18n import normalize_console_locale
+
+    brand = guest_brand()
+    house = str(house_name or brand["welcome_house"]).strip() or brand["welcome_house"]
+    team = str(team_name or brand["team"]).strip() or brand["team"]
+    lang = normalize_console_locale(
+        locale if locale is not None else brand.get("locale")
+    )
+    english = lang == "en"
     name = guest_first_name(guest)
-    hello = f"Bonjour {name}," if name else "Bonjour,"
-    span = format_stay_span(check_in, check_out)
-    stay = f" pour votre séjour du {span}" if span else ""
+    if english:
+        hello = f"Hello {name}," if name else "Hello,"
+    else:
+        hello = f"Bonjour {name}," if name else "Bonjour,"
+    span = format_stay_span(check_in, check_out, locale=lang)
+    if english:
+        stay = f" for your stay {span}" if span else ""
+    else:
+        stay = f" pour votre séjour du {span}" if span else ""
     link = str(lien_maison or "").strip()
-    ssid = str(wifi_ssid or "").strip() or DEFAULT_WIFI_SSID
+    ssid = str(wifi_ssid or "").strip() or str(brand.get("wifi_ssid_default") or DEFAULT_WIFI_SSID)
     code = "" if voucher_revoked else str(voucher_code or "").strip()
     door = "" if nuki_revoked else str(nuki_code or "").strip()
     if preview:
+        if english:
+            lines = [
+                hello,
+                "",
+                "Here is a 24-hour trial link to explore the house:",
+                "",
+                link or "—",
+                "",
+                "We hope you enjoy the visit.",
+                "",
+                team,
+            ]
+        else:
+            lines = [
+                hello,
+                "",
+                "Voici un lien d'essai, valable 24 heures, pour découvrir la maison :",
+                "",
+                link or "—",
+                "",
+                "Nous vous souhaitons une belle visite.",
+                "",
+                team,
+            ]
+        return "\n".join(lines)
+    if english:
         lines = [
             hello,
             "",
-            "Voici un lien d'essai, valable 24 heures, pour découvrir la maison :",
+            f"We are delighted to welcome you to {house}{stay}.",
+            "",
+            "Your house opens here, on your personal link:",
             "",
             link or "—",
             "",
-            "Nous vous souhaitons une belle visite.",
-            "",
-            "L'équipe Usvegliu",
         ]
+        lines.append(f"Wi-Fi network: {ssid}")
+        if code:
+            lines.append(f"Access code: {code}")
+        elif voucher_revoked:
+            lines.append("The Wi-Fi code has been revoked. We will send you another.")
+        if ssid or code:
+            lines.extend(
+                [
+                    "",
+                    "Open the link on your phone, join the network, "
+                    "then enter the code on the Wi-Fi welcome page.",
+                ]
+            )
+        if door:
+            lines.extend(
+                [
+                    "",
+                    f"Door code (Keypad): {door}",
+                    "Enter it on the keypad at the front door.",
+                ]
+            )
+        elif nuki_revoked:
+            lines.extend(
+                [
+                    "",
+                    "The door code has been revoked. We will send you another.",
+                ]
+            )
+        lines.extend(["", "We wish you an exceptional stay.", "", team])
         return "\n".join(lines)
     lines = [
         hello,
         "",
-        f"Nous avons le plaisir de vous accueillir à Usvegliu{stay}.",
+        f"Nous avons le plaisir de vous accueillir à {house}{stay}.",
         "",
         "Votre maison s'ouvre ici, sur votre lien personnel :",
         "",
@@ -364,7 +454,7 @@ def guest_welcome_message(
             "",
             "Nous vous souhaitons un séjour d'exception.",
             "",
-            "L'équipe Usvegliu",
+            team,
         ]
     )
     return "\n".join(lines)
@@ -381,6 +471,10 @@ def issued_account_view(
     wifi_ssid: str = "",
     now: datetime | None = None,
     nuki_pins: bool = False,
+    house_name: str | None = None,
+    team_name: str | None = None,
+    locale: str = "fr",
+    wifi_code_fallback: str | None = None,
 ) -> dict[str, Any]:
     """Admin row for one issued stay, including the HA password.
 
@@ -392,7 +486,10 @@ def issued_account_view(
     revoked = bool(record.get("voucher_revoked"))
     nuki_revoked = bool(record.get("nuki_revoked"))
     active = True if now is None or preview else stay_is_active(record, now)
-    code = str(record.get("voucher_code") or "") or None
+    code = str(record.get("voucher_code") or "").strip() or None
+    if not code and not revoked:
+        fallback = str(wifi_code_fallback or "").strip()
+        code = fallback or None
     door = str(record.get("nuki_code") or "") or None
     ssid = str(wifi_ssid or "").strip() or DEFAULT_WIFI_SSID
     key = str(record.get("key") or "")
@@ -418,6 +515,7 @@ def issued_account_view(
         "sejour_libelle": format_stay_span(
             str(record.get("check_in") or ""),
             str(record.get("check_out") or ""),
+            locale=locale,
         ),
         "lien_maison": lien_maison,
         "guest_email": str(record.get("guest_email") or "") or None,
@@ -433,12 +531,15 @@ def issued_account_view(
             nuki_code=door if nuki_pins else None,
             nuki_revoked=nuki_revoked if nuki_pins else False,
             preview=preview,
+            house_name=house_name,
+            team_name=team_name,
+            locale=locale,
         ),
         "path": path,
         "reservation_id": key,
         "vue": stay_view_path(key),
         "role": role,
-        "role_label": ROLE_LABELS.get(role, role),
+        "role_label": _role_label(role, locale),
         "essai": preview,
         "tableau": tableau,
         "access_revoked": bool(record.get("access_revoked")),
@@ -533,11 +634,48 @@ def infer_fan_speed(current: str | None, mapping: dict[int, str]) -> int:
     return 2 if 2 in mapping else next(iter(mapping), 2)
 
 
-def climate_is_on(hvac_mode: str | None) -> bool:
-    """Treat off/idle as stopped."""
+def climate_is_on(
+    hvac_mode: str | None, preset_mode: str | None = None
+) -> bool:
+    """Treat HVAC off/idle or Heatmiser Standby/Away as stopped."""
+    preset = str(preset_mode or "").strip().casefold()
+    if preset in _OFF_PRESETS:
+        return False
     if not hvac_mode:
         return False
     return hvac_mode.casefold() not in _OFF_HVAC
+
+
+def pick_preset_off(available: list[str]) -> str | None:
+    """Standby (zone) preferred over Away (whole Neo hub)."""
+    by_fold = {str(mode).casefold(): str(mode) for mode in available if mode}
+    for key in ("standby", "away"):
+        if key in by_fold:
+            return by_fold[key]
+    return None
+
+
+def pick_preset_on(available: list[str]) -> str | None:
+    """Leave frost standby for a comfort/schedule preset."""
+    by_fold = {str(mode).casefold(): str(mode) for mode in available if mode}
+    for key in _ON_PRESET_ORDER:
+        if key in by_fold:
+            return by_fold[key]
+    for mode in available:
+        fold = str(mode).casefold()
+        if fold and fold not in _OFF_PRESETS:
+            return str(mode)
+    return None
+
+
+def climate_power_via(hvac_modes: list[str], preset_modes: list[str]) -> str:
+    """How guests turn a thermostat off: classic HVAC off, or Heatmiser preset."""
+    folds = {str(mode).casefold() for mode in hvac_modes if mode}
+    if "off" in folds:
+        return "hvac"
+    if pick_preset_off(preset_modes):
+        return "preset"
+    return "hvac"
 
 
 def house_mode_from_state(state: str | None) -> str | None:

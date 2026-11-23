@@ -29,6 +29,8 @@ CONF_COVER_ENTITIES: Final = "cover_entities"
 CONF_LIGHT_ENTITIES: Final = "light_entities"
 CONF_TENANT_ENTITIES: Final = "tenant_entities"
 CONF_TENANT_DEVICES: Final = "tenant_devices"
+# Legacy Options-form Target selector (expanded into the two lists above).
+CONF_TENANT_TARGET: Final = "tenant_target"
 CONF_ALLOW_REMOTE: Final = "allow_remote"
 CONF_CONFIRM_SENSITIVE: Final = "confirm_sensitive"
 CONF_NOTIFY_SERVICE: Final = "notify_service"
@@ -37,10 +39,26 @@ CONF_GUEST_MAIL_DAYS: Final = "guest_mail_days"
 CONF_JOURNAL_PATH: Final = "journal_path"
 CONF_PRINT_EVENT: Final = "print_event"
 CONF_ENABLE_VOUCHERS: Final = "enable_vouchers"
+CONF_VOUCHER_PROVIDER: Final = "voucher_provider"
 CONF_ENABLE_ACCESS: Final = "enable_access"
 CONF_ENABLE_NUKI: Final = "enable_nuki"
 CONF_NUKI_TOKEN: Final = "nuki_token"
 CONF_NUKI_SMARTLOCK_ID: Final = "nuki_smartlock_id"
+CONF_CAMBIUM_CLIENT_ID: Final = "cambium_client_id"
+CONF_CAMBIUM_CLIENT_SECRET: Final = "cambium_client_secret"
+CONF_CAMBIUM_PORTAL: Final = "cambium_portal"
+CONF_CAMBIUM_VOUCHER_PLAN: Final = "cambium_voucher_plan"
+
+VOUCHER_PROVIDER_UNIFI: Final = "unifi"
+VOUCHER_PROVIDER_CAMBIUM: Final = "cambium"
+VOUCHER_PROVIDER_MANUAL: Final = "manual"
+VOUCHER_PROVIDERS: Final = (
+    VOUCHER_PROVIDER_UNIFI,
+    VOUCHER_PROVIDER_CAMBIUM,
+    VOUCHER_PROVIDER_MANUAL,
+)
+DEFAULT_VOUCHER_PROVIDER: Final = VOUCHER_PROVIDER_UNIFI
+CONF_MANUAL_WIFI_CODE: Final = "manual_wifi_code"
 CONF_TITLE_BLOCKLIST: Final = "title_blocklist"
 CONF_MAX_STAY_DAYS: Final = "max_stay_days"
 CONF_LOOKAHEAD_DAYS: Final = "lookahead_days"
@@ -50,8 +68,18 @@ ACCESS_SHARED: Final = "shared"
 ACCESS_MODES: Final = (ACCESS_PER_STAY, ACCESS_SHARED)
 DEFAULT_ACCESS_MODE: Final = ACCESS_PER_STAY
 CONF_GUEST_BASE_URL: Final = "guest_base_url"
+CONF_GUEST_THEME: Final = "guest_theme"
+CONF_GUEST_LOCALE: Final = "guest_locale"
 CONF_WIFI_SSID: Final = "wifi_ssid"
 DEFAULT_WIFI_SSID: Final = "Usvegliu-Guest"
+THEME_USVEGLIU: Final = "usvegliu"
+THEME_LEDBURY: Final = "ledbury"
+GUEST_THEMES: Final = (THEME_USVEGLIU, THEME_LEDBURY)
+DEFAULT_GUEST_THEME: Final = THEME_USVEGLIU
+LOCALE_FR: Final = "fr"
+LOCALE_EN: Final = "en"
+GUEST_LOCALES: Final = (LOCALE_FR, LOCALE_EN)
+DEFAULT_GUEST_LOCALE: Final = LOCALE_FR
 CONF_HOUSE_MODE_ENTITY: Final = "house_mode_entity"
 CONF_OUTDOOR_TEMPERATURE: Final = "outdoor_temperature"
 CONF_POOL_TEMPERATURE: Final = "pool_temperature"
@@ -109,6 +137,7 @@ STORAGE_VERSION: Final = 1
 
 EVENT_JOURNAL: Final = "usvegliu_journal"
 EVENT_PRINT: Final = "usvegliu_print_voucher"
+EVENT_DEMO: Final = "usvegliu_demo"
 
 SERVICE_REGENERATE_VOUCHER: Final = "regenerer_voucher"
 SERVICE_REVOKE_VOUCHER: Final = "revoquer_voucher"
@@ -123,7 +152,8 @@ SERVICE_APPLY_DASHBOARD: Final = "appliquer_tableau"
 SERVICE_REFRESH_CALENDAR: Final = "relire_calendrier"
 SERVICE_STAY_SETTINGS: Final = "reglages_sejour"
 SERVICE_GUEST_LINK: Final = "lien_maison"
+SERVICE_SET_VOUCHER: Final = "definir_voucher"
 
 ATTR_RESERVATION_KEY: Final = "reservation_key"
 
-PLATFORMS: Final = ["sensor"]
+PLATFORMS: Final = ["sensor", "switch", "text"]

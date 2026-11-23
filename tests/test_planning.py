@@ -212,3 +212,18 @@ def test_select_current_prefers_the_stay_in_progress():
     current = select_current(stored, datetime(2026, 7, 3, tzinfo=UTC))
     assert current is not None
     assert current["voucher_code"] == "NOW"
+
+
+def test_select_current_includes_manual_stay_without_code():
+    """EasyPass manual: stay exists before a code is pasted onto it."""
+    stored = {
+        "manual": {
+            "key": "manual",
+            "voucher_code": None,
+            "check_in": "2026-07-01T00:00:00+00:00",
+            "check_out": "2026-07-08T00:00:00+00:00",
+        },
+    }
+    current = select_current(stored, datetime(2026, 7, 3, tzinfo=UTC))
+    assert current is not None
+    assert current["key"] == "manual"

@@ -4,6 +4,264 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.61] — 2026-11-23
+
+### Corrigé
+- Options : **vraie liste à cases** pour les entités / appareils locataire (plus le picker déroulant un-par-un).
+
+[0.6.61]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.61
+
+## [0.6.60] — 2026-11-23
+
+### Corrigé
+- Test PWA manifest (régression 0.6.59).
+
+[0.6.60]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.60
+
+## [0.6.59] — 2026-11-23
+
+### Corrigé
+- Install web app : manifest HTTPS (plus `blob:`) pour que Chrome propose **Installer** ; sinon consigne menu ⋮ au lieu de seulement « Not now ».
+
+[0.6.59]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.59
+
+## [0.6.58] — 2026-11-23
+
+### Corrigé
+- Capteur / séjour courant : un séjour **manuel sans code encore collé** est bien sélectionné (plus ignoré faute de `voucher_code`).
+
+[0.6.58]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.58
+
+## [0.6.57] — 2026-11-23
+
+### Amélioré
+- Options : **cases à cocher** multi-entités / multi-appareils (plus TargetSelector).
+- Voucher manuel : code dans le mail / message ; **code par séjour** (brouillon Console + Appliquer, ou service `definir_voucher`).
+
+[0.6.57]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.57
+
+## [0.6.56] — 2026-11-23
+
+### Amélioré
+- Message d’installation de la web app déplacé dans l’onglet **Infos**.
+
+[0.6.56]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.56
+
+## [0.6.55] — 2026-11-23
+
+### Amélioré
+- Fond Ledbury **très léger** (`#e8f4ee`), même douceur que le rose Usvegliu.
+
+[0.6.55]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.55
+
+## [0.6.54] — 2026-11-23
+
+### Amélioré
+- Fond Ledbury **bien visible** (`#c8e2d7`, plus le rose pâle quasi identique).
+- Maison : CSS/JS versionnés (`?v=…`) pour forcer le refresh après update.
+
+[0.6.54]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.54
+
+## [0.6.53] — 2026-11-23
+
+### Amélioré
+- Thème **49 Ledbury** : fond d’écran vert doux style Notting Hill (`#e6f3ec` / accent `#258d60`). Logos restaurés (inchangés).
+
+[0.6.53]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.53
+
+## [0.6.52] — 2026-11-23
+
+### Amélioré
+- Thème **49 Ledbury** : accent Notting Hill `#258d60` (UI + logos).
+
+[0.6.52]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.52
+
+## [0.6.51] — 2026-11-23
+
+### Amélioré
+- Console propriétaire en **Français / English** selon l’option Langue.
+- Message d’accueil / copie console : **marque de la villa** (Usvegliu ou 49 Ledbury), plus de texte Usvegliu en dur.
+
+[0.6.51]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.51
+
+## [0.6.50] — 2026-11-23
+
+### Ajouté
+- App Maison installable (PWA) : manifeste, service worker, icônes, bandeau « Installer l’app » (iOS / Android).
+
+[0.6.50]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.50
+
+## [0.6.49] — 2026-11-23
+
+### Ajouté
+- Option **Langue (Maison / console)** : Français ou English, à l’installation et dans les réglages (indépendant du thème).
+
+[0.6.49]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.49
+
+## [0.6.48] — 2026-11-22
+
+### Amélioré
+- Ledbury : sous-titre **Notting Hill · London** plus lisible.
+
+[0.6.48]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.48
+
+## [0.6.47] — 2026-11-22
+
+### Amélioré
+- Ledbury : porte un peu **plus grande**, écriture légèrement **plus petite**.
+
+[0.6.47]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.47
+
+## [0.6.46] — 2026-11-22
+
+### Amélioré
+- Ledbury : bandeau **horizontal** (porte à gauche, écriture à droite), moins haut.
+
+[0.6.46]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.46
+
+## [0.6.45] — 2026-11-22
+
+### Amélioré
+- Ledbury : **vraie porte** illustrée (tes fichiers) + typo conservée, bandeau empilé plus présent.
+
+[0.6.45]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.45
+
+## [0.6.44] — 2026-11-22
+
+### Amélioré
+- Ledbury : bandeau **plus graphique** (porte stylisée + typo type Usvegliu) et **plus grand** à l’écran.
+
+[0.6.44]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.44
+
+## [0.6.43] — 2026-11-22
+
+### Amélioré
+- Ledbury : nouveaux **logo** et **bandeau** (porte 49 + LEDBURY / Notting Hill · London), fond transparent.
+
+[0.6.43]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.43
+
+## [0.6.42] — 2026-11-22
+
+### Amélioré
+- Lumière : regroupement par **pièce** (area HA).
+
+[0.6.42]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.42
+
+## [0.6.41] — 2026-11-22
+
+### Amélioré
+- Lumière : ampoule **jaune** quand allumée (plus le vert du thème Ledbury).
+
+[0.6.41]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.41
+
+## [0.6.40] — 2026-11-22
+
+### Corrigé
+- Config flow : plus d’erreur **400 Bad Request** après 0.6.39 (TargetSelector sans filtres vides `entity={}` / `area={}`).
+
+[0.6.40]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.40
+
+## [0.6.39] — 2026-11-22
+
+### Amélioré
+- Options : un seul sélecteur **Équipements locataire** (target HA) pour cocher plusieurs entités, appareils ou zones d’un coup.
+
+[0.6.39]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.39
+
+## [0.6.38] — 2026-11-22
+
+### Corrigé
+- Heatmiser (Ledbury) : le bouton On/Off Maison marche sans mode HVAC « off » — Off → preset **Standby**, On → **Home** (l’UI reste simple On/Off).
+
+[0.6.38]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.38
+
+## [0.6.37] — 2026-11-22
+
+### Amélioré
+- Ledbury : même style propre qu’Usvegliu ; logo porte **transparent** et plus large.
+- Interface Ledbury en **anglais** ; météo **London** (plus Lumio).
+- Polices équipements inchangées (stack Usvegliu).
+
+[0.6.37]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.37
+
+## [0.6.36] — 2026-11-22
+
+### Amélioré
+- Thème **49 Ledbury** : logo porte Portobello en bannière, palette crème / vert forêt / blush.
+- Ledbury = chauffage sol + radiateurs : plus de soufflante / vitesses d’air dans Maison ; onglet toujours « Chauffage ».
+
+[0.6.36]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.36
+
+## [0.6.35] — 2026-11-22
+
+### Ajouté
+- Setup : 3ᵉ choix **Voucher manuel** (EasyPass sans cnMaestro X / sans API). Code collé dans Options, affiché dans Maison et le mail.
+
+[0.6.35]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.35
+
+## [0.6.34] — 2026-11-21
+
+### Corrigé
+- Setup : liste claire **UniFi / Cambium** à la place du menu à flèches sans libellés ; titre « Wi-Fi de la maison ».
+
+[0.6.34]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.34
+
+## [0.6.33] — 2026-11-21
+
+### Ajouté
+- Installation **Cambium seule** : plus besoin d’UDM. Au setup, choisir UniFi ou Cambium EasyPass ; la voie Cambium préremplit le thème 49 Ledbury.
+
+[0.6.33]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.33
+
+## [0.6.32] — 2026-11-21
+
+### Ajouté
+- Thème Maison **49 Ledbury** (Notting Hill) : logos Portobello, charte vert / blush, mails et titres. Option `guest_theme` (`usvegliu` par défaut, `ledbury` sur l’instance dédiée).
+
+[0.6.32]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.32
+
+## [0.6.31] — 2026-11-21
+
+### Ajouté
+- Vouchers Wi-Fi via **Cambium EasyPass Cloud** (cnMaestro), en plus d’UniFi. Options : fournisseur `unifi` (défaut) ou `cambium`, avec client ID/secret, portail et plan voucher. U Svegliu reste sur UniFi ; un second site peut basculer sur Cambium sans fork.
+
+[0.6.31]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.31
+
+## [0.6.30] — 2026-11-08
+
+### Ajouté
+- Accès : pictogrammes **porte**, **garage**, **portail**, **volet**, **alarme** et **sonnette**, dans le même trait que la lampe et la voiture.
+
+[0.6.30]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.30
+
+## [0.6.29] — 2026-11-08
+
+### Changé
+- Lumières (et lumière piscine) : icône de **lampe** à la place du texte Allumée / Éteinte.
+
+[0.6.29]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.29
+
+## [0.6.28] — 2026-11-08
+
+### Ajouté
+- Pictogramme **voiture de profil** (câble vers la borne) sur la carte véhicule de l'accueil et dans Accès, comme sur un écran de wallbox.
+
+[0.6.28]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.28
+
+## [0.6.27] — 2026-11-08
+
+### Corrigé
+- Accueil Maison : **Mode démo** ne recouvre plus les dates du séjour (iPad).
+
+[0.6.27]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.27
+
+## [0.6.26] — 2026-11-08
+
+### Ajouté
+- Switch **Mode démo** sur l'appareil Usvegliu : la web app Maison affiche une villa complète (10 thermostats, véhicule en charge, lumières, accès, piscine, son) sans attendre les entités Home Assistant. À éteindre avant un vrai séjour.
+
+[0.6.26]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.26
+
 ## [0.6.25] — 2026-11-08
 
 ### Changé
