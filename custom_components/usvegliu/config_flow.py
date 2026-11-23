@@ -14,6 +14,8 @@ from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
     BooleanSelector,
+    DeviceSelector,
+    DeviceSelectorConfig,
     EntitySelector,
     EntitySelectorConfig,
     NumberSelector,
@@ -22,7 +24,6 @@ from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
-    TargetSelector,
     TextSelector,
     TextSelectorConfig,
     TextSelectorType,
@@ -77,10 +78,12 @@ from .const import (
     CONF_PRINT_EVENT,
     CONF_SITE_ID,
     CONF_SITE_NAME,
+    CONF_BULK_ADD_DOMAINS,
     CONF_TENANT_DEVICES,
     CONF_TENANT_ENTITIES,
     CONF_TENANT_TARGET,
     CONF_TITLE_BLOCKLIST,
+    TENANT_BULK_DOMAINS,
     CONF_UPLOAD_MBPS,
     CONF_VERIFY_SSL,
     DEFAULT_DEVICE_LIMIT,
@@ -107,8 +110,9 @@ from .journal import JournalPathError, resolve_journal_path
 from .target_options import (
     as_id_list as _as_id_list,
     default_entities as _default_entities,
+    entity_ids_for_domains as _entity_ids_for_domains,
     expand_tenant_target as _expand_tenant_target,
-    tenant_target_default as _tenant_target_default,
+    merge_unique as _merge_unique,
 )
 from .unifi import (
     UnifiAuthError,
@@ -186,15 +190,32 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
                     mode=SelectSelectorMode.DROPDOWN,
                 )
             ),
-            # Plain TargetSelector (no empty filters): entity/device/area multi-pick.
-            # Empty entity:{} / area:{} break config-flow load on current HA (400).
+            # Filterable HA entity picker (search). Bulk-add fills by domain;
+            # remove chips afterward — no long checkbox wall.
             vol.Optional(
-                CONF_TENANT_TARGET,
-                description={"suggested_value": _tenant_target_default(defaults)},
-            ): TargetSelector(),
+                CONF_TENANT_ENTITIES,
+                description={"suggested_value": _default_entities(defaults)},
+            ): EntitySelector(EntitySelectorConfig(multiple=True)),
+            vol.Optional(
+                CONF_BULK_ADD_DOMAINS,
+                default=[],
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=list(TENANT_BULK_DOMAINS),
+                    multiple=True,
+                    mode=SelectSelectorMode.DROPDOWN,
+                    translation_key="bulk_add_domains",
+                )
+            ),
+            vol.Optional(
+                CONF_TENANT_DEVICES,
+                description={
+                    "suggested_value": _as_id_list(defaults.get(CONF_TENANT_DEVICES))
+                },
+            ): DeviceSelector(DeviceSelectorConfig(multiple=True)),
             vol.Required(
                 CONF_CONFIRM_SENSITIVE,
-                default=False,
+                default=bool(defaults.get(CONF_CONFIRM_SENSITIVE, False)),
             ): BooleanSelector(),
             vol.Required(
                 CONF_ALLOW_REMOTE,
@@ -352,10 +373,15 @@ def _clean_options(
         devices = _as_id_list(cleaned.get(CONF_TENANT_DEVICES))
     if not selected and legacy:
         selected = legacy
+    bulk_domains = _as_id_list(cleaned.pop(CONF_BULK_ADD_DOMAINS, None))
+    if bulk_domains:
+        selected = _merge_unique(selected, _entity_ids_for_domains(hass, bulk_domains))
     cleaned[CONF_TENANT_ENTITIES] = selected
     cleaned[CONF_TENANT_DEVICES] = devices
     cleaned[CONF_ALLOW_REMOTE] = bool(cleaned.get(CONF_ALLOW_REMOTE, False))
-    cleaned.pop(CONF_CONFIRM_SENSITIVE, None)
+    # Remember “I allow cameras/locks/alarms” so Options does not untick every save.
+    cleaned[CONF_CONFIRM_SENSITIVE] = bool(cleaned.get(CONF_CONFIRM_SENSITIVE, False))
+    cleaned.pop(CONF_BULK_ADD_DOMAINS, None)
     for key in (CONF_CLIMATE_ENTITIES, CONF_COVER_ENTITIES, CONF_LIGHT_ENTITIES):
         cleaned.pop(key, None)
     cleaned[CONF_NOTIFY_SERVICE] = str(cleaned.get(CONF_NOTIFY_SERVICE) or "").strip()

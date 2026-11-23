@@ -32,6 +32,8 @@ from .const import (
     SERVICE_REVOKE_ACCESS,
     SERVICE_REVOKE_NUKI,
     SERVICE_REVOKE_VOUCHER,
+    SERVICE_SET_VOUCHER,
+    VOUCHER_PROVIDER_MANUAL,
 )
 from .guest_session import credential_attribute_key, stay_view_path
 
@@ -620,11 +622,15 @@ def _tile(entity_id: str, name: str, icon: str) -> dict[str, Any]:
 
 
 def _stay_action_rows(
-    guest: str, reservation_id: str, *, locale: str = "fr"
+    guest: str,
+    reservation_id: str,
+    *,
+    locale: str = "fr",
+    voucher_provider: str = "unifi",
 ) -> list[dict[str, Any]]:
     from .console_i18n import console_t as t
 
-    return [
+    rows = [
         _action_row(
             t(locale, "new_password"),
             "mdi:account-key",
@@ -641,55 +647,74 @@ def _stay_action_rows(
             reservation_id=reservation_id,
             action_name=t(locale, "revoke"),
         ),
-        _action_row(
-            t(locale, "new_wifi"),
-            "mdi:wifi-sync",
-            SERVICE_REGENERATE_VOUCHER,
-            t(locale, "new_wifi_confirm", guest=guest),
-            reservation_id=reservation_id,
-            action_name=t(locale, "generate"),
-        ),
-        _action_row(
-            t(locale, "revoke_wifi"),
-            "mdi:wifi-off",
-            SERVICE_REVOKE_VOUCHER,
-            t(locale, "revoke_wifi_confirm", guest=guest),
-            reservation_id=reservation_id,
-            action_name=t(locale, "revoke"),
-        ),
-        _action_row(
-            t(locale, "new_door"),
-            "mdi:dialpad",
-            SERVICE_REGENERATE_NUKI,
-            t(locale, "new_door_confirm", guest=guest),
-            reservation_id=reservation_id,
-            action_name=t(locale, "generate"),
-        ),
-        _action_row(
-            t(locale, "revoke_door"),
-            "mdi:lock-off",
-            SERVICE_REVOKE_NUKI,
-            t(locale, "revoke_door_confirm", guest=guest),
-            reservation_id=reservation_id,
-            action_name=t(locale, "revoke"),
-        ),
-        _action_row(
-            t(locale, "resend"),
-            "mdi:bell-ring",
-            SERVICE_RESEND,
-            t(locale, "resend_confirm", guest=guest),
-            reservation_id=reservation_id,
-            action_name=t(locale, "send"),
-        ),
-        _action_row(
-            t(locale, "print_voucher"),
-            "mdi:printer",
-            SERVICE_PRINT,
-            t(locale, "print_confirm", guest=guest),
-            reservation_id=reservation_id,
-            action_name=t(locale, "print"),
-        ),
     ]
+    if voucher_provider == VOUCHER_PROVIDER_MANUAL:
+        rows.append(
+            _action_row(
+                t(locale, "apply_wifi"),
+                "mdi:wifi-check",
+                SERVICE_SET_VOUCHER,
+                t(locale, "apply_wifi_confirm", guest=guest),
+                reservation_id=reservation_id,
+                action_name=t(locale, "apply"),
+            )
+        )
+    else:
+        rows.append(
+            _action_row(
+                t(locale, "new_wifi"),
+                "mdi:wifi-sync",
+                SERVICE_REGENERATE_VOUCHER,
+                t(locale, "new_wifi_confirm", guest=guest),
+                reservation_id=reservation_id,
+                action_name=t(locale, "generate"),
+            )
+        )
+    rows.extend(
+        [
+            _action_row(
+                t(locale, "revoke_wifi"),
+                "mdi:wifi-off",
+                SERVICE_REVOKE_VOUCHER,
+                t(locale, "revoke_wifi_confirm", guest=guest),
+                reservation_id=reservation_id,
+                action_name=t(locale, "revoke"),
+            ),
+            _action_row(
+                t(locale, "new_door"),
+                "mdi:dialpad",
+                SERVICE_REGENERATE_NUKI,
+                t(locale, "new_door_confirm", guest=guest),
+                reservation_id=reservation_id,
+                action_name=t(locale, "generate"),
+            ),
+            _action_row(
+                t(locale, "revoke_door"),
+                "mdi:lock-off",
+                SERVICE_REVOKE_NUKI,
+                t(locale, "revoke_door_confirm", guest=guest),
+                reservation_id=reservation_id,
+                action_name=t(locale, "revoke"),
+            ),
+            _action_row(
+                t(locale, "resend"),
+                "mdi:bell-ring",
+                SERVICE_RESEND,
+                t(locale, "resend_confirm", guest=guest),
+                reservation_id=reservation_id,
+                action_name=t(locale, "send"),
+            ),
+            _action_row(
+                t(locale, "print_voucher"),
+                "mdi:printer",
+                SERVICE_PRINT,
+                t(locale, "print_confirm", guest=guest),
+                reservation_id=reservation_id,
+                action_name=t(locale, "print"),
+            ),
+        ]
+    )
+    return rows
 
 
 def _tools_card(locale: str = "fr") -> dict[str, Any]:
@@ -789,6 +814,7 @@ def _home_view_sections(
     sejours_entity_id: str,
     voucher_entity_id: str,
     house_mode_entity: str | None,
+    wifi_draft_entity_id: str = "",
     locale: str = "fr",
 ) -> list[dict[str, Any]]:
     from .console_i18n import console_t as t
@@ -808,6 +834,10 @@ def _home_view_sections(
     if voucher_entity_id:
         tiles.append(
             _tile(voucher_entity_id, t(locale, "current_wifi"), "mdi:wifi")
+        )
+    if wifi_draft_entity_id:
+        tiles.append(
+            _tile(wifi_draft_entity_id, t(locale, "wifi_draft"), "mdi:wifi-cog")
         )
     if house_mode_entity:
         tiles.append(
@@ -918,6 +948,8 @@ def _stay_subview(
     sejours_entity_id: str,
     reglages_entity_id: str,
     locale: str = "fr",
+    voucher_provider: str = "unifi",
+    wifi_draft_entity_id: str = "",
 ) -> dict[str, Any]:
     from .console_i18n import console_t as t
 
@@ -956,11 +988,26 @@ def _stay_subview(
                 "state_color": False,
             }
         )
+    if wifi_draft_entity_id and voucher_provider == VOUCHER_PROVIDER_MANUAL:
+        cards.append(
+            {
+                "type": "entity",
+                "entity": wifi_draft_entity_id,
+                "name": t(locale, "wifi_draft"),
+                "icon": "mdi:wifi-cog",
+                "state_color": False,
+            }
+        )
     if not stay.get("essai") and reservation_id:
         cards.append(
             _entities_actions(
                 "Actions",
-                _stay_action_rows(guest, reservation_id, locale=locale),
+                _stay_action_rows(
+                    guest,
+                    reservation_id,
+                    locale=locale,
+                    voucher_provider=voucher_provider,
+                ),
             )
         )
     return {
@@ -1086,6 +1133,8 @@ def build_owner_dashboard_config(
     pool_ph_entity: str | None = None,
     tenant_entities: list[str] | None = None,
     locale: str = "fr",
+    voucher_provider: str = "unifi",
+    wifi_draft_entity_id: str = "",
 ) -> dict[str, Any]:
     """Owner console: current + next, clickable stays, history, settings."""
     from .console_i18n import console_t as t
@@ -1101,6 +1150,7 @@ def build_owner_dashboard_config(
                 sejours_entity_id=sejours_entity_id,
                 voucher_entity_id=voucher_entity_id,
                 house_mode_entity=house_mode_entity,
+                wifi_draft_entity_id=wifi_draft_entity_id,
                 locale=locale,
             ),
         },
@@ -1149,6 +1199,8 @@ def build_owner_dashboard_config(
                     sejours_entity_id=sejours_entity_id,
                     reglages_entity_id=reglages_entity_id,
                     locale=locale,
+                    voucher_provider=voucher_provider,
+                    wifi_draft_entity_id=wifi_draft_entity_id,
                 )
             )
     return {"views": views}
@@ -1473,6 +1525,8 @@ async def async_ensure_owner_dashboard(
     pool_ph_entity: str | None = None,
     tenant_entities: list[str] | None = None,
     locale: str = "fr",
+    voucher_provider: str = "unifi",
+    wifi_draft_entity_id: str = "",
 ) -> dict[str, Any]:
     """Create the owner console dashboard and save its cards."""
     config = build_owner_dashboard_config(
@@ -1486,6 +1540,8 @@ async def async_ensure_owner_dashboard(
         pool_ph_entity=pool_ph_entity,
         tenant_entities=tenant_entities,
         locale=locale,
+        voucher_provider=voucher_provider,
+        wifi_draft_entity_id=wifi_draft_entity_id,
     )
     result = await _async_save_named_dashboard(
         hass,

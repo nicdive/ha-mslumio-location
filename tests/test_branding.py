@@ -130,7 +130,9 @@ def test_ledbury_logo_assets_ship():
     assert "_async_probe_cambium" in flow
     assert "SelectSelectorMode.LIST" in flow
     assert "CONF_MANUAL_WIFI_CODE" in flow
-    assert "TargetSelector()" in flow
+    assert "EntitySelector(EntitySelectorConfig(multiple=True))" in flow
+    assert "DeviceSelector(DeviceSelectorConfig(multiple=True))" in flow
+    assert "TargetSelector()" not in flow
     assert "entity={}" not in flow
     assert "area={}" not in flow
     strings = (

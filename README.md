@@ -50,13 +50,13 @@ Le dépôt doit être **public**. HACS n'installe pas un dépôt privé.
 
 1. HACS → ⋮ → *Dépôts personnalisés*.
 2. URL `https://github.com/nicdive/ha-mslumio-location`, catégorie **Intégration**.
-3. Télécharger **Usvegliu** en choisissant une **release GitHub** (dernière : [0.6.66](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.66)), pas le commit d'une branche.
+3. Télécharger **Usvegliu** en choisissant une **release GitHub** (dernière : [0.6.67](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.67)), pas le commit d'une branche.
 4. Redémarrer Home Assistant.
 5. Paramètres → Appareils et services → Ajouter une intégration → **Usvegliu**.
 
-Pour **mettre à jour** (ex. 0.6.35 → 0.6.66) : HACS → Usvegliu → ⋮ → **Redownload** → **0.6.66**, puis redémarrer. Le numéro dans Paramètres → Intégrations ne change qu'après ce redémarrage.
+Pour **mettre à jour** (ex. 0.6.35 → 0.6.67) : HACS → Usvegliu → ⋮ → **Redownload** → **0.6.67**, puis redémarrer. Le numéro dans Paramètres → Intégrations ne change qu'après ce redémarrage.
 
-HACS ne liste une version **que** si la [release GitHub](https://github.com/nicdive/ha-mslumio-location/releases) existe. Un numéro dans le `manifest.json` ou une pull request ne suffit pas : sans tag `v0.6.66` poussé, 0.6.66 n'apparaît pas.
+HACS ne liste une version **que** si la [release GitHub](https://github.com/nicdive/ha-mslumio-location/releases) existe. Un numéro dans le `manifest.json` ou une pull request ne suffit pas : sans tag `v0.6.67` poussé, 0.6.67 n'apparaît pas.
 
 ## Versions
 
@@ -257,7 +257,7 @@ L'intégration crée les deux tableaux si la collection Lovelace est joignable. 
 
 Ce n'est **pas** le tableau **Séjour** (locataire) ni un tableau créé à la main sous un autre nom. Dans Home Assistant 2026, le bouton **+** des tableaux de bord ne reprend pas le titre comme URL : « Location » devient `dashboard-location`, donc l'intégration n'y écrit rien.
 
-1. Mettre à jour Usvegliu ([0.6.66](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.66)+), redémarrer Home Assistant.
+1. Mettre à jour Usvegliu ([0.6.67](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.67)+), redémarrer Home Assistant.
 2. Outils de développement → Actions → `usvegliu.appliquer_tableau` → Exécuter.
 3. Dans la barre latérale, ouvrir **Console**, ou l'URL `/usvegliu-proprietaire`.
 

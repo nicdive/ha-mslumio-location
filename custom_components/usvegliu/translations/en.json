@@ -75,7 +75,8 @@
           "upload_mbps": "Upload (Mbit/s)",
           "extra_days": "Extra days after the stay",
           "access_mode": "Home Assistant accounts",
-          "tenant_target": "Guest equipment",
+          "tenant_entities": "Guest entities",
+          "tenant_devices": "Guest devices",
           "confirm_sensitive": "I allow cameras, locks or alarms",
           "allow_remote": "Internet access during the stay",
           "notify_service": "Notification (optional)",
@@ -105,7 +106,8 @@
           "outdoor_temperature": "Outdoor temperature",
           "pool_temperature": "Pool temperature",
           "pool_ph": "Pool pH",
-          "alarm_code": "Alarm code (server)"
+          "alarm_code": "Alarm code (server)",
+          "bulk_add_domains": "Add all (domains)"
         },
         "data_description": {
           "calendar_entity": "Any calendar entity (Airbnb, Booking, Google or local ICS). Title = guest name. Put their email in the description for the J−2 mail.",
@@ -115,8 +117,9 @@
           "upload_mbps": "Default: 100.",
           "extra_days": "The Wi-Fi voucher stays this many days after the departure day, then it is deleted. Default: 1. The Maison link stops at the end of departure day.",
           "access_mode": "One account per stay, or a single guest account whose password rotates.",
-          "tenant_target": "Pick several entities, devices or areas at once (checkboxes). Cameras, locks and alarms require the confirmation below.",
-          "confirm_sensitive": "Without this box, saving is refused when the selection contains a camera, lock or alarm.",
+          "tenant_entities": "Search and add entities (HA filter). Cameras, locks and alarms require the confirmation below.",
+          "tenant_devices": "Optional. One device = all its entities.",
+          "confirm_sensitive": "Remembered once checked. Without this box, saving is refused when the selection contains a camera, lock or alarm.",
           "allow_remote": "Off by default. The account is not local-only for the length of the stay. Home Assistant must already be reachable from outside; this integration opens nothing. Also turn this on to try the HA account over Tailscale (a 100.x address is not local).",
           "notify_service": "e.g. notify.mobile_app_phone. Empty = persistent notification only. This goes to you, not the guest.",
           "guest_mail_service": "e.g. notify.smtp. Sends the welcome note to the guest (address read from the calendar description). Empty = copy the note by hand.",
@@ -141,7 +144,8 @@
           "manual_wifi_code": "EasyPass code shown in Maison/mail. Empty = keep the stored code.",
           "enable_nuki": "Per-stay Keypad PIN (mail, Infos, Console). Independent of unlocking the Nuki lock in Maison. Unchecked: the welcome mail still goes out without a door code.",
           "nuki_token": "Created at https://web.nuki.io (API). Empty = keep the stored token.",
-          "nuki_smartlock_id": "Leave empty if there is only one lock. Otherwise the numeric Nuki id of the front door."
+          "nuki_smartlock_id": "Leave empty if there is only one lock. Otherwise the numeric Nuki id of the front door.",
+          "bulk_add_domains": "After filtering: pick domains (e.g. light, climate) then Save to add them all. Remove unwanted chips afterward."
         }
       },
       "reconfigure": {
@@ -187,7 +191,8 @@
           "upload_mbps": "Upload (Mbit/s)",
           "extra_days": "Extra days after the stay",
           "access_mode": "Home Assistant accounts",
-          "tenant_target": "Guest equipment",
+          "tenant_entities": "Guest entities",
+          "tenant_devices": "Guest devices",
           "confirm_sensitive": "I allow cameras, locks or alarms",
           "allow_remote": "Internet access during the stay",
           "notify_service": "Notification (optional)",
@@ -217,7 +222,8 @@
           "outdoor_temperature": "Outdoor temperature",
           "pool_temperature": "Pool temperature",
           "pool_ph": "Pool pH",
-          "alarm_code": "Alarm code (server)"
+          "alarm_code": "Alarm code (server)",
+          "bulk_add_domains": "Add all (domains)"
         },
         "data_description": {
           "guest_mail_service": "e.g. notify.smtp. Empty = copy the note by hand.",
@@ -243,7 +249,10 @@
           "enable_nuki": "Per-stay Keypad PIN. Unchecked: the mail goes without a door code. Maison lock/unlock does not depend on this.",
           "nuki_token": "Nuki Web API token. Empty = keep the stored token.",
           "nuki_smartlock_id": "Empty = first lock with a Keypad.",
-          "tenant_target": "Pick several entities, devices or areas at once (checkboxes). Cameras, locks and alarms require the confirmation below."
+          "tenant_entities": "Search and add entities (HA filter). Cameras, locks and alarms require the confirmation below.",
+          "tenant_devices": "Optional. One device = all its entities.",
+          "bulk_add_domains": "After filtering: pick domains (e.g. light, climate) then Save to add them all. Remove unwanted chips afterward.",
+          "confirm_sensitive": "Remembered once checked. Without this box, saving is refused when the selection contains a camera, lock or alarm."
         }
       }
     },
@@ -279,6 +288,24 @@
         "fr": "French",
         "en": "English"
       }
+    },
+    "bulk_add_domains": {
+      "options": {
+        "climate": "climate — heating / cooling",
+        "light": "light — lights",
+        "cover": "cover — shutters / gates",
+        "lock": "lock — locks",
+        "fan": "fan",
+        "switch": "switch",
+        "media_player": "media_player — sound",
+        "alarm_control_panel": "alarm_control_panel",
+        "camera": "camera",
+        "scene": "scene",
+        "script": "script",
+        "binary_sensor": "binary_sensor",
+        "sensor": "sensor",
+        "event": "event"
+      }
     }
   },
   "entity": {
@@ -293,6 +320,11 @@
         "name": "Settings"
       }
     },
+    "text": {
+      "wifi_code_draft": {
+        "name": "Wi-Fi code draft"
+      }
+    },
     "switch": {
       "demo_mode": {
         "name": "Demo mode"
@@ -300,6 +332,20 @@
     }
   },
   "services": {
+    "definir_voucher": {
+      "name": "Set Wi-Fi voucher",
+      "description": "Paste an EasyPass code (or read the draft) onto a calendar stay. Manual provider or one-off fix.",
+      "fields": {
+        "reservation_key": {
+          "name": "Reservation",
+          "description": "Empty = stay shown by the sensor."
+        },
+        "code": {
+          "name": "Wi-Fi code",
+          "description": "Empty = use the Console « Wi-Fi code draft » field."
+        }
+      }
+    },
     "regenerer_voucher": {
       "name": "Regenerate voucher",
       "description": "Deletes the stay voucher and creates a new one.",

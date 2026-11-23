@@ -29,8 +29,26 @@ CONF_COVER_ENTITIES: Final = "cover_entities"
 CONF_LIGHT_ENTITIES: Final = "light_entities"
 CONF_TENANT_ENTITIES: Final = "tenant_entities"
 CONF_TENANT_DEVICES: Final = "tenant_devices"
-# Options-form only (Target selector). Expanded into the two lists above.
+# Legacy Options-form Target selector (expanded into the two lists above).
 CONF_TENANT_TARGET: Final = "tenant_target"
+# Transient Options action — not stored on the config entry.
+CONF_BULK_ADD_DOMAINS: Final = "bulk_add_domains"
+TENANT_BULK_DOMAINS: Final = (
+    "climate",
+    "light",
+    "cover",
+    "lock",
+    "fan",
+    "switch",
+    "media_player",
+    "alarm_control_panel",
+    "camera",
+    "scene",
+    "script",
+    "binary_sensor",
+    "sensor",
+    "event",
+)
 CONF_ALLOW_REMOTE: Final = "allow_remote"
 CONF_CONFIRM_SENSITIVE: Final = "confirm_sensitive"
 CONF_NOTIFY_SERVICE: Final = "notify_service"
@@ -152,7 +170,8 @@ SERVICE_APPLY_DASHBOARD: Final = "appliquer_tableau"
 SERVICE_REFRESH_CALENDAR: Final = "relire_calendrier"
 SERVICE_STAY_SETTINGS: Final = "reglages_sejour"
 SERVICE_GUEST_LINK: Final = "lien_maison"
+SERVICE_SET_VOUCHER: Final = "definir_voucher"
 
 ATTR_RESERVATION_KEY: Final = "reservation_key"
 
-PLATFORMS: Final = ["sensor", "switch"]
+PLATFORMS: Final = ["sensor", "switch", "text"]

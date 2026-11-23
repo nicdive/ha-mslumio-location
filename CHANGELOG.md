@@ -4,13 +4,44 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.67] — 2026-11-23
+
+### Amélioré
+- Base **0.6.56** : bandeau Installer dans **Infos**, sélecteur d’entités filtrable (pas de liste à cases).
+- Voucher manuel : **code Wi‑Fi par séjour** (brouillon Console + Appliquer / `definir_voucher`).
+- Options : **Ajouter tout (domaines)** après le filtre ; case « j’autorise caméras/serrures/alarmes » **mémorisée**.
+- Console / webapp : pas de régression UI volontaire (pas de nouveau service worker / dock).
+
+[0.6.67]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.67
+
+
 ## [0.6.66] — 2026-11-23
 
 ### Tatonnage
-- Contenu identique à **0.6.56** (bandeau install dans Infos uniquement).
-- **Sans** multi-sélection Options (refusée). Skip 0.6.57 / 0.6.65.
+- Contenu identique à **0.6.56**.
 
 [0.6.66]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.66
+
+## [0.6.65] — 2026-11-23
+
+### Tatonnage
+- Essai 0.6.57 (ignoré — multi-sélection refusée).
+
+[0.6.65]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.65
+
+## [0.6.64] — 2026-11-23
+
+### Tatonnage
+- Contenu identique à **0.6.55**.
+
+[0.6.64]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.64
+
+## [0.6.63] — 2026-11-23
+
+### Tatonnage
+- Contenu identique à **0.6.50**.
+
+[0.6.63]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.63
 
 ## [0.6.56] — 2026-11-23
 

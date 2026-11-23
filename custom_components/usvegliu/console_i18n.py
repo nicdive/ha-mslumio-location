@@ -76,6 +76,11 @@ _FR: Final[dict[str, str]] = {
     "revoke_ha_confirm": "Révoquer le compte Home Assistant de {guest} ?",
     "new_wifi": "Nouveau code Wi-Fi",
     "new_wifi_confirm": "Générer un nouveau code Wi-Fi pour {guest} ?",
+    "apply_wifi": "Appliquer le code Wi-Fi",
+    "apply_wifi_confirm": (
+        "Coller le brouillon code Wi-Fi sur le séjour de {guest} ?"
+    ),
+    "wifi_draft": "Brouillon code Wi-Fi",
     "revoke_wifi": "Révoquer le Wi-Fi",
     "revoke_wifi_confirm": "Révoquer le voucher Wi-Fi de {guest} ?",
     "new_door": "Nouveau code porte",
@@ -164,6 +169,9 @@ _EN: Final[dict[str, str]] = {
     "revoke_ha_confirm": "Revoke the Home Assistant account for {guest}?",
     "new_wifi": "New Wi-Fi code",
     "new_wifi_confirm": "Generate a new Wi-Fi code for {guest}?",
+    "apply_wifi": "Apply Wi-Fi code",
+    "apply_wifi_confirm": "Paste the Wi-Fi code draft onto {guest}'s stay?",
+    "wifi_draft": "Wi-Fi code draft",
     "revoke_wifi": "Revoke Wi-Fi",
     "revoke_wifi_confirm": "Revoke the Wi-Fi voucher for {guest}?",
     "new_door": "New door code",
