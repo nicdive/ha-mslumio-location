@@ -54,9 +54,10 @@ body[data-theme="ledbury"] .fan-line {
   display: none !important;
 }
 
-/* Ledbury horizontal banner — door left, wordmark right (compact height) */
+/* Ledbury horizontal banner — 49 mark + wordmark (keep arc unclipped) */
 body[data-theme="ledbury"] .brand-logo {
   width: min(100%, 400px);
+  overflow: visible;
 }
 
 body[data-theme="ledbury"] .brand-room .brand-logo {
@@ -152,8 +153,9 @@ button:active:not(:disabled) {
   flex-direction: column;
   min-height: 100dvh;
   min-height: -webkit-fill-available;
-  /* Dock ~72px; safe-area is already inside .dock — do not add it twice. */
-  padding: calc(22px + env(safe-area-inset-top, 0px)) 22px 88px;
+  /* Dock ~72px; safe-area is already inside .dock — do not add it twice.
+     Extra top air so the Ledbury 49/arc is not clipped under the status bar. */
+  padding: calc(28px + env(safe-area-inset-top, 0px)) 22px 88px;
 }
 
 .shell-room {
@@ -164,6 +166,7 @@ button:active:not(:disabled) {
   position: relative;
   text-align: center;
   margin-bottom: 18px;
+  overflow: visible;
 }
 
 .brand-room {

@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.84] — 2026-11-23
+
+### Corrigé
+- Bandeau Ledbury : artwork d’origine (police/espacement), fond transparent, marge haute pour ne plus couper le 49.
+
+[0.6.84]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.84
+
 ## [0.6.83] — 2026-11-23
 
 ### Corrigé
