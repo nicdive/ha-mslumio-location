@@ -5,18 +5,47 @@ Pure Python: no Home Assistant import, so the mapping can be unit-tested.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
+import re
 import secrets
 from typing import Any
 
-from .const import DOMAIN
+from .const import DEFAULT_EXTRA_DAYS, DEFAULT_WIFI_SSID, DOMAIN
+from .planning import maison_closes_at, wifi_revokes_at
 
 PREVIEW_KEY = "__usvegliu_preview__"
 PREVIEW_HOURS = 24
 TOKEN_MIN_LENGTH = 16
 
+_MONTHS_FR = (
+    "janvier",
+    "février",
+    "mars",
+    "avril",
+    "mai",
+    "juin",
+    "juillet",
+    "août",
+    "septembre",
+    "octobre",
+    "novembre",
+    "décembre",
+)
+
 _OFF_HVAC = frozenset({"off", "idle"})
 _HVAC_ON_ORDER = ("heat", "cool", "heat_cool", "fan_only", "dry", "auto")
+# Heatmiser Neo: no HVAC off — Standby/Away presets are frost protection.
+_OFF_PRESETS = frozenset({"standby", "away"})
+_ON_PRESET_ORDER = ("home", "none", "schedule", "boost")
+HOUSE_HEAT = "heat"
+HOUSE_COOL = "cool"
+_COOL_STATES = frozenset(
+    {"on", "true", "1", "cool", "cooling", "climatisation", "clim", "cold"}
+)
+_HEAT_STATES = frozenset(
+    {"off", "false", "0", "heat", "heating", "chauffage", "hot"}
+)
 _FAN_ALIASES: dict[int, tuple[str, ...]] = {
     1: ("low", "low_breeze", "min", "1", "level_1", "level1", "doux"),
     2: ("medium", "mid", "middle", "med", "2", "level_2", "level2", "moyen"),
@@ -56,16 +85,463 @@ def parse_iso(value: Any, tzinfo: timezone | None = None) -> datetime | None:
     return parsed
 
 
-def stay_is_open(record: dict[str, Any], now: datetime) -> bool:
-    """True while the link may be used.
-
-    A provisioned stay (already in storage) is usable until check-out,
-    including the days before arrival. A preview expires at check_out.
-    """
+def stay_access_end(record: dict[str, Any], now: datetime) -> datetime | None:
+    """Maison link and HA login stop at the end of the departure day."""
     end = parse_iso(record.get("check_out"), now.tzinfo)
     if end is None:
+        return None
+    if record.get("preview"):
+        return end
+    return maison_closes_at(end)
+
+
+def stay_wifi_end(
+    record: dict[str, Any],
+    now: datetime,
+    extra_days: int = DEFAULT_EXTRA_DAYS,
+) -> datetime | None:
+    """UniFi voucher is deleted one extra day after departure, by default."""
+    end = parse_iso(record.get("check_out"), now.tzinfo)
+    if end is None:
+        return None
+    if record.get("preview"):
+        return end
+    return wifi_revokes_at(end, extra_days)
+
+
+def stay_is_issued(
+    record: dict[str, Any],
+    now: datetime,
+    extra_days: int = DEFAULT_EXTRA_DAYS,
+) -> bool:
+    """True while the stay is still on the owner Console (Wi-Fi window)."""
+    close = stay_wifi_end(record, now, extra_days)
+    return close is not None and now < close
+
+
+def stay_is_open(
+    record: dict[str, Any],
+    now: datetime,
+    extra_days: int = DEFAULT_EXTRA_DAYS,
+) -> bool:
+    """Issued stay, including the days before arrival. Owner Console."""
+    return stay_is_issued(record, now, extra_days)
+
+
+def stay_activation_start(record: dict[str, Any], now: datetime) -> datetime | None:
+    """Local midnight of the arrival day. A preview starts at once."""
+    start = parse_iso(record.get("check_in"), now.tzinfo)
+    if start is None:
+        return None
+    if record.get("preview"):
+        return start
+    return start.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def stay_is_active(record: dict[str, Any], now: datetime) -> bool:
+    """True when the Maison link and HA login may be used.
+
+    From local midnight of the arrival day through the end of the planned
+    departure day. A 24 h preview is usable as soon as it is minted.
+    """
+    begin = stay_activation_start(record, now)
+    close = stay_access_end(record, now)
+    if begin is None or close is None:
         return False
-    return now < end
+    return begin <= now < close
+
+
+ROLE_CURRENT = "current"
+ROLE_UPCOMING = "upcoming"
+ROLE_DEPARTING = "departing"
+ROLE_PREVIEW = "preview"
+_ROLE_RANK = {
+    ROLE_CURRENT: 0,
+    ROLE_UPCOMING: 1,
+    ROLE_DEPARTING: 2,
+    ROLE_PREVIEW: 3,
+}
+ROLE_LABELS = {
+    ROLE_CURRENT: "En cours",
+    ROLE_UPCOMING: "À venir",
+    ROLE_DEPARTING: "Wi-Fi encore actif",
+    ROLE_PREVIEW: "Essai 24 h",
+}
+
+
+def _role_label(role: str, locale: str = "fr") -> str:
+    from .console_i18n import role_label
+
+    return role_label(role, locale)
+
+
+def stay_console_role(record: dict[str, Any], now: datetime) -> str:
+    """Where a stay sits on the owner Console."""
+    if record.get("preview"):
+        return ROLE_PREVIEW
+    if stay_is_active(record, now):
+        return ROLE_CURRENT
+    start = stay_activation_start(record, now)
+    if start is not None and now < start:
+        return ROLE_UPCOMING
+    return ROLE_DEPARTING
+
+
+def stay_view_path(reservation_id: str) -> str:
+    """Lovelace subview path for one stay. Safe for dashboard URLs."""
+    safe = re.sub(r"[^0-9a-z]+", "-", str(reservation_id or "").casefold()).strip("-")
+    return f"s-{(safe or 'sejour')[:48]}"
+
+
+def open_issued_records(
+    stays: dict[str, dict[str, Any]],
+    preview: dict[str, Any] | None,
+    now: datetime,
+    extra_days: int = DEFAULT_EXTRA_DAYS,
+) -> list[dict[str, Any]]:
+    """Provisioned stays still listed, then a live preview.
+
+    Order: current stay, upcoming by arrival, leftover Wi-Fi, then a preview.
+    """
+    records = [
+        record for record in stays.values() if stay_is_issued(record, now, extra_days)
+    ]
+    if isinstance(preview, dict) and stay_is_issued(preview, now, extra_days):
+        records.append(preview)
+    records.sort(
+        key=lambda record: (
+            _ROLE_RANK.get(stay_console_role(record, now), 9),
+            str(record.get("check_in") or ""),
+        )
+    )
+    return records
+
+
+def credential_attribute_key(reservation_id: str) -> str:
+    """Top-level sensor attribute Lovelace can display without the name ``password``.
+
+    The Home Assistant frontend hides attributes named ``password`` in
+    markdown templates and more-info. ``compte_<id>`` stays visible.
+    """
+    safe = re.sub(r"[^0-9A-Za-z]+", "_", str(reservation_id or "")).strip("_")
+    if not safe:
+        safe = "sejour"
+    return f"compte_{safe[:48]}"
+
+
+def _parse_stay_date(value: str) -> datetime | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def format_arrival_day(check_in: str, *, locale: str = "fr") -> str:
+    """``7 novembre`` / ``7 November``, or empty when the date cannot be parsed."""
+    from .console_i18n import month_name, normalize_console_locale
+
+    start = _parse_stay_date(check_in)
+    if start is None:
+        return ""
+    return f"{start.day} {month_name(start.month, locale)}"
+
+
+def format_stay_span(check_in: str, check_out: str, *, locale: str = "fr") -> str:
+    """Human stay window, or empty if the dates are missing."""
+    from .console_i18n import month_name, normalize_console_locale
+
+    start = _parse_stay_date(check_in)
+    end = _parse_stay_date(check_out)
+    if start is None or end is None:
+        return ""
+    english = normalize_console_locale(locale) == "en"
+    joiner = " to " if english else " au "
+    if start.month == end.month and start.year == end.year:
+        return (
+            f"{start.day}{joiner}{end.day} {month_name(start.month, locale)}"
+        )
+    if start.year == end.year:
+        return (
+            f"{start.day} {month_name(start.month, locale)}{joiner}"
+            f"{end.day} {month_name(end.month, locale)}"
+        )
+    return (
+        f"{start.day} {month_name(start.month, locale)} {start.year}{joiner}"
+        f"{end.day} {month_name(end.month, locale)} {end.year}"
+    )
+
+
+def guest_first_name(guest: str) -> str:
+    """First word of the calendar title, for a short greeting."""
+    return str(guest or "").strip().split()[0] if str(guest or "").strip() else ""
+
+
+def welcome_mail_due(record: dict[str, Any], now: datetime, *, days: int) -> bool:
+    """True when the guest welcome mail should go out (once, from J−days)."""
+    if record.get("preview") or record.get("welcome_mail_sent"):
+        return False
+    if not str(record.get("guest_email") or "").strip():
+        return False
+    start = _parse_stay_date(str(record.get("check_in") or ""))
+    if start is None:
+        return False
+    if now.tzinfo is not None and start.tzinfo is None:
+        start = start.replace(tzinfo=now.tzinfo)
+    elif now.tzinfo is None and start.tzinfo is not None:
+        now = now.replace(tzinfo=start.tzinfo)
+    if now < start - timedelta(days=max(0, int(days))):
+        return False
+    end = _parse_stay_date(str(record.get("check_out") or ""))
+    if end is not None:
+        if now.tzinfo is not None and end.tzinfo is None:
+            end = end.replace(tzinfo=now.tzinfo)
+        if now >= end:
+            return False
+    return True
+
+
+def guest_welcome_message(
+    *,
+    guest: str,
+    check_in: str,
+    check_out: str,
+    lien_maison: str,
+    wifi_ssid: str,
+    voucher_code: str | None,
+    voucher_revoked: bool,
+    preview: bool,
+    nuki_code: str | None = None,
+    nuki_revoked: bool = False,
+    house_name: str | None = None,
+    team_name: str | None = None,
+    locale: str | None = None,
+) -> str:
+    """Copy-ready note for the guest. Brand (house + team) comes from the villa theme."""
+    from .branding import guest_brand
+    from .console_i18n import normalize_console_locale
+
+    brand = guest_brand()
+    house = str(house_name or brand["welcome_house"]).strip() or brand["welcome_house"]
+    team = str(team_name or brand["team"]).strip() or brand["team"]
+    lang = normalize_console_locale(
+        locale if locale is not None else brand.get("locale")
+    )
+    english = lang == "en"
+    name = guest_first_name(guest)
+    if english:
+        hello = f"Hello {name}," if name else "Hello,"
+    else:
+        hello = f"Bonjour {name}," if name else "Bonjour,"
+    span = format_stay_span(check_in, check_out, locale=lang)
+    if english:
+        stay = f" for your stay {span}" if span else ""
+    else:
+        stay = f" pour votre séjour du {span}" if span else ""
+    link = str(lien_maison or "").strip()
+    ssid = str(wifi_ssid or "").strip() or str(brand.get("wifi_ssid_default") or DEFAULT_WIFI_SSID)
+    code = "" if voucher_revoked else str(voucher_code or "").strip()
+    door = "" if nuki_revoked else str(nuki_code or "").strip()
+    if preview:
+        if english:
+            lines = [
+                hello,
+                "",
+                "Here is a 24-hour trial link to explore the house:",
+                "",
+                link or "—",
+                "",
+                "We hope you enjoy the visit.",
+                "",
+                team,
+            ]
+        else:
+            lines = [
+                hello,
+                "",
+                "Voici un lien d'essai, valable 24 heures, pour découvrir la maison :",
+                "",
+                link or "—",
+                "",
+                "Nous vous souhaitons une belle visite.",
+                "",
+                team,
+            ]
+        return "\n".join(lines)
+    if english:
+        lines = [
+            hello,
+            "",
+            f"We are delighted to welcome you to {house}{stay}.",
+            "",
+            "Your house opens here, on your personal link:",
+            "",
+            link or "—",
+            "",
+        ]
+        lines.append(f"Wi-Fi network: {ssid}")
+        if code:
+            lines.append(f"Access code: {code}")
+        elif voucher_revoked:
+            lines.append("The Wi-Fi code has been revoked. We will send you another.")
+        if ssid or code:
+            lines.extend(
+                [
+                    "",
+                    "Open the link on your phone, join the network, "
+                    "then enter the code on the Wi-Fi welcome page.",
+                ]
+            )
+        if door:
+            lines.extend(
+                [
+                    "",
+                    f"Door code (Keypad): {door}",
+                    "Enter it on the keypad at the front door.",
+                ]
+            )
+        elif nuki_revoked:
+            lines.extend(
+                [
+                    "",
+                    "The door code has been revoked. We will send you another.",
+                ]
+            )
+        lines.extend(["", "We wish you an exceptional stay.", "", team])
+        return "\n".join(lines)
+    lines = [
+        hello,
+        "",
+        f"Nous avons le plaisir de vous accueillir à {house}{stay}.",
+        "",
+        "Votre maison s'ouvre ici, sur votre lien personnel :",
+        "",
+        link or "—",
+        "",
+    ]
+    lines.append(f"Réseau Wi-Fi : {ssid}")
+    if code:
+        lines.append(f"Code d'accès : {code}")
+    elif voucher_revoked:
+        lines.append("Le code Wi-Fi a été révoqué. Nous vous en ferons parvenir un autre.")
+    if ssid or code:
+        lines.extend(
+            [
+                "",
+                "Ouvrez le lien depuis votre téléphone, rejoignez le réseau, "
+                "puis saisissez le code sur la page d'accueil Wi-Fi.",
+            ]
+        )
+    if door:
+        lines.extend(
+            [
+                "",
+                f"Code porte (Keypad) : {door}",
+                "Saisissez-le sur le clavier de la porte d'entrée.",
+            ]
+        )
+    elif nuki_revoked:
+        lines.extend(
+            [
+                "",
+                "Le code porte a été révoqué. Nous vous en ferons parvenir un autre.",
+            ]
+        )
+    lines.extend(
+        [
+            "",
+            "Nous vous souhaitons un séjour d'exception.",
+            "",
+            team,
+        ]
+    )
+    return "\n".join(lines)
+
+
+def issued_account_view(
+    record: dict[str, Any],
+    *,
+    username: str | None,
+    password: str | None,
+    lien_maison: str,
+    path: str,
+    tableau: str,
+    wifi_ssid: str = "",
+    now: datetime | None = None,
+    nuki_pins: bool = False,
+    house_name: str | None = None,
+    team_name: str | None = None,
+    locale: str = "fr",
+) -> dict[str, Any]:
+    """Admin row for one issued stay, including the HA password.
+
+    The guest HTTP API never uses this mapping. Diagnostics and the CSV
+    journal still redact or drop the password.
+    """
+    secret = str(password or record.get("password") or "") or None
+    preview = bool(record.get("preview"))
+    revoked = bool(record.get("voucher_revoked"))
+    nuki_revoked = bool(record.get("nuki_revoked"))
+    active = True if now is None or preview else stay_is_active(record, now)
+    code = str(record.get("voucher_code") or "") or None
+    door = str(record.get("nuki_code") or "") or None
+    ssid = str(wifi_ssid or "").strip() or DEFAULT_WIFI_SSID
+    key = str(record.get("key") or "")
+    if now is None:
+        role = ROLE_PREVIEW if preview else ROLE_CURRENT
+    else:
+        role = stay_console_role(record, now)
+    return {
+        "guest": str(record.get("guest") or ""),
+        "check_in": str(record.get("check_in") or ""),
+        "check_out": str(record.get("check_out") or ""),
+        "username": str(username or record.get("username") or ""),
+        "password": secret,
+        # Lovelace / the frontend hide the attribute name ``password``.
+        "mot_de_passe": secret,
+        "code_compte": secret,
+        "voucher_code": code,
+        "nuki_code": door,
+        "nuki_revoked": nuki_revoked,
+        "wifi_ssid": ssid,
+        "reseau_wifi": ssid,
+        "prenom": guest_first_name(str(record.get("guest") or "")),
+        "sejour_libelle": format_stay_span(
+            str(record.get("check_in") or ""),
+            str(record.get("check_out") or ""),
+            locale=locale,
+        ),
+        "lien_maison": lien_maison,
+        "guest_email": str(record.get("guest_email") or "") or None,
+        "welcome_mail_sent": str(record.get("welcome_mail_sent") or "") or None,
+        "message_invite": guest_welcome_message(
+            guest=str(record.get("guest") or ""),
+            check_in=str(record.get("check_in") or ""),
+            check_out=str(record.get("check_out") or ""),
+            lien_maison=lien_maison,
+            wifi_ssid=ssid,
+            voucher_code=code,
+            voucher_revoked=revoked,
+            nuki_code=door if nuki_pins else None,
+            nuki_revoked=nuki_revoked if nuki_pins else False,
+            preview=preview,
+            house_name=house_name,
+            team_name=team_name,
+            locale=locale,
+        ),
+        "path": path,
+        "reservation_id": key,
+        "vue": stay_view_path(key),
+        "role": role,
+        "role_label": _role_label(role, locale),
+        "essai": preview,
+        "tableau": tableau,
+        "access_revoked": bool(record.get("access_revoked")),
+        "voucher_revoked": revoked,
+        "acces_actif": active,
+    }
 
 
 def find_record_by_token(
@@ -73,17 +549,34 @@ def find_record_by_token(
     preview: dict[str, Any] | None,
     token: str,
     now: datetime,
+    *,
+    require_active: bool = True,
+    extra_days: int = DEFAULT_EXTRA_DAYS,
 ) -> dict[str, Any] | None:
-    """Return the stay or preview bound to ``token``, if it is still open."""
+    """Return the stay or preview bound to ``token``.
+
+    ``require_active`` is True for guest use (arrival day). False still
+    finds a token issued in the lead window so the API can answer
+    ``too_early`` instead of ``invalid_token``.
+    """
     if not token or len(token) < TOKEN_MIN_LENGTH:
         return None
+    found: dict[str, Any] | None = None
     if isinstance(preview, dict) and preview.get("guest_token") == token:
-        if stay_is_open(preview, now):
-            return preview
-    for record in stays.values():
-        if record.get("guest_token") == token and stay_is_open(record, now):
-            return record
-    return None
+        if stay_is_issued(preview, now, extra_days):
+            found = preview
+    if found is None:
+        for record in stays.values():
+            if record.get("guest_token") == token and stay_is_issued(
+                record, now, extra_days
+            ):
+                found = record
+                break
+    if found is None:
+        return None
+    if require_active and not stay_is_active(found, now):
+        return None
+    return found
 
 
 def build_preview_record(now: datetime, hours: int = PREVIEW_HOURS) -> dict[str, Any]:
@@ -137,11 +630,117 @@ def infer_fan_speed(current: str | None, mapping: dict[int, str]) -> int:
     return 2 if 2 in mapping else next(iter(mapping), 2)
 
 
-def climate_is_on(hvac_mode: str | None) -> bool:
-    """Treat off/idle as stopped."""
+def climate_is_on(
+    hvac_mode: str | None, preset_mode: str | None = None
+) -> bool:
+    """Treat HVAC off/idle or Heatmiser Standby/Away as stopped."""
+    preset = str(preset_mode or "").strip().casefold()
+    if preset in _OFF_PRESETS:
+        return False
     if not hvac_mode:
         return False
     return hvac_mode.casefold() not in _OFF_HVAC
+
+
+def pick_preset_off(available: list[str]) -> str | None:
+    """Standby (zone) preferred over Away (whole Neo hub)."""
+    by_fold = {str(mode).casefold(): str(mode) for mode in available if mode}
+    for key in ("standby", "away"):
+        if key in by_fold:
+            return by_fold[key]
+    return None
+
+
+def pick_preset_on(available: list[str]) -> str | None:
+    """Leave frost standby for a comfort/schedule preset."""
+    by_fold = {str(mode).casefold(): str(mode) for mode in available if mode}
+    for key in _ON_PRESET_ORDER:
+        if key in by_fold:
+            return by_fold[key]
+    for mode in available:
+        fold = str(mode).casefold()
+        if fold and fold not in _OFF_PRESETS:
+            return str(mode)
+    return None
+
+
+def climate_power_via(hvac_modes: list[str], preset_modes: list[str]) -> str:
+    """How guests turn a thermostat off: classic HVAC off, or Heatmiser preset."""
+    folds = {str(mode).casefold() for mode in hvac_modes if mode}
+    if "off" in folds:
+        return "hvac"
+    if pick_preset_off(preset_modes):
+        return "preset"
+    return "hvac"
+
+
+def house_mode_from_state(state: str | None) -> str | None:
+    """Map a house switch or select onto heat/cool.
+
+    Switch/boolean: on = climatisation, off = chauffage.
+    Select: chauffage/heat vs climatisation/cool.
+    """
+    if not state:
+        return None
+    fold = state.casefold().strip()
+    if fold in {"unavailable", "unknown", "none"}:
+        return None
+    if fold in _COOL_STATES:
+        return HOUSE_COOL
+    if fold in _HEAT_STATES:
+        return HOUSE_HEAT
+    return None
+
+
+def resolve_house_mode(
+    switch_state: str | None,
+    climate_modes: list[str] | None = None,
+) -> str:
+    """House-wide heat/cool. The owner switch wins over live climate modes."""
+    from_switch = house_mode_from_state(switch_state)
+    if from_switch:
+        return from_switch
+    on_modes = [
+        str(mode).casefold()
+        for mode in climate_modes or []
+        if climate_is_on(str(mode))
+    ]
+    heat = any(mode == HOUSE_HEAT for mode in on_modes)
+    cool = any(mode == HOUSE_COOL for mode in on_modes)
+    if heat and not cool:
+        return HOUSE_HEAT
+    if cool and not heat:
+        return HOUSE_COOL
+    return HOUSE_COOL
+
+
+def house_mode_label(mode: str) -> str:
+    """French title shown on the guest web app."""
+    return "Chauffage" if mode == HOUSE_HEAT else "Climatisation"
+
+
+def climate_activity(
+    *,
+    on: bool,
+    house_mode: str,
+    measured: float | None,
+    setpoint: float | None,
+) -> str:
+    """Whether this room is actively heating, cooling, or idle.
+
+    Red on the web app: heating and setpoint > measured.
+    Blue: cooling and setpoint < measured.
+    Otherwise idle (neutral).
+    """
+    if not on:
+        return "off"
+    if measured is None or setpoint is None:
+        return "idle"
+    if house_mode == HOUSE_HEAT and setpoint > measured:
+        return "heating"
+    if house_mode == HOUSE_COOL and setpoint < measured:
+        return "cooling"
+    return "idle"
 
 
 def pick_hvac_on(available: list[str], preferred: str | None = None) -> str:
@@ -158,6 +757,385 @@ def pick_hvac_on(available: list[str], preferred: str | None = None) -> str:
         if mode and mode.casefold() not in _OFF_HVAC:
             return mode
     return "heat"
+
+
+GUEST_KIND_CLIMATE = "climate"
+GUEST_KIND_LOCK = "lock"
+GUEST_KIND_ALARM = "alarm"
+GUEST_KIND_LIGHT = "light"
+GUEST_KIND_SCENE = "scene"
+GUEST_KIND_GARAGE = "garage"
+GUEST_KIND_GATE = "gate"
+GUEST_KIND_SHUTTER = "shutter"
+GUEST_KIND_OUTDOOR = "outdoor"
+GUEST_KIND_POOL_TEMP = "pool_temp"
+GUEST_KIND_POOL_PH = "pool_ph"
+GUEST_KIND_POOL_LIGHT = "pool_light"
+GUEST_KIND_CHARGER = "charger"
+GUEST_KIND_DOORBELL = "doorbell"
+GUEST_KIND_CAMERA = "camera"
+GUEST_KIND_SPEAKER = "speaker"
+TYDOM_DOMAIN = "deltadore_tydom"
+TYDOM_SET_MODE = "set_mode_using_stored_pin"
+
+_POOL_NEEDLES = ("piscine", "pool", "bassin")
+_CHARGER_NEEDLES = (
+    "borne",
+    "evlink",
+    "evse",
+    "wallbox",
+    "recharge",
+    "charger",
+    "ocpp",
+    "véhicule",
+    "vehicule",
+    "voiture",
+)
+_DOORBELL_NEEDLES = (
+    "sonnette",
+    "visiophone",
+    "doorbell",
+    "interphone",
+    "portier",
+    "linea 3000",
+    "300eos",
+    "classe 300",
+)
+_TV_CLASSES = ("tv", "receiver")
+_CHARGING_STATES = ("charging", "charge", "en_charge", "en charge")
+_FINISHED_STATES = (
+    "finishing",
+    "finished",
+    "charged",
+    "complete",
+    "completed",
+    "done",
+    "charge_complete",
+)
+_LEVEL_ATTRS = (
+    "battery_level",
+    "soc",
+    "state_of_charge",
+    "ev_soc",
+    "vehicle_soc",
+    "charging_percentage",
+    "charge_percentage",
+    "battery",
+    "percentage",
+)
+_LEVEL_NAME_NEEDLES = ("soc", "batterie", "battery", "niveau", "%")
+_PLUGGED_STATES = (
+    "preparing",
+    "suspendedev",
+    "suspendedevse",
+    "connected",
+    "plugged",
+    "ready",
+    "occupied",
+    "b1",
+    "b2",
+)
+_FAULT_STATES = ("faulted", "fault", "error")
+_IDLE_STATES = ("off", "false", "available", "idle", "a1", "a2", "unavailable")
+_RINGING_STATES = ("on", "true", "ringing", "pressed", "detected", "1")
+_OUTDOOR_NEEDLES = (
+    "extérieur",
+    "exterieur",
+    "outdoor",
+    "outside",
+    "jardin",
+    "terrasse",
+    "meteo",
+    "météo",
+    "weather",
+)
+_GARAGE_NEEDLES = ("garage",)
+_GATE_NEEDLES = ("portail", "portal", "gate", "portillon")
+_LIGHT_NEEDLES = ("lumière", "lumiere", "light", "eclairage", "éclairage")
+_PH_NEEDLES = ("ph", "p.h")
+_TEMP_UNITS = ("°c", "°f", "c", "f", "celsius", "fahrenheit")
+
+
+def _fold_name(*parts: str | None) -> str:
+    return " ".join(str(part or "") for part in parts).casefold()
+
+
+def _has_needle(haystack: str, needles: tuple[str, ...]) -> bool:
+    return any(needle in haystack for needle in needles)
+
+
+def classify_guest_entity(
+    entity_id: str,
+    *,
+    device_class: str | None = None,
+    name: str | None = None,
+    unit: str | None = None,
+) -> str | None:
+    """How the guest web app should present one allowed entity."""
+    domain = entity_id.split(".", 1)[0] if "." in entity_id else entity_id
+    label = _fold_name(entity_id, name)
+    klass = str(device_class or "").casefold()
+    measure = str(unit or "").casefold().replace(" ", "")
+    if domain == "climate":
+        return GUEST_KIND_CLIMATE
+    if domain == "lock":
+        return GUEST_KIND_LOCK
+    if domain == "alarm_control_panel":
+        return GUEST_KIND_ALARM
+    if domain == "camera":
+        return GUEST_KIND_CAMERA
+    if domain == "media_player":
+        if klass in _TV_CLASSES:
+            return None
+        return GUEST_KIND_SPEAKER
+    if domain == "light":
+        if _has_needle(label, _POOL_NEEDLES):
+            return GUEST_KIND_POOL_LIGHT
+        return GUEST_KIND_LIGHT
+    if domain in {"scene", "script"}:
+        return GUEST_KIND_SCENE
+    if domain == "cover":
+        if klass in {"garage", "garage_door"} or _has_needle(label, _GARAGE_NEEDLES):
+            return GUEST_KIND_GARAGE
+        if klass == "gate" or _has_needle(label, _GATE_NEEDLES):
+            return GUEST_KIND_GATE
+        return GUEST_KIND_SHUTTER
+    if domain == "switch":
+        if _has_needle(label, _POOL_NEEDLES):
+            return GUEST_KIND_POOL_LIGHT
+        if _has_needle(label, _GARAGE_NEEDLES):
+            return GUEST_KIND_GARAGE
+        if _has_needle(label, _GATE_NEEDLES):
+            return GUEST_KIND_GATE
+        if _has_needle(label, _LIGHT_NEEDLES):
+            return GUEST_KIND_LIGHT
+        return None
+    if domain == "weather":
+        return GUEST_KIND_OUTDOOR
+    if domain == "binary_sensor":
+        if klass == "doorbell" or _has_needle(label, _DOORBELL_NEEDLES):
+            return GUEST_KIND_DOORBELL
+        if klass == "battery_charging" or _has_needle(label, _CHARGER_NEEDLES):
+            return GUEST_KIND_CHARGER
+        return None
+    if domain == "event":
+        if klass == "doorbell" or _has_needle(label, _DOORBELL_NEEDLES):
+            return GUEST_KIND_DOORBELL
+        return None
+    if domain == "sensor":
+        if (
+            klass in {"ph", "volatile_acid"}
+            or measure == "ph"
+            or _has_needle(label, _PH_NEEDLES)
+        ):
+            return GUEST_KIND_POOL_PH
+        is_temp = klass == "temperature" or measure in _TEMP_UNITS
+        if is_temp:
+            if _has_needle(label, _POOL_NEEDLES):
+                return GUEST_KIND_POOL_TEMP
+            if _has_needle(label, _OUTDOOR_NEEDLES):
+                return GUEST_KIND_OUTDOOR
+            return None
+        if _has_needle(label, _CHARGER_NEEDLES):
+            return GUEST_KIND_CHARGER
+        return None
+    return None
+
+
+def speaker_view_state(raw: str | None) -> str:
+    """playing / paused / idle for a Sonos Amp or other media_player."""
+    fold = str(raw or "").casefold().strip()
+    if fold in {"playing", "buffering"}:
+        return "playing"
+    if fold == "paused":
+        return "paused"
+    return "idle"
+
+
+def _as_percent(value: Any) -> int | None:
+    """Return 0–100, or None when the value is not a charge level."""
+    if value in (None, "", "unknown", "unavailable", "none"):
+        return None
+    try:
+        number = float(str(value).strip().replace(",", ".").replace("%", ""))
+    except (TypeError, ValueError):
+        return None
+    if 0 < number < 1:
+        number *= 100
+    if 0 <= number <= 100:
+        return int(round(number))
+    return None
+
+
+def charger_charge_level(
+    raw: str | None,
+    *,
+    unit: str | None = None,
+    attributes: Mapping[str, Any] | None = None,
+) -> int | None:
+    """Battery / SOC percentage when the wallbox or a sibling sensor reports it."""
+    attrs = attributes or {}
+    for key in _LEVEL_ATTRS:
+        level = _as_percent(attrs.get(key))
+        if level is not None:
+            return level
+    measure = str(unit or "").casefold().replace(" ", "")
+    if measure in {"%", "percent", "pct"}:
+        return _as_percent(raw)
+    return None
+
+
+def charger_view_state(
+    raw: str | None,
+    *,
+    unit: str | None = None,
+    level: int | None = None,
+) -> str:
+    """idle / plugged / charging / finished / fault for a wallbox entity."""
+    fold = str(raw or "").casefold().strip()
+    compact = fold.replace(" ", "").replace("_", "").replace("-", "")
+    measure = str(unit or "").casefold().replace(" ", "")
+    if fold in _FAULT_STATES or compact in _FAULT_STATES:
+        return "fault"
+    if (
+        fold in _CHARGING_STATES
+        or compact in {"charging", "charge", "encharge"}
+        or fold in {"on", "true", "c2", "d2"}
+    ):
+        return "charging"
+    if (
+        fold in _FINISHED_STATES
+        or compact in _FINISHED_STATES
+        or (level is not None and level >= 99 and compact in _PLUGGED_STATES)
+    ):
+        return "finished"
+    if fold in _PLUGGED_STATES or compact in _PLUGGED_STATES:
+        return "plugged"
+    if fold in _IDLE_STATES or compact in _IDLE_STATES:
+        return "idle"
+    number: float | None
+    try:
+        number = float(fold.replace(",", "."))
+    except ValueError:
+        number = None
+    if number is not None:
+        if measure in {"%", "percent", "pct"}:
+            return "idle"
+        if measure in {"w", "kw"}:
+            watts = number * 1000 if measure == "kw" else number
+            return "charging" if watts >= 50 else "idle"
+        if measure == "a":
+            return "charging" if number >= 1 else "idle"
+        if number in {8, 9}:
+            return "charging"
+        if number in {3, 4, 5, 7}:
+            return "plugged"
+        if number in {0, 1, 2, 6}:
+            return "idle"
+    if level is not None:
+        return "finished" if level >= 99 else "plugged"
+    return "idle"
+
+
+def combine_charger_views(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One guest card: station status plus the best SOC among sibling sensors."""
+    if len(items) <= 1:
+        return items
+    rank = {
+        "charging": 4,
+        "finished": 3,
+        "plugged": 2,
+        "fault": 1,
+        "idle": 0,
+    }
+    best = max(items, key=lambda item: rank.get(str(item.get("state") or "idle"), 0))
+    levels = [
+        int(item["level"])
+        for item in items
+        if item.get("level") is not None
+    ]
+    name = str(best.get("name") or "Borne")
+    for item in items:
+        label = str(item.get("name") or "").casefold()
+        if not _has_needle(label, _LEVEL_NAME_NEEDLES):
+            name = str(item.get("name") or name)
+            break
+    return [
+        {
+            "entity_id": best.get("entity_id"),
+            "name": name,
+            "state": best.get("state"),
+            "level": max(levels) if levels else None,
+            "raw": best.get("raw"),
+        }
+    ]
+
+
+def doorbell_is_ringing(raw: str | None, now: datetime | None = None) -> bool:
+    """True while a doorbell binary sensor is on, or a last-ring event is fresh."""
+    fold = str(raw or "").casefold().strip()
+    if fold in _RINGING_STATES:
+        return True
+    if fold in {"off", "false", "idle", "unknown", "unavailable", "0", "none"}:
+        return False
+    stamped = parse_iso(raw, None if now is None else now.tzinfo)
+    if stamped is None:
+        return False
+    if now is None:
+        now = datetime.now(stamped.tzinfo or timezone.utc)
+    if now.tzinfo is None and stamped.tzinfo is not None:
+        now = now.replace(tzinfo=stamped.tzinfo)
+    return abs((now - stamped).total_seconds()) < 45
+
+
+def guest_alarm_service(
+    action: str, entity_id: str, *, has_tydom: bool, code: str | None
+) -> tuple[str, str, dict[str, Any]]:
+    """Domain, service and data to arm or disarm from the Maison app.
+
+    A Tydom 2 box (HACS Delta Dore Tydom) keeps the PIN on the integration
+    and exposes ``set_mode_using_stored_pin``. Other panels use the stock
+    Home Assistant alarm services and the code stored in Usvegliu options.
+    """
+    if action not in {"arm", "disarm"}:
+        raise ValueError("bad_action")
+    if has_tydom:
+        return (
+            TYDOM_DOMAIN,
+            TYDOM_SET_MODE,
+            {
+                "entity_id": entity_id,
+                "mode": "away" if action == "arm" else "disarm",
+            },
+        )
+    data: dict[str, Any] = {"entity_id": entity_id}
+    if code:
+        data["code"] = code
+    service = "alarm_arm_away" if action == "arm" else "alarm_disarm"
+    return "alarm_control_panel", service, data
+
+
+def alarm_view_state(raw: str | None) -> str:
+    """Collapse Home Assistant alarm states for the guest UI."""
+    fold = str(raw or "").casefold()
+    if fold == "disarmed":
+        return "disarmed"
+    if fold == "triggered":
+        return "triggered"
+    if fold in {"pending", "arming", "armed_away_pending"}:
+        return "pending"
+    if fold.startswith("armed"):
+        return "armed"
+    return "disarmed"
+
+
+def cover_is_open(state: str | None) -> bool:
+    fold = str(state or "").casefold()
+    return fold in {"open", "opening", "on"}
+
+
+def cover_is_moving(state: str | None) -> bool:
+    return str(state or "").casefold() in {"opening", "closing"}
 
 
 def guest_path(token: str) -> str:
