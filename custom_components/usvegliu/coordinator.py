@@ -16,6 +16,8 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    ACCESS_PER_STAY,
+    ACCESS_SHARED,
     CONF_ACCESS_MODE,
     CONF_API_KEY,
     CONF_BASE_PATH,
@@ -25,10 +27,28 @@ from .const import (
     CONF_COVER_ENTITIES,
     CONF_DEVICE_LIMIT,
     CONF_DOWNLOAD_MBPS,
+    CONF_CAMBIUM_CLIENT_ID,
+    CONF_CAMBIUM_CLIENT_SECRET,
+    CONF_CAMBIUM_PORTAL,
+    CONF_CAMBIUM_VOUCHER_PLAN,
     CONF_ENABLE_ACCESS,
+    CONF_ENABLE_NUKI,
     CONF_ENABLE_VOUCHERS,
+    CONF_MANUAL_WIFI_CODE,
+    CONF_VOUCHER_PROVIDER,
+    CONF_NUKI_SMARTLOCK_ID,
+    CONF_NUKI_TOKEN,
     CONF_EXTRA_DAYS,
     CONF_GUEST_BASE_URL,
+    CONF_GUEST_MAIL_DAYS,
+    CONF_GUEST_MAIL_SERVICE,
+    CONF_WIFI_SSID,
+    DEFAULT_WIFI_SSID,
+    CONF_ALARM_CODE,
+    CONF_HOUSE_MODE_ENTITY,
+    CONF_OUTDOOR_TEMPERATURE,
+    CONF_POOL_PH,
+    CONF_POOL_TEMPERATURE,
     CONF_HOST,
     CONF_JOURNAL_PATH,
     CONF_LEAD_DAYS,
@@ -41,6 +61,7 @@ from .const import (
     CONF_PORT,
     CONF_PRINT_EVENT,
     CONF_SITE_ID,
+    CONF_SITE_NAME,
     CONF_TITLE_BLOCKLIST,
     CONF_UPLOAD_MBPS,
     CONF_VERIFY_SSL,
@@ -48,28 +69,41 @@ from .const import (
     DEFAULT_DEVICE_LIMIT,
     DEFAULT_DOWNLOAD_MBPS,
     DEFAULT_EXTRA_DAYS,
+    DEFAULT_GUEST_MAIL_DAYS,
     DEFAULT_JOURNAL_PATH,
     DEFAULT_LEAD_DAYS,
     DEFAULT_LOOKAHEAD_DAYS,
     DEFAULT_MAX_STAY_DAYS,
     DEFAULT_TITLE_BLOCKLIST,
     DEFAULT_UPLOAD_MBPS,
+    DEFAULT_VOUCHER_PROVIDER,
     DASHBOARD_URL,
     DOMAIN,
+    VOUCHER_PROVIDER_CAMBIUM,
+    VOUCHER_PROVIDER_MANUAL,
+    VOUCHER_PROVIDER_UNIFI,
+    OWNER_DASHBOARD_URL,
+    EVENT_DEMO,
     EVENT_JOURNAL,
     EVENT_PRINT,
     STORAGE_VERSION,
     UPDATE_INTERVAL,
 )
-from .dashboard import async_ensure_dashboard
+from .access import user_can_manage_stays
+from .dashboard import async_ensure_dashboard, async_ensure_owner_dashboard
 from .engine import async_synchronize
+from .nuki import NukiClient
 from .guest_session import (
     PREVIEW_KEY,
     build_preview_record,
     find_record_by_token,
     guest_path,
+    guest_welcome_message,
+    issued_account_view,
+    open_issued_records,
     public_guest_url,
     stay_is_open,
+    welcome_mail_due,
 )
 from .journal import Journal, JournalPathError, resolve_journal_path
 from .planning import (
@@ -79,6 +113,7 @@ from .planning import (
     select_current,
     stored_keys_in_window,
 )
+from .cambium import CambiumAuthError, CambiumClient, CambiumError
 from .redact import SecretLogFilter, redact
 from .unifi import UnifiAuthError, UnifiClient, UnifiError
 
@@ -114,7 +149,7 @@ class UsvegliuRuntime:
         self,
         hass: HomeAssistant,
         entry: ConfigEntry,
-        client: UnifiClient,
+        client: UnifiClient | None,
         journal: Journal,
         store: Store,
         log_filter: SecretLogFilter,
@@ -127,10 +162,16 @@ class UsvegliuRuntime:
         self.store = store
         self.log_filter = log_filter
         self._stays: dict[str, dict[str, Any]] = {}
+        self._history: list[dict[str, Any]] = []
         self._shared: dict[str, Any] | None = None
         self._force_voucher: set[str] = set()
         self._force_access: set[str] = set()
+        self._force_nuki: set[str] = set()
+        self._force_revoke_voucher: set[str] = set()
+        self._force_revoke_access: set[str] = set()
+        self._force_revoke_nuki: set[str] = set()
         self._resend: set[str] = set()
+        self._mail_force_keys: set[str] = set()
         self._print: set[str] = set()
         self._overrides: dict[str, dict[str, Any]] = {}
         self._preview: dict[str, Any] | None = None
@@ -138,6 +179,12 @@ class UsvegliuRuntime:
         self.coordinator: DataUpdateCoordinator[dict[str, Any]] | None = None
         self._accounts = _AccountBridge(self)
         self._dashboard_signature: str | None = None
+        self._last_dashboard: dict[str, Any] = {}
+        self._weather: dict[str, Any] | None = None
+        self._weather_at = None
+        self._weather_key: str | None = None
+        self._demo_on = False
+        self._demo: dict[str, Any] | None = None
 
     def tenant_entity_ids(self) -> list[str]:
         """Entities selected for tenants, including the previous three lists."""
@@ -153,6 +200,181 @@ class UsvegliuRuntime:
     def tenant_device_ids(self) -> list[str]:
         """Devices whose entities the tenant may use."""
         return list(self.entry.options.get(CONF_TENANT_DEVICES) or [])
+
+    def house_mode_entity_id(self) -> str | None:
+        """Owner switch for house-wide heat vs cool. Not a tenant entity."""
+        value = str(self.entry.options.get(CONF_HOUSE_MODE_ENTITY) or "").strip()
+        return value or None
+
+    def telemetry_entity_ids(self) -> dict[str, str]:
+        """Read-only outdoor/pool sensors shown on the guest app."""
+        mapping = {
+            "outdoor": CONF_OUTDOOR_TEMPERATURE,
+            "pool_temp": CONF_POOL_TEMPERATURE,
+            "pool_ph": CONF_POOL_PH,
+        }
+        found: dict[str, str] = {}
+        for kind, key in mapping.items():
+            entity_id = str(self.entry.options.get(key) or "").strip()
+            if entity_id:
+                found[kind] = entity_id
+        return found
+
+    def guest_watch_ids(self, record: dict[str, Any]) -> set[str]:
+        """Entities whose changes should refresh the guest stream."""
+        watched = set(self.allowed_entity_ids(record))
+        mode_entity = self.house_mode_entity_id()
+        if mode_entity:
+            watched.add(mode_entity)
+        watched.update(self.telemetry_entity_ids().values())
+        return watched
+
+    def alarm_code(self) -> str | None:
+        code = str(self.entry.options.get(CONF_ALARM_CODE) or "").strip()
+        return code or None
+
+    def guest_brand(self) -> dict[str, str]:
+        """Resolved Maison brand (U Svegliu or 49 Ledbury)."""
+        from .branding import brand_from_options
+
+        return brand_from_options(self.entry.options)
+
+    def wifi_ssid(self) -> str:
+        """Hotspot name shown to the guest. Theme supplies the default SSID."""
+        configured = str(
+            self.entry.options.get(CONF_WIFI_SSID)
+            or self.entry.data.get(CONF_WIFI_SSID)
+            or ""
+        ).strip()
+        if configured:
+            return configured
+        return self.guest_brand().get("wifi_ssid_default") or DEFAULT_WIFI_SSID
+
+    def nuki_client(self) -> NukiClient | None:
+        """Nuki Web API client when a token is stored. None otherwise."""
+        token = str(self.entry.options.get(CONF_NUKI_TOKEN) or "").strip()
+        if not token:
+            return None
+        raw_id = str(self.entry.options.get(CONF_NUKI_SMARTLOCK_ID) or "").strip()
+        smartlock_id = None
+        if raw_id:
+            try:
+                smartlock_id = int(raw_id)
+            except ValueError:
+                smartlock_id = None
+        return NukiClient(self.session, token, smartlock_id=smartlock_id)
+
+    def voucher_provider(self) -> str:
+        """Which Wi-Fi voucher backend is selected (unifi, cambium or manual)."""
+        raw = str(
+            self.entry.options.get(CONF_VOUCHER_PROVIDER) or DEFAULT_VOUCHER_PROVIDER
+        ).strip()
+        if raw == VOUCHER_PROVIDER_MANUAL:
+            return VOUCHER_PROVIDER_MANUAL
+        if raw == VOUCHER_PROVIDER_CAMBIUM:
+            return VOUCHER_PROVIDER_CAMBIUM
+        # Cambium-only installs have no UniFi key: force EasyPass.
+        if self.client is None:
+            return VOUCHER_PROVIDER_CAMBIUM
+        return VOUCHER_PROVIDER_UNIFI
+
+    def manual_wifi_code(self) -> str | None:
+        """Shared guest Wi-Fi code when vouchers are entered by hand."""
+        code = str(self.entry.options.get(CONF_MANUAL_WIFI_CODE) or "").strip()
+        return code or None
+
+    def cambium_client(self) -> CambiumClient | None:
+        """EasyPass client when Cambium credentials are complete."""
+        options = self.entry.options
+        client_id = str(options.get(CONF_CAMBIUM_CLIENT_ID) or "").strip()
+        client_secret = str(options.get(CONF_CAMBIUM_CLIENT_SECRET) or "").strip()
+        portal = str(options.get(CONF_CAMBIUM_PORTAL) or "").strip()
+        plan = str(options.get(CONF_CAMBIUM_VOUCHER_PLAN) or "").strip()
+        if not (client_id and client_secret and portal and plan):
+            return None
+        return CambiumClient(
+            self.session,
+            client_id=client_id,
+            client_secret=client_secret,
+            portal_name=portal,
+            voucher_plan=plan,
+        )
+
+    def voucher_client(self) -> UnifiClient | CambiumClient | None:
+        """Directory used by the stay engine for hotspot codes."""
+        provider = self.voucher_provider()
+        if provider == VOUCHER_PROVIDER_MANUAL:
+            return None
+        if provider == VOUCHER_PROVIDER_CAMBIUM:
+            return self.cambium_client()
+        return self.client
+
+    def nuki_pin_option(self) -> bool:
+        """True when the owner asked for per-stay Keypad PINs.
+
+        Independent of using the Nuki ``lock`` entity in Maison to open
+        or close the door.
+        """
+        return bool(self.entry.options.get(CONF_ENABLE_NUKI, False))
+
+    def nuki_enabled(self) -> bool:
+        """True when keypad PINs should be created for new stays."""
+        return self.nuki_pin_option() and self.nuki_client() is not None
+
+    def demo_mode(self) -> bool:
+        """True while the guest app shows the synthetic villa."""
+        return self._demo_on
+
+    def demo_villa(self) -> dict[str, Any] | None:
+        """In-memory demo catalog, or None when the switch is off."""
+        if not self._demo_on:
+            return None
+        if self._demo is None:
+            from .demo import build_demo_villa
+
+            self._demo = build_demo_villa()
+        return self._demo
+
+    async def async_set_demo_mode(self, enabled: bool) -> None:
+        """Turn the guest demo villa on or off and persist the switch."""
+        from .demo import build_demo_villa
+
+        self._demo_on = bool(enabled)
+        if self._demo_on and self._demo is None:
+            self._demo = build_demo_villa()
+        await self._persist(self._stays, self._shared)
+        self.hass.bus.async_fire(EVENT_DEMO)
+        if self.coordinator is not None and self.coordinator.data is not None:
+            self.coordinator.async_set_updated_data(self.coordinator.data)
+
+    def weather(self) -> dict[str, Any] | None:
+        """Last forecast for the house place, or None until the first fetch."""
+        return self._weather
+
+    async def async_ensure_weather(self) -> dict[str, Any] | None:
+        """Refresh weather when the cache is empty, stale, or the place changed."""
+        from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+        from .weather import async_fetch_weather, weather_is_fresh
+
+        brand = self.guest_brand()
+        place = str(brand.get("weather_place") or "lumio")
+        locale = str(brand.get("locale") or "fr")
+        cache_key = f"{place}:{locale}"
+        now = dt_util.utcnow()
+        if (
+            self._weather_key == cache_key
+            and weather_is_fresh(self._weather_at, now)
+            and self._weather
+        ):
+            return self._weather
+        session = async_get_clientsession(self.hass)
+        fetched = await async_fetch_weather(session, place=place, locale=locale)
+        if fetched:
+            self._weather = fetched
+            self._weather_at = now
+            self._weather_key = cache_key
+        return self._weather
 
     async def async_load(self) -> None:
         """Load the private stay store."""
@@ -171,6 +393,16 @@ class UsvegliuRuntime:
         preview = raw.get("guest_preview")
         if isinstance(preview, dict):
             self._preview = _scrub_secrets(preview)
+        self._demo_on = bool(raw.get("demo_mode"))
+        if self._demo_on:
+            from .demo import build_demo_villa
+
+            self._demo = build_demo_villa()
+        history = raw.get("stay_history")
+        if isinstance(history, list):
+            self._history = [
+                item for item in history if isinstance(item, dict)
+            ][-40:]
         self._stays = {key: _scrub_secrets(value) for key, value in self._stays.items()}
         self._refresh_log_filter()
 
@@ -187,6 +419,8 @@ class UsvegliuRuntime:
                 "shared_user": self._shared,
                 "overrides": self._overrides,
                 "guest_preview": self._preview,
+                "stay_history": self._history,
+                "demo_mode": self._demo_on,
             }
         )
         self._refresh_log_filter()
@@ -195,9 +429,18 @@ class UsvegliuRuntime:
         secrets = [str(self.entry.data.get(CONF_API_KEY) or "")]
         for record in self._stays.values():
             secrets.append(str(record.get("voucher_code") or ""))
+            secrets.append(str(record.get("nuki_code") or ""))
             secrets.append(str(record.get("guest_token") or ""))
+            secrets.append(str(record.get("password") or ""))
+            secrets.append(str(record.get("guest_email") or ""))
+        if self._shared:
+            secrets.append(str(self._shared.get("password") or ""))
         if self._preview:
             secrets.append(str(self._preview.get("guest_token") or ""))
+        secrets.append(str(self.entry.options.get(CONF_ALARM_CODE) or ""))
+        secrets.append(str(self.entry.options.get(CONF_NUKI_TOKEN) or ""))
+        secrets.append(str(self.entry.options.get(CONF_CAMBIUM_CLIENT_SECRET) or ""))
+        secrets.append(str(self.entry.options.get(CONF_MANUAL_WIFI_CODE) or ""))
         self.log_filter.update(secrets, owner=self.entry.entry_id)
 
     def _option_int(self, key: str, default: int) -> int:
@@ -210,6 +453,7 @@ class UsvegliuRuntime:
         """Run one cycle. Notifications are sent after the lock is released."""
         async with self._lock:
             snapshot, result = await self._sync_locked()
+        await self.async_ensure_weather()
         await self._emit(result)
         if self.coordinator is not None:
             self.coordinator.async_set_updated_data(snapshot)
@@ -242,6 +486,8 @@ class UsvegliuRuntime:
                 uid=getattr(event, "uid", None),
                 recurrence_id=getattr(event, "recurrence_id", None),
                 status=str(status_text) if status_text is not None else None,
+                description=_event_text(event, "description"),
+                location=_event_text(event, "location"),
                 blocklist=blocklist,
                 max_stay_days=max_stay,
                 tz=now.tzinfo,
@@ -261,18 +507,34 @@ class UsvegliuRuntime:
             known_keys=known,
         )
         enable_vouchers = bool(options.get(CONF_ENABLE_VOUCHERS, True))
+        if self.voucher_provider() == VOUCHER_PROVIDER_MANUAL:
+            enable_vouchers = False
         enable_access = bool(options.get(CONF_ENABLE_ACCESS, True))
+        voucher_dir = self.voucher_client() if enable_vouchers else None
+        if enable_vouchers and voucher_dir is None:
+            raise UpdateFailed("cambium_incomplete")
+        keypad = self.nuki_client()
+        enable_nuki = self.nuki_enabled()
+        resend_keys = set(self._resend)
+        previous_stays = {key: dict(value) for key, value in self._stays.items()}
         try:
             result = await async_synchronize(
                 plan,
                 self._stays,
                 self._shared,
-                vouchers=self.client if enable_vouchers else None,
+                now=now,
+                vouchers=voucher_dir,
                 accounts=self._accounts if enable_access else None,
+                keypad=keypad,
                 enable_vouchers=enable_vouchers,
                 enable_access=enable_access,
+                enable_nuki=enable_nuki,
                 force_rotate_keys=set(self._force_access),
                 force_voucher_keys=set(self._force_voucher),
+                force_nuki_keys=set(self._force_nuki),
+                force_revoke_access_keys=set(self._force_revoke_access),
+                force_revoke_voucher_keys=set(self._force_revoke_voucher),
+                force_revoke_nuki_keys=set(self._force_revoke_nuki),
                 print_keys=set(self._print),
                 resend_keys=set(self._resend),
                 emit_print_on_create=bool(options.get(CONF_PRINT_EVENT, False)),
@@ -282,23 +544,30 @@ class UsvegliuRuntime:
                 device_ids=self.tenant_device_ids(),
                 overrides=self._overrides,
             )
-        except UnifiAuthError as err:
+        except (UnifiAuthError, CambiumAuthError) as err:
             raise ConfigEntryAuthFailed from err
-        except UnifiError as err:
+        except (UnifiError, CambiumError) as err:
             raise UpdateFailed(str(err)) from err
         finally:
             self._force_access.clear()
             self._force_voucher.clear()
+            self._force_nuki.clear()
+            self._force_revoke_access.clear()
+            self._force_revoke_voucher.clear()
+            self._force_revoke_nuki.clear()
             self._print.clear()
             self._resend.clear()
 
         self._stays = result.stays
         self._shared = result.shared_user
-        await self._persist(result.stays, result.shared_user)
+        self._archive_closed(previous_stays)
+        self._apply_guest_emails(parsed)
+        self._mail_force_keys = resend_keys
+        await self._persist(self._stays, self._shared)
         for row in result.journal:
             await self.journal.async_append(row)
         await self._async_dashboard()
-        snapshot = _snapshot(result.stays, result.shared_user, now, self)
+        snapshot = _snapshot(self._stays, self._shared, now, self)
         return snapshot, result
 
     async def _emit(self, result: object) -> None:
@@ -315,6 +584,11 @@ class UsvegliuRuntime:
             self.hass.bus.async_fire(EVENT_PRINT, event)
         for note in result.notifications:  # type: ignore[attr-defined]
             await self._async_notify(note)
+        await self._async_send_due_welcome_mail(
+            dt_util.now(),
+            force_keys=set(getattr(self, "_mail_force_keys", ())),
+        )
+        self._mail_force_keys = set()
 
     async def _async_notify(self, note: dict[str, str]) -> None:
         lines = [
@@ -323,18 +597,17 @@ class UsvegliuRuntime:
         ]
         if note.get("code"):
             lines.append(f"Code Wi-Fi : {note['code']}")
+        if note.get("nuki_code"):
+            lines.append(f"Code porte : {note['nuki_code']}")
         if note.get("username"):
             lines.append(f"Utilisateur Home Assistant : {note['username']}")
         if note.get("password"):
             lines.append(f"Mot de passe : {note['password']}")
-            lines.append(
-                "Ce mot de passe n'est pas archivé. Notez-le maintenant : "
-                "il disparaît avec cette notification."
-            )
+            lines.append("Le mot de passe est aussi visible sur la Console.")
         elif note.get("username"):
             lines.append(
-                "Le mot de passe n'est pas conservé. "
-                "Régénérez l'accès pour en afficher un nouveau."
+                "Mot de passe : ouvrez la Console, ou touchez "
+                "Nouveau mot de passe si rien n'est affiché."
             )
         lines.append(f"Tableau de bord : /{DASHBOARD_URL}")
         stay = self._stays.get(note.get("reservation_id") or "")
@@ -373,20 +646,142 @@ class UsvegliuRuntime:
             blocking=False,
         )
 
+    def _entity_id_for(self, unique_suffix: str, fallback: str) -> str:
+        """Resolve a sensor entity id from the registry, with a stable fallback."""
+        unique = f"{self.entry.entry_id}_{unique_suffix}"
+        try:
+            from homeassistant.helpers import entity_registry as er
+
+            entity_id = er.async_get(self.hass).async_get_entity_id(
+                "sensor", DOMAIN, unique
+            )
+            if entity_id:
+                return str(entity_id)
+        except Exception:  # noqa: BLE001 — tests and early setup
+            pass
+        return fallback
+
+    def _sejours_entity_id(self) -> str:
+        """Entity id of the owner roster sensor, if the registry knows it."""
+        return self._entity_id_for("sejours", "sensor.usvegliu_sejours")
+
+    def _reglages_entity_id(self) -> str:
+        """Entity id of the owner settings sensor."""
+        return self._entity_id_for("reglages", "sensor.usvegliu_reglages")
+
+    def _voucher_entity_id(self) -> str:
+        """Entity id of the current Wi-Fi code sensor."""
+        return self._entity_id_for("voucher_code", "sensor.usvegliu_code_voucher")
+
+    def owner_settings(self) -> dict[str, Any]:
+        """Options in force for the Console. No API key, alarm code or password."""
+        options = self.entry.options
+        data = self.entry.data
+        mode = str(options.get(CONF_ACCESS_MODE) or DEFAULT_ACCESS_MODE)
+        labels = {
+            ACCESS_PER_STAY: "un compte par séjour",
+            ACCESS_SHARED: "compte locataire unique",
+        }
+        telemetry = self.telemetry_entity_ids()
+        journal_path = ""
+        path = getattr(self.journal, "path", None)
+        if path is not None:
+            journal_path = str(path)
+        return {
+            "calendar": str(options.get(CONF_CALENDAR) or ""),
+            "lead_days": self._option_int(CONF_LEAD_DAYS, DEFAULT_LEAD_DAYS),
+            "extra_days": self._option_int(CONF_EXTRA_DAYS, DEFAULT_EXTRA_DAYS),
+            "lookahead_days": self._option_int(
+                CONF_LOOKAHEAD_DAYS, DEFAULT_LOOKAHEAD_DAYS
+            ),
+            "max_stay_days": self._option_int(CONF_MAX_STAY_DAYS, DEFAULT_MAX_STAY_DAYS),
+            "title_blocklist": str(
+                options.get(CONF_TITLE_BLOCKLIST) or DEFAULT_TITLE_BLOCKLIST
+            ),
+            "enable_access": bool(options.get(CONF_ENABLE_ACCESS, True)),
+            "enable_vouchers": bool(options.get(CONF_ENABLE_VOUCHERS, True)),
+            "voucher_provider": self.voucher_provider(),
+            "cambium_configured": self.cambium_client() is not None,
+            "manual_wifi_configured": bool(self.manual_wifi_code()),
+            "enable_nuki": self.nuki_pin_option(),
+            "nuki_configured": self.nuki_client() is not None,
+            "access_mode": mode,
+            "access_mode_label": labels.get(mode, mode),
+            "allow_remote": bool(options.get(CONF_ALLOW_REMOTE, False)),
+            "tenant_entity_count": len(self.tenant_entity_ids()),
+            "tenant_device_count": len(self.tenant_device_ids()),
+            "device_limit": self._option_int(CONF_DEVICE_LIMIT, DEFAULT_DEVICE_LIMIT),
+            "download_mbps": self._option_int(
+                CONF_DOWNLOAD_MBPS, DEFAULT_DOWNLOAD_MBPS
+            ),
+            "upload_mbps": self._option_int(CONF_UPLOAD_MBPS, DEFAULT_UPLOAD_MBPS),
+            "site": str(data.get(CONF_SITE_NAME) or data.get(CONF_SITE_ID) or ""),
+            "host": str(data.get(CONF_HOST) or ""),
+            "house_mode_entity": self.house_mode_entity_id() or "",
+            "outdoor_temperature": telemetry.get("outdoor") or "",
+            "pool_temperature": telemetry.get("pool_temp") or "",
+            "pool_ph": telemetry.get("pool_ph") or "",
+            "alarm_configured": bool(self.alarm_code()),
+            "journal_path": journal_path,
+            "notify_service": str(options.get(CONF_NOTIFY_SERVICE) or ""),
+            "guest_mail_service": str(options.get(CONF_GUEST_MAIL_SERVICE) or ""),
+            "guest_mail_days": self._option_int(
+                CONF_GUEST_MAIL_DAYS, DEFAULT_GUEST_MAIL_DAYS
+            ),
+            "print_event": bool(options.get(CONF_PRINT_EVENT, False)),
+            "guest_base_url": str(options.get(CONF_GUEST_BASE_URL) or ""),
+            "guest_theme": self.guest_brand()["id"],
+            "guest_locale": self.guest_brand().get("locale", "fr"),
+            "brand_name": self.guest_brand()["name"],
+            "wifi_ssid": self.wifi_ssid(),
+            "demo_mode": self.demo_mode(),
+        }
+
     async def _async_dashboard(self) -> None:
         from homeassistant.helpers import issue_registry as ir
 
         entities = self._dashboard_entity_ids()
-        signature = repr(entities)
+        stay_keys = tuple(sorted(self._stays))
+        preview = bool(self._preview and self._preview.get("guest_token"))
+        telemetry = self.telemetry_entity_ids()
+        signature = repr(
+            (
+                entities,
+                stay_keys,
+                preview,
+                self.house_mode_entity_id(),
+                tuple(sorted(telemetry.items())),
+                self._sejours_entity_id(),
+                self._reglages_entity_id(),
+                self._voucher_entity_id(),
+            )
+        )
         if signature == self._dashboard_signature:
             return
         try:
-            created = await async_ensure_dashboard(self.hass, entities)
+            outcome = await async_ensure_dashboard(self.hass, entities)
         except Exception:  # noqa: BLE001 — dashboard failure must not revoke access
             _LOGGER.warning("Tableau de bord Usvegliu non mis à jour")
-            created = False
-        if created:
-            self._dashboard_signature = signature
+            outcome = {"ok": False, "reason": "exception", "url": DASHBOARD_URL}
+        owner_rows = _issued_rows(self, self._stays, self._shared, dt_util.now())
+        try:
+            owner = await async_ensure_owner_dashboard(
+                self.hass,
+                owner_rows,
+                sejours_entity_id=self._sejours_entity_id(),
+                reglages_entity_id=self._reglages_entity_id(),
+                voucher_entity_id=self._voucher_entity_id(),
+                house_mode_entity=self.house_mode_entity_id(),
+                outdoor_entity=telemetry.get("outdoor"),
+                pool_temp_entity=telemetry.get("pool_temp"),
+                pool_ph_entity=telemetry.get("pool_ph"),
+                tenant_entities=entities,
+            )
+        except Exception:  # noqa: BLE001
+            _LOGGER.warning("Console propriétaire Usvegliu non mise à jour")
+            owner = {"ok": False, "reason": "exception", "url": OWNER_DASHBOARD_URL}
+        self._last_dashboard = {**outcome, "owner": owner}
+        if outcome.get("ok"):
             ir.async_delete_issue(self.hass, DOMAIN, "dashboard_missing")
         else:
             ir.async_create_issue(
@@ -398,6 +793,20 @@ class UsvegliuRuntime:
                 translation_key="dashboard_missing",
                 translation_placeholders={"url_path": DASHBOARD_URL},
             )
+        if owner.get("ok"):
+            ir.async_delete_issue(self.hass, DOMAIN, "owner_dashboard_missing")
+        else:
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                "owner_dashboard_missing",
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key="owner_dashboard_missing",
+                translation_placeholders={"url_path": OWNER_DASHBOARD_URL},
+            )
+        if outcome.get("ok") and owner.get("ok"):
+            self._dashboard_signature = signature
 
     def _dashboard_entity_ids(self) -> list[str]:
         """Entities to show, plus every entity of a selected device."""
@@ -440,9 +849,22 @@ class UsvegliuRuntime:
             )
         return self.expand_entity_ids(entities, devices)
 
-    def guest_record(self, token: str) -> dict[str, Any] | None:
-        """Stay or preview bound to the URL token, if still valid."""
-        return find_record_by_token(self._stays, self._preview, token, dt_util.now())
+    def guest_record(
+        self, token: str, *, require_active: bool = True
+    ) -> dict[str, Any] | None:
+        """Stay or preview bound to the URL token.
+
+        ``require_active`` is False when the HTTP layer needs to tell a
+        guest the link exists but opens on the arrival day.
+        """
+        return find_record_by_token(
+            self._stays,
+            self._preview,
+            token,
+            dt_util.now(),
+            require_active=require_active,
+            extra_days=self._option_int(CONF_EXTRA_DAYS, DEFAULT_EXTRA_DAYS),
+        )
 
     def guest_link(self, record: dict[str, Any]) -> dict[str, str]:
         """Admin-facing path and public URL for one token."""
@@ -463,6 +885,130 @@ class UsvegliuRuntime:
             "guest": str(record.get("guest") or ""),
             "check_out": str(record.get("check_out") or ""),
         }
+
+    def _archive_closed(self, previous: dict[str, dict[str, Any]]) -> None:
+        """Keep a short stay roster after checkout, without secrets."""
+        active = set(self._stays)
+        self._history = [
+            item
+            for item in self._history
+            if str(item.get("key") or "") not in active
+        ]
+        now = dt_util.now().isoformat()
+        for key, record in previous.items():
+            if key in active or key == PREVIEW_KEY or record.get("preview"):
+                continue
+            entry = {
+                "key": key,
+                "guest": str(record.get("guest") or ""),
+                "check_in": str(record.get("check_in") or ""),
+                "check_out": str(record.get("check_out") or ""),
+                "closed": now,
+            }
+            self._history = [
+                item for item in self._history if str(item.get("key") or "") != key
+            ]
+            self._history.append(entry)
+        self._history = self._history[-40:]
+
+    def journal_preview(self) -> list[dict[str, str]]:
+        """Recent journal rows for the Console. Codes stay in the CSV."""
+        try:
+            return self.journal.recent_public(30)
+        except Exception:  # noqa: BLE001
+            return []
+
+    def _apply_guest_emails(self, stays: list[Any]) -> None:
+        """Copy calendar emails onto stored stays. Keep the last known address."""
+        found = {item.key: item.email for item in stays if getattr(item, "email", "")}
+        for key, record in self._stays.items():
+            email = found.get(key) or ""
+            if not email:
+                continue
+            previous = str(record.get("guest_email") or "")
+            record["guest_email"] = email
+            if previous and previous.casefold() != email.casefold():
+                record.pop("welcome_mail_sent", None)
+
+    async def _async_send_due_welcome_mail(
+        self, now: Any, *, force_keys: set[str]
+    ) -> None:
+        service = str(self.entry.options.get(CONF_GUEST_MAIL_SERVICE) or "").strip()
+        if not service:
+            return
+        days = self._option_int(CONF_GUEST_MAIL_DAYS, DEFAULT_GUEST_MAIL_DAYS)
+        vouchers_on = bool(self.entry.options.get(CONF_ENABLE_VOUCHERS, True))
+        sent_any = False
+        for key, record in list(self._stays.items()):
+            if record.get("preview"):
+                continue
+            email = str(record.get("guest_email") or "").strip()
+            if not email:
+                continue
+            forced = key in force_keys
+            if not forced and not welcome_mail_due(record, now, days=days):
+                continue
+            if vouchers_on and not record.get("voucher_code") and not record.get(
+                "voucher_revoked"
+            ):
+                continue
+            if self.nuki_enabled() and not record.get("nuki_code") and not record.get(
+                "nuki_revoked"
+            ):
+                continue
+            token = str(record.get("guest_token") or "")
+            if not token:
+                continue
+            link = self.guest_link(record)["url"]
+            include_pin = self.nuki_pin_option()
+            brand = self.guest_brand()
+            stay_code = str(record.get("voucher_code") or "").strip() or None
+            if not stay_code and not record.get("voucher_revoked"):
+                stay_code = self.manual_wifi_code()
+            body = guest_welcome_message(
+                guest=str(record.get("guest") or ""),
+                check_in=str(record.get("check_in") or ""),
+                check_out=str(record.get("check_out") or ""),
+                lien_maison=link,
+                wifi_ssid=self.wifi_ssid(),
+                voucher_code=stay_code,
+                voucher_revoked=bool(record.get("voucher_revoked")),
+                nuki_code=(
+                    str(record.get("nuki_code") or "") or None if include_pin else None
+                ),
+                nuki_revoked=bool(record.get("nuki_revoked")) if include_pin else False,
+                preview=False,
+                house_name=brand["welcome_house"],
+                team_name=brand["team"],
+            )
+            try:
+                await self.hass.services.async_call(
+                    "notify",
+                    _notify_service_name(service),
+                    {
+                        "title": brand["name"],
+                        "message": body,
+                        "target": [email],
+                    },
+                    blocking=True,
+                )
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception("Guest welcome mail failed")
+                continue
+            record["welcome_mail_sent"] = now.isoformat()
+            sent_any = True
+            await self.journal.async_append(
+                {
+                    "action": "message_envoye",
+                    "reservation_id": key,
+                    "locataire": str(record.get("guest") or ""),
+                    "debut": str(record.get("check_in") or ""),
+                    "fin": str(record.get("check_out") or ""),
+                    "detail": "mail_accueil",
+                }
+            )
+        if sent_any:
+            await self._persist(self._stays, self._shared)
 
     async def _async_guest_link(self, data: dict[str, Any]) -> dict[str, Any]:
         """Return (and optionally mint) a guest URL without talking to UniFi."""
@@ -546,17 +1092,18 @@ class UsvegliuRuntime:
                 raise UpdateFailed("unknown_reservation")
             return key
         now = dt_util.now()
-        current = select_current(self._stays, now)
+        extra = self._option_int(CONF_EXTRA_DAYS, DEFAULT_EXTRA_DAYS)
+        current = select_current(self._stays, now, extra)
         if current is None:
             for record in self._stays.values():
-                if record.get("guest_token") and stay_is_open(record, now):
+                if record.get("guest_token") and stay_is_open(record, now, extra):
                     return str(record["key"])
             raise UpdateFailed("no_active_stay")
         return str(current["key"])
 
     async def async_handle_service(self, call: ServiceCall) -> dict[str, Any]:
-        """Execute an admin service and return a response without extra secrets."""
-        await _async_require_admin(self.hass, call)
+        """Execute a manager service and return a response without extra secrets."""
+        await _async_require_manager(self.hass, call)
         key = call.data.get("reservation_key")
         action = call.service
         if action == "lien_maison":
@@ -566,17 +1113,31 @@ class UsvegliuRuntime:
             resolved = None
             if action == "reglages_sejour":
                 self._apply_stay_settings(call.data)
-            elif action not in {"appliquer_tableau", "exporter_journal"}:
+            elif action not in {
+                "appliquer_tableau",
+                "exporter_journal",
+                "relire_calendrier",
+            }:
                 resolved = self._resolve_key(key)
             if action == "regenerer_voucher" and resolved:
                 self._force_voucher.add(resolved)
+            elif action == "revoquer_voucher" and resolved:
+                self._force_revoke_voucher.add(resolved)
+            elif action == "regenerer_nuki" and resolved:
+                self._force_nuki.add(resolved)
+            elif action == "revoquer_nuki" and resolved:
+                self._force_revoke_nuki.add(resolved)
             elif action == "regenerer_acces" and resolved:
                 self._force_access.add(resolved)
+            elif action == "revoquer_acces" and resolved:
+                self._force_revoke_access.add(resolved)
             elif action == "renvoyer_notification" and resolved:
                 self._resend.add(resolved)
             elif action == "imprimer_voucher" and resolved:
                 self._print.add(resolved)
             elif action == "appliquer_tableau":
+                self._dashboard_signature = None
+            elif action == "relire_calendrier":
                 self._dashboard_signature = None
             snapshot, result = await self._sync_locked()
             printed = self._stays.get(resolved) if resolved else None
@@ -585,17 +1146,35 @@ class UsvegliuRuntime:
             self.coordinator.async_set_updated_data(snapshot)
         if action == "exporter_journal":
             return {"path": str(self.journal.path)}
+        if action == "appliquer_tableau":
+            return {
+                "delivered": True,
+                **(self._last_dashboard or {}),
+            }
+        if action == "relire_calendrier":
+            return {
+                "delivered": True,
+                "stay_count": snapshot.get("stay_count"),
+                "guest": snapshot.get("guest"),
+            }
         if action == "imprimer_voucher":
             return {
                 "reservation_id": resolved,
                 "guest": None if printed is None else printed.get("guest"),
                 "code": None if printed is None else printed.get("voucher_code"),
             }
-        return {
-            "reservation_id": snapshot.get("reservation_id"),
-            "guest": snapshot.get("guest"),
+        stay = printed or {}
+        payload = {
+            "reservation_id": resolved or snapshot.get("reservation_id"),
+            "guest": stay.get("guest") or snapshot.get("guest"),
             "delivered": True,
         }
+        if action in {"regenerer_acces", "revoquer_acces"}:
+            payload["username"] = stay.get("username")
+            payload["password"] = stay.get("password")
+        if action in {"regenerer_voucher", "revoquer_voucher"}:
+            payload["code"] = stay.get("voucher_code")
+        return payload
 
     def diagnostics(self) -> dict[str, Any]:
         """Redacted diagnostics. Codes, passwords and the API key are removed."""
@@ -605,6 +1184,8 @@ class UsvegliuRuntime:
                 "options": dict(self.entry.options),
                 "stay_count": len(self._stays),
                 "stays": list(self._stays.values()),
+                "stay_history": self._history,
+                "demo_mode": self._demo_on,
                 "shared_user": self._shared,
                 "snapshot": None
                 if self.coordinator is None
@@ -614,11 +1195,51 @@ class UsvegliuRuntime:
 
 
 def _scrub_secrets(record: dict[str, Any]) -> dict[str, Any]:
-    """Drop any password that an older version stored next to the stay."""
+    """Keep the owner password on the private stay store; drop aliases."""
     cleaned = dict(record)
-    cleaned.pop("password", None)
+    if not cleaned.get("password"):
+        alias = cleaned.get("mot_de_passe") or cleaned.get("code_compte")
+        if alias:
+            cleaned["password"] = alias
     cleaned.pop("mot_de_passe", None)
+    cleaned.pop("code_compte", None)
     return cleaned
+
+
+def _issued_rows(
+    runtime: UsvegliuRuntime,
+    stays: dict[str, dict[str, Any]],
+    shared: dict[str, Any] | None,
+    now: object,
+) -> list[dict[str, Any]]:
+    """Admin roster: every issued stay still open, plus a live preview."""
+    rows: list[dict[str, Any]] = []
+    extra = runtime._option_int(CONF_EXTRA_DAYS, DEFAULT_EXTRA_DAYS)
+    for record in open_issued_records(stays, runtime._preview, now, extra):  # type: ignore[arg-type]
+        link = runtime.guest_link(record)
+        username = (shared or {}).get("username") or record.get("username")
+        password = (shared or {}).get("password") or record.get("password")
+        view_record = dict(record)
+        if shared and shared.get("access_revoked"):
+            view_record["access_revoked"] = True
+            password = None
+        brand = runtime.guest_brand()
+        rows.append(
+            issued_account_view(
+                view_record,
+                username=None if username is None else str(username),
+                password=None if password is None else str(password),
+                lien_maison=str(link.get("url") or ""),
+                path=str(link.get("path") or ""),
+                tableau=f"/{DASHBOARD_URL}",
+                wifi_ssid=runtime.wifi_ssid(),
+                nuki_pins=runtime.nuki_pin_option(),
+                now=now,  # type: ignore[arg-type]
+                house_name=brand["welcome_house"],
+                team_name=brand["team"],
+            )
+        )
+    return rows
 
 
 def _snapshot(
@@ -627,7 +1248,29 @@ def _snapshot(
     now: object,
     runtime: UsvegliuRuntime,
 ) -> dict[str, Any]:
-    current = select_current(stays, now)  # type: ignore[arg-type]
+    rows = _issued_rows(runtime, stays, shared, now)
+    extra = runtime._option_int(CONF_EXTRA_DAYS, DEFAULT_EXTRA_DAYS)
+    current = select_current(stays, now, extra)  # type: ignore[arg-type]
+    lien_maison = None
+    password = None
+    if current is not None:
+        key = str(current.get("key") or "")
+        for row in rows:
+            if row.get("reservation_id") == key:
+                lien_maison = row.get("lien_maison")
+                password = row.get("password")
+                break
+    common = {
+        "stays": rows,
+        "stay_count": len(rows),
+        "historique": list(runtime._history),
+        "journal": runtime.journal_preview(),
+        "lien_maison": lien_maison,
+        "password": password,
+        "devices": runtime._option_int(CONF_DEVICE_LIMIT, DEFAULT_DEVICE_LIMIT),
+        "download_mbps": runtime._option_int(CONF_DOWNLOAD_MBPS, DEFAULT_DOWNLOAD_MBPS),
+        "upload_mbps": runtime._option_int(CONF_UPLOAD_MBPS, DEFAULT_UPLOAD_MBPS),
+    }
     if current is None:
         return {
             "voucher_code": None,
@@ -637,12 +1280,7 @@ def _snapshot(
             "voucher_id": None,
             "username": None,
             "reservation_id": None,
-            "stay_count": len(stays),
-            "devices": runtime._option_int(CONF_DEVICE_LIMIT, DEFAULT_DEVICE_LIMIT),
-            "download_mbps": runtime._option_int(
-                CONF_DOWNLOAD_MBPS, DEFAULT_DOWNLOAD_MBPS
-            ),
-            "upload_mbps": runtime._option_int(CONF_UPLOAD_MBPS, DEFAULT_UPLOAD_MBPS),
+            **common,
         }
     return {
         "voucher_code": current.get("voucher_code"),
@@ -652,10 +1290,7 @@ def _snapshot(
         "voucher_id": current.get("voucher_id"),
         "username": (shared or {}).get("username") or current.get("username"),
         "reservation_id": current.get("key"),
-        "stay_count": len(stays),
-        "devices": runtime._option_int(CONF_DEVICE_LIMIT, DEFAULT_DEVICE_LIMIT),
-        "download_mbps": runtime._option_int(CONF_DOWNLOAD_MBPS, DEFAULT_DOWNLOAD_MBPS),
-        "upload_mbps": runtime._option_int(CONF_UPLOAD_MBPS, DEFAULT_UPLOAD_MBPS),
+        **common,
     }
 
 
@@ -666,13 +1301,23 @@ def _notify_service_name(target: str) -> str:
     return target
 
 
-async def _async_require_admin(hass: HomeAssistant, call: ServiceCall) -> None:
+async def _async_require_manager(hass: HomeAssistant, call: ServiceCall) -> None:
+    """Allow admins and Users with control rights; refuse tenant logins."""
     user_id = call.context.user_id
     if not user_id:
         return
     user = await hass.auth.async_get_user(user_id)
-    if user is None or not user.is_admin:
+    if user is None or not user_can_manage_stays(user):
         raise Unauthorized()
+
+
+def _event_text(event: Any, name: str) -> str:
+    value = getattr(event, name, None)
+    if value:
+        return str(value)
+    if isinstance(event, dict):
+        return str(event.get(name) or "")
+    return ""
 
 
 async def _async_calendar_events(
@@ -697,9 +1342,15 @@ async def _async_calendar_events(
         raise UpdateFailed("calendar_unavailable") from err
 
 
-def build_client(hass: HomeAssistant, entry: ConfigEntry, session: object) -> UnifiClient:
-    """Build the UniFi client from a config entry. The key is not logged."""
+def build_client(
+    hass: HomeAssistant, entry: ConfigEntry, session: object
+) -> UnifiClient | None:
+    """Build the UniFi client, or None for a Cambium-only entry."""
+    from .branding import unifi_configured
+
     data = entry.data
+    if not unifi_configured(data):
+        return None
     return UnifiClient(
         session,  # type: ignore[arg-type]
         host=str(data[CONF_HOST]),
