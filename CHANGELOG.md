@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.82] — 2026-11-23
+
+### Corrigé
+- Bandeau Ledbury **transparent** (le vert de l’app apparaît derrière), location mieux espacée.
+
+[0.6.82]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.82
+
 ## [0.6.81] — 2026-11-23
 
 ### Corrigé
