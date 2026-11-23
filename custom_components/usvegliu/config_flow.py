@@ -52,10 +52,14 @@ from .const import (
     CONF_NUKI_TOKEN,
     CONF_EXTRA_DAYS,
     CONF_GUEST_BASE_URL,
+    CONF_GUEST_LOCALE,
     CONF_GUEST_MAIL_DAYS,
     CONF_GUEST_MAIL_SERVICE,
     CONF_GUEST_THEME,
     CONF_WIFI_SSID,
+    DEFAULT_GUEST_LOCALE,
+    GUEST_LOCALES,
+    LOCALE_EN,
     DEFAULT_GUEST_THEME,
     THEME_LEDBURY,
     THEME_USVEGLIU,
@@ -138,6 +142,16 @@ def _number(min_value: int, max_value: int) -> NumberSelector:
     )
 
 
+def _default_guest_locale(defaults: Mapping[str, Any]) -> str:
+    """Locale for the house form: saved value, else theme default."""
+    from .branding import normalize_guest_locale
+
+    return normalize_guest_locale(
+        defaults.get(CONF_GUEST_LOCALE),
+        theme=defaults.get(CONF_GUEST_THEME) or DEFAULT_GUEST_THEME,
+    )
+
+
 def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
     return vol.Schema(
         {
@@ -208,6 +222,16 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
                 SelectSelectorConfig(
                     options=[THEME_USVEGLIU, THEME_LEDBURY],
                     translation_key="guest_theme",
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Required(
+                CONF_GUEST_LOCALE,
+                default=_default_guest_locale(defaults),
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=list(GUEST_LOCALES),
+                    translation_key="guest_locale",
                     mode=SelectSelectorMode.DROPDOWN,
                 )
             ),
@@ -339,10 +363,13 @@ def _clean_options(
         cleaned.get(CONF_GUEST_MAIL_SERVICE) or ""
     ).strip()
     cleaned[CONF_GUEST_BASE_URL] = str(cleaned.get(CONF_GUEST_BASE_URL) or "").strip()
-    from .branding import normalize_guest_theme
+    from .branding import normalize_guest_locale, normalize_guest_theme
 
     cleaned[CONF_GUEST_THEME] = normalize_guest_theme(
         cleaned.get(CONF_GUEST_THEME) or DEFAULT_GUEST_THEME
+    )
+    cleaned[CONF_GUEST_LOCALE] = normalize_guest_locale(
+        cleaned.get(CONF_GUEST_LOCALE), theme=cleaned[CONF_GUEST_THEME]
     )
     cleaned[CONF_WIFI_SSID] = str(cleaned.get(CONF_WIFI_SSID) or "").strip()
     cleaned[CONF_HOUSE_MODE_ENTITY] = str(
@@ -549,6 +576,7 @@ class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_CAMBIUM_PORTAL: portal,
                         CONF_CAMBIUM_VOUCHER_PLAN: plan,
                         CONF_GUEST_THEME: THEME_LEDBURY,
+                        CONF_GUEST_LOCALE: LOCALE_EN,
                         CONF_WIFI_SSID: "49Ledbury-Guest",
                         CONF_ENABLE_VOUCHERS: True,
                     }
@@ -597,6 +625,7 @@ class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_VOUCHER_PROVIDER: VOUCHER_PROVIDER_MANUAL,
                 CONF_ENABLE_VOUCHERS: False,
                 CONF_GUEST_THEME: THEME_LEDBURY,
+                CONF_GUEST_LOCALE: LOCALE_EN,
                 CONF_WIFI_SSID: ssid or "49Ledbury-Guest",
                 CONF_MANUAL_WIFI_CODE: code,
             }

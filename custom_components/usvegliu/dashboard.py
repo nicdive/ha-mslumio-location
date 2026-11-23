@@ -477,6 +477,8 @@ def _settings_markdown(entity_id: str) -> str:
         "(J−{{ a.guest_mail_days }})\n"
         "- Impression auto : **{{ 'oui' if a.print_event else 'non' }}**\n"
         "- URL web app : `{{ a.guest_base_url or 'interne HA' }}`\n"
+        "- Thème : `{{ a.guest_theme or 'usvegliu' }}` · "
+        "Langue : `{{ a.guest_locale or 'fr' }}`\n"
     )
 
 

@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.49] — 2026-11-23
+
+### Ajouté
+- Option **Langue (Maison / console)** : Français ou English, à l’installation et dans les réglages (indépendant du thème).
+
+[0.6.49]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.49
+
 ## [0.6.48] — 2026-11-22
 
 ### Amélioré

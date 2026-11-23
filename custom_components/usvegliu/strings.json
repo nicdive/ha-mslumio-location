@@ -99,6 +99,7 @@
           "print_event": "Événement d'impression à la création",
           "guest_base_url": "URL publique de la web app",
           "guest_theme": "Thème Maison",
+          "guest_locale": "Langue (Maison / console)",
           "wifi_ssid": "Nom du réseau Wi-Fi",
           "house_mode_entity": "Switch chauffage / climatisation",
           "outdoor_temperature": "Température extérieure",
@@ -125,6 +126,7 @@
           "print_event": "Si activé, le code en clair part sur le bus (usvegliu_print_voucher) et peut finir dans les traces. Laisser désactivé sauf pour une imprimante.",
           "guest_base_url": "Origine vitrine, sans chemin. Ex. https://www.usvegliu.fr — le lien locataire sera /s/<token>. Vide = URL interne de Home Assistant.",
           "guest_theme": "U Svegliu (Corse) ou 49 Ledbury (Notting Hill). Chaque instance HA choisit son thème.",
+          "guest_locale": "Français ou English pour l’app Maison (textes, météo, mails d’accueil). Indépendant du thème.",
           "wifi_ssid": "SSID affiché au locataire dans Informations. Vide = le défaut du thème.",
           "house_mode_entity": "Interrupteur du propriétaire. Allumé = climatisation, éteint = chauffage. Le locataire le lit, il ne le commande pas.",
           "outdoor_temperature": "Affichée en coin sur la page Clim. Lecture seule.",
@@ -209,6 +211,7 @@
           "print_event": "Événement d'impression à la création",
           "guest_base_url": "URL publique de la web app",
           "guest_theme": "Thème Maison",
+          "guest_locale": "Langue (Maison / console)",
           "wifi_ssid": "Nom du réseau Wi-Fi",
           "house_mode_entity": "Switch chauffage / climatisation",
           "outdoor_temperature": "Température extérieure",
@@ -224,6 +227,7 @@
           "print_event": "Place le code en clair sur le bus. À n'activer que pour l'impression.",
           "guest_base_url": "Ex. https://www.usvegliu.fr. Vide = adresse interne de Home Assistant.",
           "guest_theme": "U Svegliu ou 49 Ledbury. Une instance HA = un thème.",
+          "guest_locale": "Français ou English pour Maison. Indépendant du thème.",
           "wifi_ssid": "SSID affiché au locataire. Vide = défaut du thème.",
           "house_mode_entity": "Allumé = climatisation, éteint = chauffage. Le locataire le lit, il ne le commande pas.",
           "outdoor_temperature": "Lecture seule, en coin sur la page Clim.",
@@ -268,6 +272,12 @@
       "options": {
         "usvegliu": "U Svegliu (Lumio)",
         "ledbury": "49 Ledbury (Notting Hill)"
+      }
+    },
+    "guest_locale": {
+      "options": {
+        "fr": "Français",
+        "en": "English"
       }
     }
   },

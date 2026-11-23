@@ -731,6 +731,7 @@ class UsvegliuRuntime:
             "print_event": bool(options.get(CONF_PRINT_EVENT, False)),
             "guest_base_url": str(options.get(CONF_GUEST_BASE_URL) or ""),
             "guest_theme": self.guest_brand()["id"],
+            "guest_locale": self.guest_brand().get("locale", "fr"),
             "brand_name": self.guest_brand()["name"],
             "wifi_ssid": self.wifi_ssid(),
             "demo_mode": self.demo_mode(),

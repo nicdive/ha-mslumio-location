@@ -9,8 +9,11 @@ from __future__ import annotations
 from typing import Any, Final, Mapping
 
 from .const import (
+    CONF_GUEST_LOCALE,
     CONF_GUEST_THEME,
     DEFAULT_GUEST_THEME,
+    LOCALE_EN,
+    LOCALE_FR,
     THEME_LEDBURY,
     THEME_USVEGLIU,
 )
@@ -54,12 +57,22 @@ _THEMES: Final[dict[str, dict[str, str]]] = {
 
 
 def brand_locale(brand: Mapping[str, Any] | None) -> str:
-    """Guest app language: fr (default) or en (Ledbury)."""
+    """Guest app language: fr (default) or en."""
     brand = brand or {}
     value = str(brand.get("locale") or "").strip().casefold()
     if value.startswith("en"):
-        return "en"
-    return "fr"
+        return LOCALE_EN
+    return LOCALE_FR
+
+
+def normalize_guest_locale(raw: object, *, theme: object = None) -> str:
+    """Return fr or en; empty/unknown falls back to the theme default."""
+    value = str(raw or "").strip().casefold()
+    if value.startswith("en"):
+        return LOCALE_EN
+    if value.startswith("fr"):
+        return LOCALE_FR
+    return brand_locale(guest_brand(theme))
 
 
 def brand_climate_fans(brand: Mapping[str, Any] | None) -> bool:
@@ -91,7 +104,11 @@ def guest_brand(theme: object = None) -> dict[str, str]:
 def brand_from_options(options: Mapping[str, Any] | None) -> dict[str, str]:
     """Resolve the brand from a config entry options mapping."""
     options = options or {}
-    return guest_brand(options.get(CONF_GUEST_THEME) or DEFAULT_GUEST_THEME)
+    brand = guest_brand(options.get(CONF_GUEST_THEME) or DEFAULT_GUEST_THEME)
+    brand["locale"] = normalize_guest_locale(
+        options.get(CONF_GUEST_LOCALE), theme=brand["id"]
+    )
+    return brand
 
 
 def unifi_configured(data: Mapping[str, Any] | None) -> bool:
@@ -106,8 +123,11 @@ def unifi_configured(data: Mapping[str, Any] | None) -> bool:
 
 # Re-export for callers that import theme ids from this module.
 __all__ = (
+    "CONF_GUEST_LOCALE",
     "CONF_GUEST_THEME",
     "DEFAULT_GUEST_THEME",
+    "LOCALE_EN",
+    "LOCALE_FR",
     "THEME_LEDBURY",
     "THEME_USVEGLIU",
     "brand_climate_fans",
@@ -115,6 +135,7 @@ __all__ = (
     "brand_heat_only",
     "brand_locale",
     "guest_brand",
+    "normalize_guest_locale",
     "normalize_guest_theme",
     "unifi_configured",
 )

@@ -99,6 +99,7 @@
           "print_event": "Print event on creation",
           "guest_base_url": "Public web app URL",
           "guest_theme": "Maison theme",
+          "guest_locale": "Language (Maison / console)",
           "wifi_ssid": "Wi-Fi network name",
           "house_mode_entity": "Heating / cooling switch",
           "outdoor_temperature": "Outdoor temperature",
@@ -125,6 +126,7 @@
           "print_event": "When enabled, the cleartext code is published on usvegliu_print_voucher and may end up in traces. Leave off unless you print.",
           "guest_base_url": "Public origin, no path. e.g. https://www.usvegliu.fr — guest links become /s/<token>. Empty = Home Assistant internal URL.",
           "guest_theme": "U Svegliu (Corsica) or 49 Ledbury (Notting Hill). One HA instance, one theme.",
+          "guest_locale": "French or English for the Maison app (copy, weather, welcome mail). Independent of the theme.",
           "wifi_ssid": "SSID shown under Informations. Empty = theme default.",
           "house_mode_entity": "Owner switch. On = cooling, off = heating. Guests can read it, they cannot toggle it.",
           "outdoor_temperature": "Shown in the corner of the climate page. Read-only.",
@@ -209,6 +211,7 @@
           "print_event": "Print event on creation",
           "guest_base_url": "Public web app URL",
           "guest_theme": "Maison theme",
+          "guest_locale": "Language (Maison / console)",
           "wifi_ssid": "Wi-Fi network name",
           "house_mode_entity": "Heating / cooling switch",
           "outdoor_temperature": "Outdoor temperature",
@@ -224,6 +227,7 @@
           "print_event": "Publishes the cleartext code on the bus. Enable only for printing.",
           "guest_base_url": "e.g. https://www.usvegliu.fr. Empty = Home Assistant internal URL.",
           "guest_theme": "U Svegliu or 49 Ledbury. One HA instance = one theme.",
+          "guest_locale": "French or English for Maison. Independent of the theme.",
           "wifi_ssid": "SSID shown to the guest. Empty = theme default.",
           "house_mode_entity": "On = cooling, off = heating. Guests can read it, they cannot toggle it.",
           "outdoor_temperature": "Read-only, in the corner of the climate page.",
@@ -268,6 +272,12 @@
       "options": {
         "usvegliu": "U Svegliu (Lumio)",
         "ledbury": "49 Ledbury (Notting Hill)"
+      }
+    },
+    "guest_locale": {
+      "options": {
+        "fr": "French",
+        "en": "English"
       }
     }
   },

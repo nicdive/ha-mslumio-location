@@ -268,7 +268,11 @@
           brand.climate_heat_only === true ||
           brand.id === "ledbury"
       ),
-      locale: brand.locale || (brand.id === "ledbury" ? "en" : "fr"),
+      locale: brand.locale === "en" || brand.locale === "fr"
+        ? brand.locale
+        : brand.id === "ledbury"
+          ? "en"
+          : "fr",
     };
   }
 
@@ -281,8 +285,9 @@
 
   function locale() {
     const brand = brandInfo();
-    if (brand.locale === "en" || brand.id === "ledbury") return "en";
-    return "fr";
+    if (brand.locale === "en") return "en";
+    if (brand.locale === "fr") return "fr";
+    return brand.id === "ledbury" ? "en" : "fr";
   }
 
   const I18N = {

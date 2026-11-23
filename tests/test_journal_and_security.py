@@ -829,10 +829,12 @@ def test_guest_app_ships_villa_banner_logo():
 
     assert png_size(banner)[0] >= 1400
     assert png_size(mark) == (256, 256)
-    assert 'width="1490"' in (www / "app.js").read_text(encoding="utf-8")
+    js = (www / "app.js").read_text(encoding="utf-8")
+    assert 'class="brand-logo"' in js
+    assert "brand.banner" in js
     html = (www / "index.html").read_text(encoding="utf-8")
     css = (www / "app.css").read_text(encoding="utf-8")
-    assert "logo-banner.png" in (www / "app.js").read_text(encoding="utf-8")
+    assert "logo-banner.png" in js
     assert 'rel="apple-touch-icon"' in html
     assert "/usvegliu/static/logo.png" in html
     assert ".brand-logo" in css

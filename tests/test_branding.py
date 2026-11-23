@@ -49,6 +49,15 @@ def test_ledbury_brand_payload():
     assert brand_climate_fans(guest_brand(THEME_USVEGLIU))
     assert not brand_heat_only(guest_brand(THEME_USVEGLIU))
     assert brand_from_options({"guest_theme": "ledbury"})["id"] == THEME_LEDBURY
+    assert brand_from_options({"guest_theme": "ledbury"})["locale"] == "en"
+    assert (
+        brand_from_options({"guest_theme": "ledbury", "guest_locale": "fr"})["locale"]
+        == "fr"
+    )
+    assert (
+        brand_from_options({"guest_theme": "usvegliu", "guest_locale": "en"})["locale"]
+        == "en"
+    )
 
 
 def test_welcome_message_uses_house_and_team():
@@ -110,6 +119,8 @@ def test_ledbury_logo_assets_ship():
         / "config_flow.py"
     ).read_text(encoding="utf-8")
     assert "guest_theme" in flow
+    assert "guest_locale" in flow
+    assert "CONF_GUEST_LOCALE" in flow
     assert "async_step_cambium" in flow
     assert "async_step_manual" in flow
     assert "async_show_menu" not in flow
