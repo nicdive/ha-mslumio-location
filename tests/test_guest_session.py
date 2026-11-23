@@ -4,15 +4,39 @@ from datetime import datetime, timedelta, timezone
 
 from custom_components.usvegliu.guest_session import (
     PREVIEW_KEY,
+    alarm_view_state,
     build_preview_record,
+    charger_charge_level,
+    charger_view_state,
+    combine_charger_views,
+    classify_guest_entity,
+    speaker_view_state,
+    doorbell_is_ringing,
+    climate_activity,
     climate_is_on,
+    cover_is_open,
+    credential_attribute_key,
     ensure_guest_token,
     find_record_by_token,
+    house_mode_from_state,
+    house_mode_label,
     infer_fan_speed,
+    format_stay_span,
+    guest_alarm_service,
+    guest_welcome_message,
+    issued_account_view,
+    stay_console_role,
+    stay_view_path,
+    welcome_mail_due,
     map_fan_modes,
+    open_issued_records,
     pick_hvac_on,
     public_guest_url,
+    resolve_house_mode,
+    stay_is_active,
+    stay_is_issued,
     stay_is_open,
+    format_arrival_day,
 )
 
 UTC = timezone.utc
@@ -33,8 +57,23 @@ def test_stay_open_until_checkout_including_before_arrival():
         "check_out": "2026-07-17T00:00:00+00:00",
         "guest_token": "a" * 24,
     }
+    assert stay_is_issued(record, now) is True
     assert stay_is_open(record, now) is True
-    assert stay_is_open(record, datetime(2026, 7, 17, 0, tzinfo=UTC)) is False
+    assert stay_is_active(record, now) is False
+    assert stay_is_active(record, datetime(2026, 7, 10, 0, tzinfo=UTC)) is True
+    assert stay_is_active(record, datetime(2026, 7, 10, 6, tzinfo=UTC)) is True
+    assert stay_is_active(record, datetime(2026, 7, 17, 18, tzinfo=UTC)) is True
+    assert stay_is_active(record, datetime(2026, 7, 18, 0, tzinfo=UTC)) is False
+    assert stay_is_issued(record, datetime(2026, 7, 18, 12, tzinfo=UTC)) is True
+    assert stay_is_open(record, datetime(2026, 7, 19, 0, tzinfo=UTC)) is False
+    assert stay_is_issued(record, datetime(2026, 7, 19, 0, tzinfo=UTC)) is False
+    afternoon = {
+        "check_in": "2026-07-10T15:00:00+02:00",
+        "check_out": "2026-07-17T10:00:00+02:00",
+    }
+    paris_morning = datetime(2026, 7, 10, 6, tzinfo=timezone(timedelta(hours=2)))
+    assert stay_is_active(afternoon, paris_morning) is True
+    assert format_arrival_day("2026-07-10T15:00:00+02:00") == "10 juillet"
 
 
 def test_find_token_prefers_live_stay_over_expired_preview():
@@ -54,6 +93,285 @@ def test_find_token_prefers_live_stay_over_expired_preview():
     }
     found = find_record_by_token(stays, preview, token, now)
     assert found is stays["a"]
+    early = datetime(2026, 7, 8, tzinfo=UTC)
+    assert find_record_by_token(stays, None, token, early) is None
+    assert find_record_by_token(stays, None, token, early, require_active=False) is stays["a"]
+    after = datetime(2026, 7, 18, 12, tzinfo=UTC)
+    assert find_record_by_token(stays, None, token, after) is None
+    assert find_record_by_token(stays, None, token, after, require_active=False) is stays["a"]
+
+
+def test_open_issued_records_keeps_active_stays_and_live_preview():
+    now = datetime(2026, 7, 12, tzinfo=UTC)
+    stays = {
+        "past": {
+            "key": "past",
+            "guest": "Fini",
+            "check_in": "2026-06-01T00:00:00+00:00",
+            "check_out": "2026-06-08T00:00:00+00:00",
+            "username": "loc-fini",
+        },
+        "live": {
+            "key": "live",
+            "guest": "Ada",
+            "check_in": "2026-07-10T00:00:00+00:00",
+            "check_out": "2026-07-17T00:00:00+00:00",
+            "username": "loc-ada",
+            "voucher_code": "ABCD12",
+            "guest_token": "T" * 24,
+        },
+        "soon": {
+            "key": "soon",
+            "guest": "Jean",
+            "check_in": "2026-07-20T00:00:00+00:00",
+            "check_out": "2026-07-27T00:00:00+00:00",
+            "username": "loc-jean",
+            "guest_token": "U" * 24,
+        },
+    }
+    preview = build_preview_record(now, hours=24)
+    records = open_issued_records(stays, preview, now)
+    assert [record["key"] for record in records] == ["live", "soon", PREVIEW_KEY]
+    row = issued_account_view(
+        stays["live"],
+        username="loc-ada",
+        password="secret-ada",
+        lien_maison="https://www.usvegliu.fr/s/TTTT",
+        path="/usvegliu/s/TTTT",
+        tableau="/usvegliu-sejour",
+        wifi_ssid="Usvegliu-Guest",
+        now=now,
+    )
+    assert row["acces_actif"] is True
+    waiting = issued_account_view(
+        stays["soon"],
+        username="loc-jean",
+        password="secret-jean",
+        lien_maison="https://www.usvegliu.fr/s/UUUU",
+        path="/usvegliu/s/UUUU",
+        tableau="/usvegliu-sejour",
+        wifi_ssid="Usvegliu-Guest",
+        now=now,
+    )
+    assert waiting["acces_actif"] is False
+    assert row["role"] == "current"
+    assert row["role_label"] == "En cours"
+    assert row["vue"] == "s-live"
+    assert waiting["role"] == "upcoming"
+    assert waiting["vue"] == "s-soon"
+    assert stay_console_role(stays["soon"], now) == "upcoming"
+    assert stay_view_path("airbnb-1|2026-07-10") == "s-airbnb-1-2026-07-10"
+    assert row["lien_maison"].endswith("/s/TTTT")
+    assert row["username"] == "loc-ada"
+    assert row["password"] == "secret-ada"
+    assert row["mot_de_passe"] == "secret-ada"
+    assert row["code_compte"] == "secret-ada"
+    assert row["voucher_code"] == "ABCD12"
+    assert row["nuki_code"] is None
+    assert row["nuki_revoked"] is False
+    assert row["wifi_ssid"] == "Usvegliu-Guest"
+    assert row["guest_email"] is None
+    assert row["welcome_mail_sent"] is None
+    invite = row["message_invite"]
+    assert "Bonjour Ada," in invite
+    assert "https://www.usvegliu.fr/s/TTTT" in invite
+    assert "Usvegliu-Guest" in invite
+    assert "ABCD12" in invite
+    assert "secret-ada" not in invite
+    assert "loc-ada" not in invite
+    assert "Home Assistant" not in invite
+    assert credential_attribute_key("stay-ada") == "compte_stay_ada"
+    assert credential_attribute_key("ada@host/x") == "compte_ada_host_x"
+    assert open_issued_records(stays, preview, datetime(2026, 8, 1, tzinfo=UTC)) == []
+
+
+def test_issued_account_view_uses_manual_wifi_fallback():
+    """Manual EasyPass: shared options code fills message_invite when stay has none."""
+    record = {
+        "key": "ledbury-1",
+        "guest": "Ada Lovelace",
+        "check_in": "2026-07-10T15:00:00+00:00",
+        "check_out": "2026-07-17T10:00:00+00:00",
+        "voucher_code": None,
+        "voucher_revoked": False,
+        "guest_token": "tok",
+        "preview": False,
+    }
+    row = issued_account_view(
+        record,
+        username="loc-ada",
+        password="x",
+        lien_maison="https://home.49ledbury.com/s/tok",
+        path="/usvegliu/s/tok",
+        tableau="/usvegliu-sejour",
+        wifi_ssid="49Ledbury-Guest",
+        house_name="49 Ledbury",
+        team_name="The 49 Ledbury team",
+        locale="en",
+        wifi_code_fallback="EASYPASS99",
+    )
+    assert row["voucher_code"] == "EASYPASS99"
+    assert "Access code: EASYPASS99" in row["message_invite"]
+    assert "49Ledbury-Guest" in row["message_invite"]
+
+
+def test_welcome_mail_due_from_two_days_before_arrival():
+    record = {
+        "guest_email": "jean@example.com",
+        "check_in": "2026-07-10T00:00:00+00:00",
+        "check_out": "2026-07-17T00:00:00+00:00",
+    }
+    assert welcome_mail_due(
+        record, datetime(2026, 7, 7, 12, tzinfo=UTC), days=2
+    ) is False
+    assert welcome_mail_due(
+        record, datetime(2026, 7, 8, 0, tzinfo=UTC), days=2
+    ) is True
+    assert welcome_mail_due(
+        record, datetime(2026, 7, 12, tzinfo=UTC), days=2
+    ) is True
+    assert welcome_mail_due(
+        record, datetime(2026, 7, 17, tzinfo=UTC), days=2
+    ) is False
+    sent = {**record, "welcome_mail_sent": "2026-07-08T00:00:00+00:00"}
+    assert welcome_mail_due(sent, datetime(2026, 7, 9, tzinfo=UTC), days=2) is False
+    preview = {**record, "preview": True}
+    assert welcome_mail_due(preview, datetime(2026, 7, 9, tzinfo=UTC), days=2) is False
+    bare = {**record, "guest_email": ""}
+    assert welcome_mail_due(bare, datetime(2026, 7, 9, tzinfo=UTC), days=2) is False
+
+
+def test_issued_account_view_exposes_guest_mail_status():
+    now = datetime(2026, 7, 12, tzinfo=UTC)
+    row = issued_account_view(
+        {
+            "key": "stay-ada",
+            "guest": "Ada Lovelace",
+            "check_in": "2026-07-10T00:00:00+00:00",
+            "check_out": "2026-07-17T00:00:00+00:00",
+            "guest_email": "ada@villa.fr",
+            "welcome_mail_sent": "2026-07-08T08:00:00+00:00",
+            "voucher_code": "ABCD12",
+        },
+        username="loc-ada",
+        password="secret-ada",
+        lien_maison="https://www.usvegliu.fr/s/TTTT",
+        path="/usvegliu/s/TTTT",
+        tableau="/usvegliu-sejour",
+        now=now,
+    )
+    assert row["guest_email"] == "ada@villa.fr"
+    assert row["welcome_mail_sent"] == "2026-07-08T08:00:00+00:00"
+
+
+def test_guest_welcome_message_is_villa_copy_without_ha_login():
+    assert format_stay_span(
+        "2026-07-10T00:00:00+00:00", "2026-07-17T00:00:00+00:00"
+    ) == "10 au 17 juillet"
+    note = guest_welcome_message(
+        guest="Jean Dupont",
+        check_in="2026-07-10T00:00:00+00:00",
+        check_out="2026-07-17T00:00:00+00:00",
+        lien_maison="https://www.usvegliu.fr/s/LINK",
+        wifi_ssid="Usvegliu-Guest",
+        voucher_code="WIFIXY",
+        voucher_revoked=False,
+        preview=False,
+    )
+    assert note.startswith("Bonjour Jean,")
+    assert "séjour du 10 au 17 juillet" in note
+    assert "https://www.usvegliu.fr/s/LINK" in note
+    assert "Réseau Wi-Fi : Usvegliu-Guest" in note
+    assert "Code d'accès : WIFIXY" in note
+    assert "Code porte" not in note
+    assert "séjour d'exception" in note
+    with_door = guest_welcome_message(
+        guest="Jean Dupont",
+        check_in="2026-07-10T00:00:00+00:00",
+        check_out="2026-07-17T00:00:00+00:00",
+        lien_maison="https://www.usvegliu.fr/s/LINK",
+        wifi_ssid="Usvegliu-Guest",
+        voucher_code="WIFIXY",
+        voucher_revoked=False,
+        nuki_code="345678",
+        nuki_revoked=False,
+        preview=False,
+    )
+    assert "Code porte (Keypad) : 345678" in with_door
+    assert "clavier de la porte" in with_door
+    assert "L'équipe Usvegliu" in note
+    assert "mot de passe" not in note.lower()
+    preview = guest_welcome_message(
+        guest="Essai",
+        check_in="",
+        check_out="",
+        lien_maison="https://www.usvegliu.fr/s/PREVIEW",
+        wifi_ssid="Usvegliu-Guest",
+        voucher_code="TEMP",
+        voucher_revoked=False,
+        preview=True,
+    )
+    assert "lien d'essai" in preview
+    assert "24 heures" in preview
+    assert "TEMP" not in preview
+    revoked = guest_welcome_message(
+        guest="Ada",
+        check_in="2026-07-10",
+        check_out="2026-07-17",
+        lien_maison="https://www.usvegliu.fr/s/ADA",
+        wifi_ssid="",
+        voucher_code="OLD",
+        voucher_revoked=True,
+        preview=False,
+    )
+    assert "OLD" not in revoked
+    assert "révoqué" in revoked
+    assert "Réseau Wi-Fi : Usvegliu-Guest" in revoked
+    bare = guest_welcome_message(
+        guest="Bob",
+        check_in="2026-11-07T00:00:00+00:00",
+        check_out="2026-11-17T00:00:00+00:00",
+        lien_maison="http://192.168.23.115:8123/usvegliu/s/TOKEN",
+        wifi_ssid="",
+        voucher_code="8065941041",
+        voucher_revoked=False,
+        preview=False,
+    )
+    assert "Réseau Wi-Fi : Usvegliu-Guest" in bare
+    assert "Code d'accès : 8065941041" in bare
+
+
+def test_nuki_pin_option_controls_welcome_copy_not_the_lock():
+    record = {
+        "key": "live",
+        "guest": "Ada",
+        "check_in": "2026-07-10T00:00:00+00:00",
+        "check_out": "2026-07-17T00:00:00+00:00",
+        "voucher_code": "WIFIXY",
+        "nuki_code": "345678",
+    }
+    without_pin = issued_account_view(
+        record,
+        username="loc-ada",
+        password="secret",
+        lien_maison="https://www.usvegliu.fr/s/TTTT",
+        path="/usvegliu/s/TTTT",
+        tableau="/usvegliu-sejour",
+        nuki_pins=False,
+    )
+    assert without_pin["nuki_code"] == "345678"
+    assert "345678" not in without_pin["message_invite"]
+    assert "Code porte" not in without_pin["message_invite"]
+    with_pin = issued_account_view(
+        record,
+        username="loc-ada",
+        password="secret",
+        lien_maison="https://www.usvegliu.fr/s/TTTT",
+        path="/usvegliu/s/TTTT",
+        tableau="/usvegliu-sejour",
+        nuki_pins=True,
+    )
+    assert "Code porte (Keypad) : 345678" in with_pin["message_invite"]
 
 
 def test_expired_preview_is_rejected():
@@ -78,8 +396,203 @@ def test_fan_mapping_numeric_and_partial():
 def test_hvac_helpers():
     assert climate_is_on("heat") is True
     assert climate_is_on("off") is False
+    # Heatmiser Neo: HVAC stays "heat", Standby preset means off for guests.
+    assert climate_is_on("heat", "Standby") is False
+    assert climate_is_on("heat", "Home") is True
+    assert climate_is_on("heat", "Away") is False
+    from custom_components.usvegliu.guest_session import (
+        climate_power_via,
+        pick_preset_off,
+        pick_preset_on,
+    )
+
+    assert pick_preset_off(["Home", "Standby", "Boost"]) == "Standby"
+    assert pick_preset_on(["Home", "Standby", "Boost"]) == "Home"
+    assert climate_power_via(["heat"], ["Home", "Standby"]) == "preset"
+    assert climate_power_via(["off", "heat"], ["Home", "Standby"]) == "hvac"
     assert pick_hvac_on(["off", "cool", "heat"], None) == "heat"
+    assert pick_hvac_on(["off", "cool", "heat"], "cool") == "cool"
     assert pick_hvac_on(["off", "fan_only"], "fan_only") == "fan_only"
+
+
+def test_house_mode_from_owner_switch():
+    assert house_mode_from_state("on") == "cool"
+    assert house_mode_from_state("off") == "heat"
+    assert house_mode_from_state("climatisation") == "cool"
+    assert house_mode_from_state("Chauffage") == "heat"
+    assert house_mode_from_state("unavailable") is None
+    assert resolve_house_mode("on") == "cool"
+    assert resolve_house_mode("off") == "heat"
+    assert resolve_house_mode(None, ["heat", "off"]) == "heat"
+    assert resolve_house_mode(None, ["cool"]) == "cool"
+    assert resolve_house_mode(None, ["off"]) == "cool"
+    assert house_mode_label("heat") == "Chauffage"
+    assert house_mode_label("cool") == "Climatisation"
+
+
+def test_climate_activity_follows_setpoint_gap():
+    assert (
+        climate_activity(on=True, house_mode="heat", measured=20, setpoint=22)
+        == "heating"
+    )
+    assert (
+        climate_activity(on=True, house_mode="heat", measured=22, setpoint=20)
+        == "idle"
+    )
+    assert (
+        climate_activity(on=True, house_mode="cool", measured=26, setpoint=23)
+        == "cooling"
+    )
+    assert (
+        climate_activity(on=True, house_mode="cool", measured=22, setpoint=24)
+        == "idle"
+    )
+    assert (
+        climate_activity(on=True, house_mode="heat", measured=21, setpoint=21)
+        == "idle"
+    )
+    assert (
+        climate_activity(on=False, house_mode="heat", measured=18, setpoint=22)
+        == "off"
+    )
+
+
+def test_guest_entity_classification():
+    assert classify_guest_entity("climate.salon") == "climate"
+    assert classify_guest_entity("lock.entree") == "lock"
+    assert classify_guest_entity("alarm_control_panel.maison") == "alarm"
+    assert classify_guest_entity("light.cuisine") == "light"
+    assert classify_guest_entity("scene.soiree") == "scene"
+    assert classify_guest_entity("script.tout_eteindre") == "scene"
+    assert (
+        classify_guest_entity("cover.garage", device_class="garage") == "garage"
+    )
+    assert classify_guest_entity("cover.portail_sud", name="Portail") == "gate"
+    assert classify_guest_entity("cover.chambre", device_class="shutter") == "shutter"
+    assert (
+        classify_guest_entity("sensor.jardin", device_class="temperature", name="Extérieur")
+        == "outdoor"
+    )
+    assert (
+        classify_guest_entity(
+            "sensor.piscine_temp", device_class="temperature", name="Piscine"
+        )
+        == "pool_temp"
+    )
+    assert classify_guest_entity("sensor.piscine_ph", unit="pH", name="pH piscine") == (
+        "pool_ph"
+    )
+    assert classify_guest_entity("switch.prise_salon") is None
+    assert classify_guest_entity("camera.linea_3000", name="Portail") == "camera"
+    assert classify_guest_entity("light.piscine") == "pool_light"
+    assert classify_guest_entity("switch.lumiere_bassin", name="Lumière bassin") == (
+        "pool_light"
+    )
+    assert (
+        classify_guest_entity(
+            "binary_sensor.entree", device_class="doorbell", name="Sonnette"
+        )
+        == "doorbell"
+    )
+    assert (
+        classify_guest_entity("sensor.evlink_status", name="Borne Schneider")
+        == "charger"
+    )
+    assert (
+        classify_guest_entity(
+            "binary_sensor.wallbox", device_class="battery_charging", name="Recharge"
+        )
+        == "charger"
+    )
+    assert classify_guest_entity("media_player.salon", name="Sonos Amp salon") == (
+        "speaker"
+    )
+    assert (
+        classify_guest_entity(
+            "media_player.tv_salon", device_class="tv", name="TV salon"
+        )
+        is None
+    )
+    assert speaker_view_state("playing") == "playing"
+    assert speaker_view_state("paused") == "paused"
+    assert speaker_view_state("off") == "idle"
+    assert alarm_view_state("armed_away") == "armed"
+    assert alarm_view_state("disarmed") == "disarmed"
+    assert charger_view_state("Charging") == "charging"
+    assert charger_view_state("Available") == "idle"
+    assert charger_view_state("Preparing") == "plugged"
+    assert charger_view_state("Finishing") == "finished"
+    assert charger_view_state("Charged") == "finished"
+    assert charger_view_state("SuspendedEV", level=100) == "finished"
+    assert charger_view_state("SuspendedEV", level=64) == "plugged"
+    assert charger_view_state("8") == "charging"
+    assert charger_view_state("1200", unit="W") == "charging"
+    assert charger_view_state("10", unit="W") == "idle"
+    assert charger_view_state("64", unit="%") == "idle"
+    assert charger_view_state("100", unit="%") == "idle"
+    assert charger_charge_level("Charging") is None
+    assert charger_charge_level("64", unit="%") == 64
+    assert charger_charge_level("on", attributes={"battery_level": 81}) == 81
+    assert charger_charge_level("0.8", attributes={"soc": 0.8}) == 80
+    merged = combine_charger_views(
+        [
+            {
+                "entity_id": "sensor.evlink_status",
+                "name": "Borne",
+                "state": "charging",
+                "level": None,
+                "raw": "Charging",
+            },
+            {
+                "entity_id": "sensor.evlink_soc",
+                "name": "SOC véhicule",
+                "state": "plugged",
+                "level": 64,
+                "raw": "64",
+            },
+        ]
+    )
+    assert len(merged) == 1
+    assert merged[0]["state"] == "charging"
+    assert merged[0]["level"] == 64
+    assert merged[0]["name"] == "Borne"
+    parked = combine_charger_views(
+        [
+            {
+                "entity_id": "sensor.evlink_status",
+                "name": "Borne",
+                "state": "idle",
+                "level": None,
+                "raw": "Available",
+            },
+            {
+                "entity_id": "sensor.evlink_soc",
+                "name": "SOC véhicule",
+                "state": "idle",
+                "level": 64,
+                "raw": "64",
+            },
+        ]
+    )
+    assert parked[0]["state"] == "idle"
+    assert parked[0]["level"] == 64
+    assert doorbell_is_ringing("on") is True
+    assert doorbell_is_ringing("off") is False
+    fresh = datetime(2026, 7, 10, 12, 0, 10, tzinfo=UTC)
+    assert doorbell_is_ringing("2026-07-10T12:00:00+00:00", now=fresh) is True
+    assert doorbell_is_ringing("2026-07-10T11:50:00+00:00", now=fresh) is False
+    assert cover_is_open("opening") is True
+    domain, service, data = guest_alarm_service(
+        "arm", "alarm_control_panel.tyxal", has_tydom=True, code="1234"
+    )
+    assert (domain, service) == ("deltadore_tydom", "set_mode_using_stored_pin")
+    assert data["mode"] == "away"
+    assert "code" not in data
+    domain, service, data = guest_alarm_service(
+        "disarm", "alarm_control_panel.maison", has_tydom=False, code="1234"
+    )
+    assert (domain, service) == ("alarm_control_panel", "alarm_disarm")
+    assert data["code"] == "1234"
 
 
 def test_public_url_uses_s_path():

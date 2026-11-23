@@ -1,0 +1,26 @@
+{
+  "name": "Maison",
+  "short_name": "Maison",
+  "description": "Guest house controls",
+  "start_url": ".",
+  "scope": "/usvegliu/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F1EBE2",
+  "theme_color": "#F1EBE2",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "/usvegliu/static/logo-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/usvegliu/static/logo-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
