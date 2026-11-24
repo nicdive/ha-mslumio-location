@@ -302,10 +302,11 @@ def _stay_markdown(
     en = locale == "en"
     back = t(locale, "back_home")
     all_stays = t(locale, "all_stays")
-    open_home = t(locale, "open_stay") if en else "Ouvrir la maison"
+    open_home = t(locale, "open_home_app")
+    home_app = t(locale, "home_app")
     msg_title = "Message to send" if en else "Message à envoyer"
     msg_hint = (
-        "Select the text, then copy. Maison link and Wi-Fi only — no Home Assistant account."
+        "Select the text, then copy. Home app link and Wi-Fi only — no Home Assistant account."
         if en
         else "Sélectionnez le texte, puis copiez. Lien Maison et Wi-Fi seulement, sans compte Home Assistant."
     )
@@ -316,7 +317,7 @@ def _stay_markdown(
     door_l = "Door" if en else "Porte"
     stay_board = "Stay dashboard" if en else "Tableau séjour"
     early = (
-        "*HA account and Maison link open on arrival day. Access codes are already in the message.*"
+        "*HA account and home app link open on arrival day. Access codes are already in the message.*"
         if en
         else "*Compte HA et lien Maison s'ouvrent le jour d'arrivée. Les codes d'accès sont déjà dans le message.*"
     )
@@ -414,7 +415,7 @@ def _stay_markdown(
         "{% else %}—\n"
         "{% endif %}\n"
         "\n"
-        "{% if s.lien_maison %}[Maison]({{ s.lien_maison }}){% endif %}"
+        f"{{% if s.lien_maison %}}[{home_app}]({{{{ s.lien_maison }}}}){{% endif %}}"
         f" · [{stay_board}](/"
         f"{DASHBOARD_URL})\n"
         "{% endif %}\n"

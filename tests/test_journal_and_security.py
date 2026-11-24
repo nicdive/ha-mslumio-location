@@ -446,6 +446,8 @@ def test_owner_console_dashboard_has_live_credentials_and_actions():
     assert "guest_mail_service" in dumped
     assert "Réglages Usvegliu" in dumped
     assert "state_attr('sensor.usvegliu_reglages', 'settings')" in dumped
+    assert "[Maison]({{ s.lien_maison }})" in dumped
+    assert "Ouvrir la maison" in dumped
 
 
 def test_owner_console_english_and_ledbury_brand_separated():
@@ -505,6 +507,10 @@ def test_owner_console_english_and_ledbury_brand_separated():
     assert "### Calendrier" not in dumped
     assert "Mode démo web app" not in dumped
     assert "Réglages Usvegliu" not in dumped
+    assert "[Home app]({{ s.lien_maison }})" in dumped
+    assert "[Maison]({{ s.lien_maison }})" not in dumped
+    assert "Home app link and Wi-Fi only" in dumped
+    assert "Maison link" not in dumped
 
 
 @pytest.mark.asyncio

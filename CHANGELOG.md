@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.99] — 2026-11-24
+
+### Corrigé
+- Console EN (Ledbury) : lien séjour « Home app » au lieu de « Maison », plus de « Maison link » dans les textes.
+
+[0.6.99]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.99
+
 ## [0.6.98] — 2026-11-24
 
 ### Corrigé
