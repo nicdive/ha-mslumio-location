@@ -448,58 +448,90 @@ def _stay_markdown(
     )
 
 
-def _settings_markdown(entity_id: str) -> str:
+def _settings_markdown(entity_id: str, *, locale: str = "fr") -> str:
     """Live Jinja from the settings sensor — no secrets in Lovelace."""
+    from .console_i18n import console_t as t
+
     entity = _jinja_quote(entity_id)
+    yes = t(locale, "yes")
+    no = t(locale, "no")
+    dash = "—"
+    not_set = t(locale, "settings_not_set")
+    notify_default = t(locale, "settings_notify_default")
+    disabled = t(locale, "settings_disabled")
+    internal_ha = t(locale, "settings_internal_ha")
     return (
         f"{{% set a = state_attr('{entity}', 'settings') or {{}} %}}\n"
-        "### Calendrier\n"
-        "- Réservations : `{{ a.calendar or '—' }}`\n"
-        "- Avant arrivée : **{{ a.lead_days }}** j · après séjour : "
-        "**{{ a.extra_days }}** j\n"
-        "- Horizon : **{{ a.lookahead_days }}** j · durée max : "
-        "**{{ a.max_stay_days }}** j\n"
-        "- Titres ignorés : `{{ a.title_blocklist or '—' }}`\n"
+        f"### {t(locale, 'settings_calendar')}\n"
+        f"- {t(locale, 'settings_bookings')} : `{{{{ a.calendar or '{dash}' }}}}`\n"
+        f"- {t(locale, 'settings_lead')} : **{{{{ a.lead_days }}}}** "
+        f"{t(locale, 'settings_days_short')} · {t(locale, 'settings_extra')} : "
+        f"**{{{{ a.extra_days }}}}** {t(locale, 'settings_days_short')}\n"
+        f"- {t(locale, 'settings_horizon')} : **{{{{ a.lookahead_days }}}}** "
+        f"{t(locale, 'settings_days_short')} · {t(locale, 'settings_max_stay')} : "
+        f"**{{{{ a.max_stay_days }}}}** {t(locale, 'settings_days_short')}\n"
+        f"- {t(locale, 'settings_blocklist')} : "
+        f"`{{{{ a.title_blocklist or '{dash}' }}}}`\n"
         "\n"
-        "### Accès locataire\n"
-        "- Comptes HA : **{{ 'oui' if a.enable_access else 'non' }}** "
-        "({{ a.access_mode_label or '—' }})\n"
-        "- Vouchers Wi-Fi ({{ a.voucher_provider or 'unifi' }}) : "
-        "**{{ 'oui' if a.enable_vouchers else 'non' }}**\n"
-        "- Code PIN Nuki : **{{ 'oui' if a.enable_nuki else 'non' }}**"
+        f"### {t(locale, 'settings_guest_access')}\n"
+        f"- {t(locale, 'settings_ha_accounts')} : "
+        f"**{{{{ '{yes}' if a.enable_access else '{no}' }}}}** "
+        f"({{{{ a.access_mode_label or '{dash}' }}}})\n"
+        f"- {t(locale, 'settings_wifi_vouchers')} "
+        "({{ a.voucher_provider or 'unifi' }}) : "
+        f"**{{{{ '{yes}' if a.enable_vouchers else '{no}' }}}}**\n"
+        f"- {t(locale, 'settings_nuki_pin')} : "
+        f"**{{{{ '{yes}' if a.enable_nuki else '{no}' }}}}**"
         "{% if a.enable_nuki and not a.nuki_configured %} "
-        "· jeton manquant, mail sans PIN{% endif %}"
+        f"· {t(locale, 'settings_nuki_missing')}"
+        "{% endif %}"
         "{% if not a.enable_nuki %} "
-        "· mail sans code porte{% endif %}\n"
-        "- Internet pendant le séjour : "
-        "**{{ 'oui' if a.allow_remote else 'non' }}**\n"
-        "- Entités : **{{ a.tenant_entity_count }}** · appareils : "
-        "**{{ a.tenant_device_count }}**\n"
+        f"· {t(locale, 'settings_nuki_off')}"
+        "{% endif %}\n"
+        f"- {t(locale, 'settings_remote')} : "
+        f"**{{{{ '{yes}' if a.allow_remote else '{no}' }}}}**\n"
+        f"- {t(locale, 'settings_entities')} : "
+        f"**{{{{ a.tenant_entity_count }}}}** · {t(locale, 'settings_devices')} : "
+        f"**{{{{ a.tenant_device_count }}}}**\n"
         "\n"
-        "### Wi-Fi\n"
-        "- Réseau : `{{ a.wifi_ssid or '—' }}`\n"
-        "- Appareils / voucher : **{{ a.device_limit }}**\n"
-        "- Débit : **{{ a.download_mbps }}** / **{{ a.upload_mbps }}** Mbit/s\n"
+        f"### {t(locale, 'settings_wifi')}\n"
+        f"- {t(locale, 'settings_network')} : "
+        f"`{{{{ a.wifi_ssid or '{dash}' }}}}`\n"
+        f"- {t(locale, 'settings_device_limit')} : **{{{{ a.device_limit }}}}**\n"
+        f"- {t(locale, 'settings_bandwidth')} : "
+        f"**{{{{ a.download_mbps }}}}** / **{{{{ a.upload_mbps }}}}** Mbit/s\n"
         "\n"
-        "### Maison\n"
-        "- Site : `{{ a.site or a.host or '—' }}`\n"
-        "- Mode démo web app : **{{ 'oui' if a.demo_mode else 'non' }}**\n"
-        "- Chauffage / clim : `{{ a.house_mode_entity or 'non configuré' }}`\n"
-        "- Extérieur : `{{ a.outdoor_temperature or '—' }}`\n"
-        "- Piscine : `{{ a.pool_temperature or '—' }}` · "
-        "pH : `{{ a.pool_ph or '—' }}`\n"
-        "- Code alarme enregistré : "
-        "**{{ 'oui' if a.alarm_configured else 'non' }}**\n"
+        f"### {t(locale, 'settings_house')}\n"
+        f"- {t(locale, 'settings_site')} : "
+        f"`{{{{ a.site or a.host or '{dash}' }}}}`\n"
+        f"- {t(locale, 'settings_demo')} : "
+        f"**{{{{ '{yes}' if a.demo_mode else '{no}' }}}}**\n"
+        f"- {t(locale, 'settings_heat_cool')} : "
+        f"`{{{{ a.house_mode_entity or '{not_set}' }}}}`\n"
+        f"- {t(locale, 'settings_outdoor')} : "
+        f"`{{{{ a.outdoor_temperature or '{dash}' }}}}`\n"
+        f"- {t(locale, 'settings_pool')} : "
+        f"`{{{{ a.pool_temperature or '{dash}' }}}}` · "
+        f"pH : `{{{{ a.pool_ph or '{dash}' }}}}`\n"
+        f"- {t(locale, 'settings_alarm')} : "
+        f"**{{{{ '{yes}' if a.alarm_configured else '{no}' }}}}**\n"
         "\n"
-        "### Journal\n"
-        "- Fichier : `{{ a.journal_path or '—' }}`\n"
-        "- Notification : `{{ a.notify_service or 'persistante seulement' }}`\n"
-        "- Mail locataire : `{{ a.guest_mail_service or 'désactivé' }}` "
-        "(J−{{ a.guest_mail_days }})\n"
-        "- Impression auto : **{{ 'oui' if a.print_event else 'non' }}**\n"
-        "- URL web app : `{{ a.guest_base_url or 'interne HA' }}`\n"
-        "- Thème : `{{ a.guest_theme or 'usvegliu' }}` · "
-        "Langue : `{{ a.guest_locale or 'fr' }}`\n"
+        f"### {t(locale, 'settings_journal')}\n"
+        f"- {t(locale, 'settings_file')} : "
+        f"`{{{{ a.journal_path or '{dash}' }}}}`\n"
+        f"- {t(locale, 'settings_notify')} : "
+        f"`{{{{ a.notify_service or '{notify_default}' }}}}`\n"
+        f"- {t(locale, 'settings_guest_mail')} : "
+        f"`{{{{ a.guest_mail_service or '{disabled}' }}}}` "
+        f"(J−{{{{ a.guest_mail_days }}}})\n"
+        f"- {t(locale, 'settings_print')} : "
+        f"**{{{{ '{yes}' if a.print_event else '{no}' }}}}**\n"
+        f"- {t(locale, 'settings_guest_url')} : "
+        f"`{{{{ a.guest_base_url or '{internal_ha}' }}}}`\n"
+        f"- {t(locale, 'settings_theme')} : "
+        f"`{{{{ a.guest_theme or 'usvegliu' }}}}` · "
+        f"{t(locale, 'settings_language')} : "
+        f"`{{{{ a.guest_locale or 'fr' }}}}`\n"
     )
 
 
@@ -1050,7 +1082,9 @@ def _settings_view_sections(
         overview.append(
             {
                 "type": "markdown",
-                "content": _settings_markdown(reglages_entity_id),
+                "content": _settings_markdown(
+                    reglages_entity_id, locale=locale
+                ),
             }
         )
     overview.append(_tools_card(locale))

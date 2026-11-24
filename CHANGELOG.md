@@ -4,6 +4,14 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.6.98] — 2026-11-24
+
+### Corrigé
+- Ledbury (EN) : message d’ouverture « Available from 25 November. » (plus de mois français ni « The house opens on »).
+- Console / réglages : fiche Settings entièrement en anglais quand la locale est `en`.
+
+[0.6.98]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.98
+
 ## [0.6.97] — 2026-11-23
 
 ### Corrigé

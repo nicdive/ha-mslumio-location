@@ -155,7 +155,12 @@ def _json_error(view: Any, status: int, code: str, **extra: Any) -> Any:
     return view.json(payload, status_code=status)
 
 
-def _guest_not_ready(view: Any, record: dict[str, Any] | None) -> Any | None:
+def _guest_not_ready(
+    view: Any,
+    record: dict[str, Any] | None,
+    *,
+    locale: str = "fr",
+) -> Any | None:
     """401 if the token is unknown or the stay is over, 403 until arrival."""
     if record is None:
         return _json_error(view, 401, "invalid_token")
@@ -168,7 +173,9 @@ def _guest_not_ready(view: Any, record: dict[str, Any] | None) -> Any | None:
         return None
     begin = stay_activation_start(record, now)
     if begin is not None and now < begin:
-        opens = format_arrival_day(str(record.get("check_in") or ""))
+        opens = format_arrival_day(
+            str(record.get("check_in") or ""), locale=locale
+        )
         return _json_error(
             view,
             403,
@@ -177,6 +184,15 @@ def _guest_not_ready(view: Any, record: dict[str, Any] | None) -> Any | None:
             opens_on=opens,
         )
     return _json_error(view, 401, "invalid_token")
+
+
+def _guest_locale(runtime: Any) -> str:
+    """Brand locale for guest API errors (en for Ledbury, fr otherwise)."""
+    try:
+        brand = runtime.guest_brand() if runtime is not None else None
+        return str((brand or {}).get("locale") or "fr")
+    except Exception:  # noqa: BLE001 — never block the request for i18n
+        return "fr"
 
 
 def _request_host(request: Any) -> str:
@@ -1035,7 +1051,9 @@ class GuestStateView(HomeAssistantView):
         hass, runtime, record = await _bound(request)
         if runtime is None:
             return _json_error(self, 503, "not_loaded")
-        denied = _lan_denied(self, record) or _guest_not_ready(self, record)
+        denied = _lan_denied(self, record) or _guest_not_ready(
+            self, record, locale=_guest_locale(runtime)
+        )
         if denied is not None:
             return denied
         await runtime.async_ensure_weather()
@@ -1056,7 +1074,9 @@ class GuestStreamView(HomeAssistantView):
         hass, runtime, record = await _bound(request)
         if runtime is None:
             return _json_error(self, 503, "not_loaded")
-        denied = _lan_denied(self, record) or _guest_not_ready(self, record)
+        denied = _lan_denied(self, record) or _guest_not_ready(
+            self, record, locale=_guest_locale(runtime)
+        )
         if denied is not None:
             return denied
 
@@ -1139,7 +1159,9 @@ class GuestClimateView(HomeAssistantView):
         hass, runtime, record = await _bound(request)
         if runtime is None:
             return _json_error(self, 503, "not_loaded")
-        denied = _lan_denied(self, record) or _guest_not_ready(self, record)
+        denied = _lan_denied(self, record) or _guest_not_ready(
+            self, record, locale=_guest_locale(runtime)
+        )
         if denied is not None:
             return denied
         try:
@@ -1270,7 +1292,9 @@ class GuestLockView(HomeAssistantView):
         hass, runtime, record = await _bound(request)
         if runtime is None:
             return _json_error(self, 503, "not_loaded")
-        denied = _lan_denied(self, record) or _guest_not_ready(self, record)
+        denied = _lan_denied(self, record) or _guest_not_ready(
+            self, record, locale=_guest_locale(runtime)
+        )
         if denied is not None:
             return denied
         try:
@@ -1324,7 +1348,9 @@ class GuestCommandView(HomeAssistantView):
         hass, runtime, record = await _bound(request)
         if runtime is None:
             return _json_error(self, 503, "not_loaded")
-        denied = _lan_denied(self, record) or _guest_not_ready(self, record)
+        denied = _lan_denied(self, record) or _guest_not_ready(
+            self, record, locale=_guest_locale(runtime)
+        )
         if denied is not None:
             return denied
         try:
@@ -1508,7 +1534,9 @@ class GuestSnapshotView(HomeAssistantView):
         hass, runtime, record = await _bound(request)
         if runtime is None:
             return _json_error(self, 503, "not_loaded")
-        denied = _lan_denied(self, record) or _guest_not_ready(self, record)
+        denied = _lan_denied(self, record) or _guest_not_ready(
+            self, record, locale=_guest_locale(runtime)
+        )
         if denied is not None:
             return denied
         entity_id = str(request.query.get("entity_id") or "")

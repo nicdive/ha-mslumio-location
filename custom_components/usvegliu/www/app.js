@@ -410,11 +410,13 @@
       link_incomplete: "Ce lien est incomplet. Demandez-en un à l’accueil.",
       stay_closed: "Ce séjour est clos. Demandez un nouveau lien à l’accueil.",
       opens_on: "Disponible le jour de votre arrivée",
-      opens_prefix: "La maison s’ouvre",
+      opens_prefix: "La maison s’ouvre le",
       lan_only: "Tablettes : ouvrez cette page sur le Wi‑Fi de la maison.",
       house_unavailable: "La maison est momentanément indisponible.",
-      opens_on_day: " le jour de votre arrivée",
-      opens_on_date: " le",
+      opens_on_day: "jour de votre arrivée",
+      opens_on_date: "",
+      opens_from: "La maison s’ouvre le {date}.",
+      opens_arrival: "La maison s’ouvre le jour de votre arrivée.",
       loading: "La maison s’ouvre…",
       months: ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"],
     },
@@ -517,11 +519,13 @@
       link_incomplete: "This link is incomplete. Please ask the host for a new one.",
       stay_closed: "This stay has ended. Please ask the host for a new link.",
       opens_on: "Available on your arrival day",
-      opens_prefix: "The house opens",
+      opens_prefix: "Available from",
       lan_only: "Tablets: open this page on the house Wi‑Fi.",
       house_unavailable: "The house is temporarily unavailable.",
-      opens_on_day: " on your arrival day",
-      opens_on_date: " on",
+      opens_on_day: "your arrival day",
+      opens_on_date: "",
+      opens_from: "Available from {date}.",
+      opens_arrival: "Available on your arrival day.",
       loading: "Opening the house…",
       months: ["January","February","March","April","May","June","July","August","September","October","November","December"],
     },
@@ -1709,8 +1713,8 @@
     }
     if (error === "too_early") {
       const message = arrivalNote
-        ? `${t("opens_prefix")}${t("opens_on_date")} ${arrivalNote}.`
-        : `${t("opens_prefix")}${t("opens_on_day")}.`;
+        ? t("opens_from").replace("{date}", arrivalNote)
+        : t("opens_arrival");
       const keep = takeBrandLogo();
       root.innerHTML = statusPage(escapeHtml(message));
       restoreBrandLogo(keep);

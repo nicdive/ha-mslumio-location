@@ -74,6 +74,8 @@ def test_stay_open_until_checkout_including_before_arrival():
     paris_morning = datetime(2026, 7, 10, 6, tzinfo=timezone(timedelta(hours=2)))
     assert stay_is_active(afternoon, paris_morning) is True
     assert format_arrival_day("2026-07-10T15:00:00+02:00") == "10 juillet"
+    assert format_arrival_day("2026-11-25", locale="en") == "25 November"
+    assert format_arrival_day("2026-11-25", locale="fr") == "25 novembre"
 
 
 def test_find_token_prefers_live_stay_over_expired_preview():

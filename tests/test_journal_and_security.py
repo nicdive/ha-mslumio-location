@@ -486,6 +486,7 @@ def test_owner_console_english_and_ledbury_brand_separated():
     config = build_owner_dashboard_config(
         [{"guest": "Ada", "reservation_id": "stay-ada", "vue": "stay-ada"}],
         sejours_entity_id="sensor.usvegliu_sejours",
+        reglages_entity_id="sensor.usvegliu_reglages",
         locale="en",
     )
     dumped = str(config)
@@ -496,6 +497,14 @@ def test_owner_console_english_and_ledbury_brand_separated():
     assert "Raccourcis" not in dumped
     assert "Ouvrir le séjour" not in dumped
     assert "s.message_invite" in dumped
+    assert "### Calendar" in dumped
+    assert "Web app demo mode" in dumped
+    assert "Guest access" in dumped
+    assert "mail without door code" in dumped
+    assert "Usvegliu settings" in dumped
+    assert "### Calendrier" not in dumped
+    assert "Mode démo web app" not in dumped
+    assert "Réglages Usvegliu" not in dumped
 
 
 @pytest.mark.asyncio
@@ -801,6 +810,9 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert "data-act=\"copy\"" in js
     assert "too_early" in http
     assert "too_early" in js
+    assert "opens_from" in js
+    assert "Available from {date}." in js
+    assert "The house opens" not in js
     assert "stay_is_active" in http
     assert "qr_svg" in http
     assert "_guest_share_url" in http
