@@ -118,6 +118,8 @@ Au **setup**, trois choix : **UniFi** (auto), **Cambium EasyPass API** (cnMaestr
 
 Sur l’instance HA de **49 Ledbury Road** : Options → **Thème Maison** → **49 Ledbury (Notting Hill)**. Logos, couleurs Portobello, mails et titres suivent. U Svegliu reste sur le thème par défaut. Une instance = un thème.
 
+Guide d’usage de l’app locataire Ledbury : [docs/ledbury-guest-app.md](docs/ledbury-guest-app.md).
+
 Exemple à lancer **sur le LAN**, une fois, pour voir la réponse réelle (remplacer les valeurs, ne pas commiter la clé) :
 
 ```bash
