@@ -97,4 +97,7 @@ Play / pause, volume ±, mute par zone, **Mute all**.
 Plaquette PDF en anglais (Wi‑Fi, voucher, web app, captures) :
 [ledbury-manual/49-Ledbury-Guest-User-Manual.pdf](ledbury-manual/49-Ledbury-Guest-User-Manual.pdf).
 
+### À venir
+- **Push sonnette** : notification Web Push sur le téléphone du locataire quand la platine sonne (même si l’app est en arrière-plan). Pas implémenté — popup seulement app ouverte pour l’instant.
+
 *Document d’usage locataire — thème 49 Ledbury uniquement. La Console propriétaire et U Svegliu sont hors sujet.*
