@@ -2,19 +2,59 @@
   "config": {
     "step": {
       "user": {
+        "title": "House Wi-Fi",
+        "description": "UniFi or Cambium API (cnMaestro X) = auto codes. Without X: manual voucher (EasyPass by hand).",
+        "data": {
+          "voucher_provider": "Wi-Fi provider"
+        },
+        "data_description": {
+          "voucher_provider": "UniFi = UDM. Cambium = cnMaestro X API. Manual = create the code in EasyPass and paste it here."
+        }
+      },
+      "manual": {
+        "title": "Manual voucher",
+        "description": "No UniFi/Cambium API. Create codes in EasyPass (or elsewhere) and paste the current code below. You can change it later in Options.",
+        "data": {
+          "site_name": "House name",
+          "wifi_ssid": "Wi-Fi network name",
+          "manual_wifi_code": "Current Wi-Fi code (optional)"
+        },
+        "data_description": {
+          "site_name": "Shown in the integration title.",
+          "wifi_ssid": "Guest SSID shown in Maison.",
+          "manual_wifi_code": "Current EasyPass code. Empty = Maison/mail show no code until you set one."
+        }
+      },
+      "unifi": {
         "title": "UniFi controller",
-        "description": "Local API key of the UDM (Network, Integrations). It stays in the config entry and is neither logged nor included in diagnostics.",
+        "description": "Local UDM API key (Network, Integrations). Stored in the config entry; not logged or exported in diagnostics.",
         "data": {
           "host": "UDM address",
           "port": "HTTPS port",
           "api_key": "API key",
-          "verify_ssl": "Verify the TLS certificate"
+          "verify_ssl": "Verify TLS certificate"
         },
         "data_description": {
-          "host": "IP address or hostname of the UDM Pro Max, on the local network.",
+          "host": "IP or hostname of the UDM Pro Max on the LAN.",
           "port": "443 by default.",
           "api_key": "Created in UniFi Network > Settings > Control Plane > Integrations, or at unifi.ui.com. Shown only once.",
-          "verify_ssl": "Turn this off only for the factory self-signed certificate. The key is then sent without server authentication: local network only."
+          "verify_ssl": "Uncheck only for the factory self-signed certificate. The key then travels without server auth — LAN only."
+        }
+      },
+      "cambium": {
+        "title": "Cambium EasyPass",
+        "description": "No UniFi. cnMaestro Cloud API app + EasyPass portal + voucher plan. Names must match cnMaestro exactly.",
+        "data": {
+          "cambium_client_id": "Cambium client ID",
+          "cambium_client_secret": "Cambium client secret",
+          "cambium_portal": "EasyPass portal",
+          "cambium_voucher_plan": "EasyPass voucher plan"
+        },
+        "data_description": {
+          "cambium_client_id": "Account → API in cnMaestro Cloud.",
+          "cambium_client_secret": "Application secret.",
+          "cambium_portal": "Exact EasyPass portal name.",
+          "cambium_voucher_plan": "Exact plan name (duration and devices in cnMaestro)."
         }
       },
       "site": {
@@ -35,37 +75,77 @@
           "upload_mbps": "Upload (Mbit/s)",
           "extra_days": "Extra days after the stay",
           "access_mode": "Home Assistant accounts",
-          "tenant_entities": "Allowed entities",
-          "tenant_devices": "Allowed devices",
+          "tenant_entities": "Guest entities",
+          "tenant_devices": "Guest devices",
           "confirm_sensitive": "I allow cameras, locks or alarms",
           "allow_remote": "Internet access during the stay",
           "notify_service": "Notification (optional)",
+          "guest_mail_service": "Guest mail (SMTP)",
+          "guest_mail_days": "Days before the welcome mail",
           "journal_path": "CSV journal file",
           "title_blocklist": "Ignored titles",
           "max_stay_days": "Maximum stay length (days)",
           "lookahead_days": "Calendar lookahead (days)",
-          "enable_vouchers": "Create UniFi vouchers",
+          "enable_vouchers": "Create Wi-Fi vouchers",
+          "voucher_provider": "Wi-Fi provider",
+          "cambium_client_id": "Cambium client ID",
+          "cambium_client_secret": "Cambium client secret",
+          "cambium_portal": "EasyPass portal",
+          "cambium_voucher_plan": "EasyPass voucher plan",
+          "manual_wifi_code": "Manual Wi-Fi code",
+          "enable_nuki": "Nuki Keypad PIN",
+          "nuki_token": "Nuki Web API token",
+          "nuki_smartlock_id": "Smartlock id (optional)",
           "enable_access": "Create guest accounts",
           "print_event": "Print event on creation",
-          "guest_base_url": "Public web app URL"
+          "guest_base_url": "Public web app URL",
+          "guest_theme": "Maison theme",
+          "guest_locale": "Language (Maison / console)",
+          "wifi_ssid": "Wi-Fi network name",
+          "house_mode_entity": "Heating / cooling switch",
+          "outdoor_temperature": "Outdoor temperature",
+          "pool_temperature": "Pool temperature",
+          "pool_ph": "Pool pH",
+          "alarm_code": "Alarm code (server)",
+          "bulk_add_domains": "Add all (domains)"
         },
         "data_description": {
-          "calendar_entity": "Any calendar entity (Airbnb, Booking, Google or local ICS).",
-          "lead_days": "The voucher is created this many days before arrival. Default: 3.",
+          "calendar_entity": "Any calendar entity (Airbnb, Booking, Google or local ICS). Title = guest name. Put their email in the description for the J−2 mail.",
+          "lead_days": "The Wi-Fi voucher, HA account and Maison link are issued this many days before arrival. Login and link become active on arrival day. Default: 3.",
           "device_limit": "Devices allowed to use the same code. Default: 10.",
           "download_mbps": "Converted to kbit/s for the API (100 Mbit/s = 100000 kbit/s). Default: 100.",
           "upload_mbps": "Default: 100.",
-          "extra_days": "Voucher duration is the stay plus this many days. Default: 1. UniFi starts that timer at the first use of the code, not at check-in.",
+          "extra_days": "The Wi-Fi voucher stays this many days after the departure day, then it is deleted. Default: 1. The Maison link stops at the end of departure day.",
           "access_mode": "One account per stay, or a single guest account whose password rotates.",
-          "tenant_entities": "Any domain. Cameras, locks and alarms are not selected: adding them requires the confirmation below.",
-          "tenant_devices": "Every entity of the device is allowed, including ones added later. A device that contains a camera, lock or alarm requires confirmation.",
-          "confirm_sensitive": "Without this box, saving is refused when the selection contains a camera, lock or alarm.",
-          "allow_remote": "Off by default. The account is not local-only for the length of the stay. Home Assistant must already be reachable from outside; this integration opens nothing.",
-          "notify_service": "e.g. notify.mobile_app_phone. Empty = persistent notification only.",
+          "tenant_entities": "Search and add entities (HA filter). Cameras, locks and alarms require the confirmation below.",
+          "tenant_devices": "Optional. One device = all its entities.",
+          "confirm_sensitive": "Remembered once checked. Without this box, saving is refused when the selection contains a camera, lock or alarm.",
+          "allow_remote": "Off by default. The account is not local-only for the length of the stay. Home Assistant must already be reachable from outside; this integration opens nothing. Also turn this on to try the HA account over Tailscale (a 100.x address is not local).",
+          "notify_service": "e.g. notify.mobile_app_phone. Empty = persistent notification only. This goes to you, not the guest.",
+          "guest_mail_service": "e.g. notify.smtp. Sends the welcome note to the guest (address read from the calendar description). Empty = copy the note by hand.",
+          "guest_mail_days": "Send the welcome mail this many days before arrival. Default: 2. The Wi-Fi and door codes are already issued (J−3).",
           "journal_path": "Relative to the config folder, or absolute under config/ or a media folder (Synology share).",
           "title_blocklist": "Comma-separated substrings that are not guests (blocked dates).",
           "print_event": "When enabled, the cleartext code is published on usvegliu_print_voucher and may end up in traces. Leave off unless you print.",
-          "guest_base_url": "Public origin, no path. e.g. https://www.usvegliu.fr — guest links become /s/<token>. Empty = Home Assistant internal URL."
+          "guest_base_url": "Public origin, no path. e.g. https://www.usvegliu.fr — guest links become /s/<token>. Empty = Home Assistant internal URL.",
+          "guest_theme": "U Svegliu (Corsica) or 49 Ledbury (Notting Hill). One HA instance, one theme.",
+          "guest_locale": "French or English for the Maison app (copy, weather, welcome mail). Independent of the theme.",
+          "wifi_ssid": "SSID shown under Informations. Empty = theme default.",
+          "house_mode_entity": "Owner switch. On = cooling, off = heating. Guests can read it, they cannot toggle it.",
+          "outdoor_temperature": "Shown in the corner of the climate page. Read-only.",
+          "pool_temperature": "Shown on the Pool tab. Read-only.",
+          "pool_ph": "Optional. Read-only.",
+          "alarm_code": "Used server-side to arm/disarm. Never sent to the browser. Empty = keep the stored code.",
+          "voucher_provider": "UniFi, Cambium API (X), or manual (pasted code, no API).",
+          "cambium_client_id": "API application created in cnMaestro Cloud (Account → API).",
+          "cambium_client_secret": "Application secret. Empty = keep the stored secret.",
+          "cambium_portal": "Exact EasyPass portal name in cnMaestro.",
+          "cambium_voucher_plan": "Exact voucher plan name (duration and devices are set in cnMaestro).",
+          "manual_wifi_code": "EasyPass code shown in Maison/mail. Empty = keep the stored code.",
+          "enable_nuki": "Per-stay Keypad PIN (mail, Infos, Console). Independent of unlocking the Nuki lock in Maison. Unchecked: the welcome mail still goes out without a door code.",
+          "nuki_token": "Created at https://web.nuki.io (API). Empty = keep the stored token.",
+          "nuki_smartlock_id": "Leave empty if there is only one lock. Otherwise the numeric Nuki id of the front door.",
+          "bulk_add_domains": "After filtering: pick domains (e.g. light, climate) then Save to add them all. Remove unwanted chips afterward."
         }
       },
       "reconfigure": {
@@ -87,12 +167,14 @@
       "calendar_missing": "Select a calendar entity.",
       "sensitive_entities": "The selection contains a camera, lock or alarm. Check the confirmation to allow it, or remove those devices.",
       "invalid_path": "The journal file must stay inside the config directory or a media directory (mounted Synology share).",
+      "cambium_incomplete": "With Cambium, fill in client ID, secret, EasyPass portal and voucher plan.",
       "unknown": "Unexpected error. Check the log: the API key is not written there."
     },
     "abort": {
       "already_configured": "This controller and site are already configured.",
       "reauth_successful": "API key updated.",
       "reconfigure_successful": "UniFi connection updated.",
+      "reconfigure_not_unifi": "This entry is Cambium: change the client ID / secret in Options.",
       "wrong_account": "The site does not match this entry."
     }
   },
@@ -109,31 +191,76 @@
           "upload_mbps": "Upload (Mbit/s)",
           "extra_days": "Extra days after the stay",
           "access_mode": "Home Assistant accounts",
-          "tenant_entities": "Allowed entities",
-          "tenant_devices": "Allowed devices",
+          "tenant_entities": "Guest entities",
+          "tenant_devices": "Guest devices",
           "confirm_sensitive": "I allow cameras, locks or alarms",
           "allow_remote": "Internet access during the stay",
           "notify_service": "Notification (optional)",
+          "guest_mail_service": "Guest mail (SMTP)",
+          "guest_mail_days": "Days before the welcome mail",
           "journal_path": "CSV journal file",
           "title_blocklist": "Ignored titles",
           "max_stay_days": "Maximum stay length (days)",
           "lookahead_days": "Calendar lookahead (days)",
-          "enable_vouchers": "Create UniFi vouchers",
+          "enable_vouchers": "Create Wi-Fi vouchers",
+          "voucher_provider": "Wi-Fi provider",
+          "cambium_client_id": "Cambium client ID",
+          "cambium_client_secret": "Cambium client secret",
+          "cambium_portal": "EasyPass portal",
+          "cambium_voucher_plan": "EasyPass voucher plan",
+          "manual_wifi_code": "Manual Wi-Fi code",
+          "enable_nuki": "Nuki Keypad PIN",
+          "nuki_token": "Nuki Web API token",
+          "nuki_smartlock_id": "Smartlock id (optional)",
           "enable_access": "Create guest accounts",
           "print_event": "Print event on creation",
-          "guest_base_url": "Public web app URL"
+          "guest_base_url": "Public web app URL",
+          "guest_theme": "Maison theme",
+          "guest_locale": "Language (Maison / console)",
+          "wifi_ssid": "Wi-Fi network name",
+          "house_mode_entity": "Heating / cooling switch",
+          "outdoor_temperature": "Outdoor temperature",
+          "pool_temperature": "Pool temperature",
+          "pool_ph": "Pool pH",
+          "alarm_code": "Alarm code (server)",
+          "bulk_add_domains": "Add all (domains)"
         },
         "data_description": {
-          "extra_days": "Voucher duration = stay + these days. UniFi starts the timer when the code is first redeemed.",
+          "guest_mail_service": "e.g. notify.smtp. Empty = copy the note by hand.",
+          "guest_mail_days": "Send the welcome mail this many days before arrival. Default: 2.",
+          "extra_days": "The voucher stays these days after departure, then it is deleted. The Maison link stops at the end of departure day.",
+          "allow_remote": "Turn this on to try the HA account over Tailscale: a 100.x address is not local, so the frontend stays on Loading data.",
           "print_event": "Publishes the cleartext code on the bus. Enable only for printing.",
-          "guest_base_url": "e.g. https://www.usvegliu.fr. Empty = Home Assistant internal URL."
+          "guest_base_url": "e.g. https://www.usvegliu.fr. Empty = Home Assistant internal URL.",
+          "guest_theme": "U Svegliu or 49 Ledbury. One HA instance = one theme.",
+          "guest_locale": "French or English for Maison. Independent of the theme.",
+          "wifi_ssid": "SSID shown to the guest. Empty = theme default.",
+          "house_mode_entity": "On = cooling, off = heating. Guests can read it, they cannot toggle it.",
+          "outdoor_temperature": "Read-only, in the corner of the climate page.",
+          "pool_temperature": "Read-only, on the Pool tab.",
+          "pool_ph": "Optional, read-only.",
+          "alarm_code": "Never sent to the browser. Empty = keep the stored code.",
+          "voucher_provider": "UniFi, Cambium API (X), or manual (pasted code, no API).",
+          "cambium_client_id": "API application created in cnMaestro Cloud.",
+          "cambium_client_secret": "Application secret. Empty = keep unchanged.",
+          "cambium_portal": "Exact EasyPass portal name.",
+          "cambium_voucher_plan": "Exact voucher plan name (duration/devices in cnMaestro).",
+          "manual_wifi_code": "EasyPass code shown in Maison/mail. Empty = keep the stored code.",
+          "enable_nuki": "Per-stay Keypad PIN. Unchecked: the mail goes without a door code. Maison lock/unlock does not depend on this.",
+          "nuki_token": "Nuki Web API token. Empty = keep the stored token.",
+          "nuki_smartlock_id": "Empty = first lock with a Keypad.",
+          "tenant_entities": "Search and add entities (HA filter). Cameras, locks and alarms require the confirmation below.",
+          "tenant_devices": "Optional. One device = all its entities.",
+          "bulk_add_domains": "After filtering: pick domains (e.g. light, climate) then Save to add them all. Remove unwanted chips afterward.",
+          "confirm_sensitive": "Remembered once checked. Without this box, saving is refused when the selection contains a camera, lock or alarm."
         }
       }
     },
     "error": {
       "calendar_missing": "Select a calendar entity.",
       "sensitive_entities": "The selection contains a camera, lock or alarm. Check the confirmation to allow it, or remove those devices.",
-      "invalid_path": "The journal file must stay inside the config directory or a media directory."
+      "invalid_path": "The journal file must stay inside the config directory or a media directory.",
+      "cambium_incomplete": "With Cambium, fill in client ID, secret, EasyPass portal and voucher plan."
     }
   },
   "selector": {
@@ -142,16 +269,83 @@
         "per_stay": "One account per stay",
         "shared": "Single guest account (rotating password)"
       }
+    },
+    "voucher_provider": {
+      "options": {
+        "unifi": "UniFi (UDM hotspot)",
+        "cambium": "Cambium EasyPass (X API)",
+        "manual": "Manual voucher (no API)"
+      }
+    },
+    "guest_theme": {
+      "options": {
+        "usvegliu": "U Svegliu (Lumio)",
+        "ledbury": "49 Ledbury (Notting Hill)"
+      }
+    },
+    "guest_locale": {
+      "options": {
+        "fr": "French",
+        "en": "English"
+      }
+    },
+    "bulk_add_domains": {
+      "options": {
+        "climate": "climate — heating / cooling",
+        "light": "light — lights",
+        "cover": "cover — shutters / gates",
+        "lock": "lock — locks",
+        "fan": "fan",
+        "switch": "switch",
+        "media_player": "media_player — sound",
+        "alarm_control_panel": "alarm_control_panel",
+        "camera": "camera",
+        "scene": "scene",
+        "script": "script",
+        "binary_sensor": "binary_sensor",
+        "sensor": "sensor",
+        "event": "event"
+      }
     }
   },
   "entity": {
     "sensor": {
       "voucher_code": {
         "name": "Voucher code"
+      },
+      "sejours": {
+        "name": "Active stays"
+      },
+      "reglages": {
+        "name": "Settings"
+      }
+    },
+    "text": {
+      "wifi_code_draft": {
+        "name": "Wi-Fi code draft"
+      }
+    },
+    "switch": {
+      "demo_mode": {
+        "name": "Demo mode"
       }
     }
   },
   "services": {
+    "definir_voucher": {
+      "name": "Set Wi-Fi voucher",
+      "description": "Paste an EasyPass code (or read the draft) onto a calendar stay. Manual provider or one-off fix.",
+      "fields": {
+        "reservation_key": {
+          "name": "Reservation",
+          "description": "Empty = stay shown by the sensor."
+        },
+        "code": {
+          "name": "Wi-Fi code",
+          "description": "Empty = use the Console « Wi-Fi code draft » field."
+        }
+      }
+    },
     "regenerer_voucher": {
       "name": "Regenerate voucher",
       "description": "Deletes the stay voucher and creates a new one.",
@@ -162,9 +356,49 @@
         }
       }
     },
+    "revoquer_voucher": {
+      "name": "Revoke voucher",
+      "description": "Deletes the Wi-Fi code. It is created again only with Regenerate voucher.",
+      "fields": {
+        "reservation_key": {
+          "name": "Reservation",
+          "description": "Empty = the stay shown by the sensor."
+        }
+      }
+    },
     "regenerer_acces": {
       "name": "Regenerate Home Assistant access",
-      "description": "Changes the guest password and sends it to the administrator.",
+      "description": "Changes the guest password. It appears on the owner console.",
+      "fields": {
+        "reservation_key": {
+          "name": "Reservation",
+          "description": "Empty = the stay shown by the sensor."
+        }
+      }
+    },
+    "regenerer_nuki": {
+      "name": "Regenerate door code",
+      "description": "Deletes the stay Keypad code and creates a new one.",
+      "fields": {
+        "reservation_key": {
+          "name": "Reservation",
+          "description": "Empty = the stay shown by the sensor."
+        }
+      }
+    },
+    "revoquer_nuki": {
+      "name": "Revoke door code",
+      "description": "Deletes the door code. It is created again only with Regenerate door code.",
+      "fields": {
+        "reservation_key": {
+          "name": "Reservation",
+          "description": "Empty = the stay shown by the sensor."
+        }
+      }
+    },
+    "revoquer_acces": {
+      "name": "Revoke Home Assistant access",
+      "description": "Deletes the guest account. It is created again only with Regenerate access.",
       "fields": {
         "reservation_key": {
           "name": "Reservation",
@@ -174,7 +408,7 @@
     },
     "renvoyer_notification": {
       "name": "Resend notification",
-      "description": "Sends the Wi-Fi code and the password to the administrator again.",
+      "description": "Sends the owner notification again, and the welcome mail to the guest if an address is known.",
       "fields": {
         "reservation_key": {
           "name": "Reservation"
@@ -196,7 +430,11 @@
     },
     "appliquer_tableau": {
       "name": "Apply dashboard",
-      "description": "Updates the usvegliu-sejour dashboard."
+      "description": "Updates the guest dashboard and the owner console."
+    },
+    "relire_calendrier": {
+      "name": "Reload calendar",
+      "description": "Runs a cycle now: calendar, vouchers and Home Assistant accounts."
     },
     "reglages_sejour": {
       "name": "Stay settings",
@@ -206,14 +444,24 @@
           "name": "Reservation",
           "description": "reservation_id attribute of the sensor, or the calendar UID."
         },
-        "entity_ids": {"name": "Entities"},
-        "device_ids": {"name": "Devices"},
+        "entity_ids": {
+          "name": "Entities",
+          "description": "Remplace la liste globale pour ce séjour."
+        },
+        "device_ids": {
+          "name": "Devices",
+          "description": "Remplace les appareils globaux pour ce séjour."
+        },
         "allow_remote": {
           "name": "Internet access",
           "description": "inherit = global setting, local = LAN only, remote = internet during this stay."
         },
-        "confirm_sensitive": {"name": "Confirm camera, lock or alarm"},
-        "reset": {"name": "Use the global setting again"}
+        "confirm_sensitive": {
+          "name": "Confirm camera, lock or alarm"
+        },
+        "reset": {
+          "name": "Use the global setting again"
+        }
       }
     },
     "lien_maison": {
@@ -229,12 +477,26 @@
           "description": "Ignores the calendar. Uses the entities currently selected."
         }
       }
+    },
+    "lien_tablettes": {
+      "name": "Tablet link",
+      "description": "Fixed URL for wall iPads (LAN only). Always on; the displayed name follows the stay.",
+      "fields": {
+        "regenerer": {
+          "name": "Regenerate token",
+          "description": "Invalidates the old URL — reinstall on every iPad."
+        }
+      }
     }
   },
   "issues": {
     "dashboard_missing": {
       "title": "Guest dashboard missing",
       "description": "The integration could not create the dashboard “{url_path}”. Create a storage dashboard with URL usvegliu-sejour (a hyphen is required), visible to non-admins, then call usvegliu.appliquer_tableau. Other dashboards (cameras, locks) should be admin-only."
+    },
+    "owner_dashboard_missing": {
+      "title": "Owner console missing",
+      "description": "The console is not the Location or Stay dashboard. Settings → Dashboards → +, new empty dashboard. Title: Usvegliu propriétaire (Home Assistant then generates URL {url_path}). Do not mark it admin-only: Users with control rights must see it. Show in sidebar. Then Developer tools → Actions → usvegliu.appliquer_tableau. Open /{url_path} or the Console sidebar item."
     }
   }
 }

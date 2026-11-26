@@ -34,6 +34,7 @@ class CalendarStay:
     check_in: datetime
     check_out: datetime
     summary: str
+    email: str = ""
 
 
 @dataclass(frozen=True)
@@ -91,6 +92,35 @@ def is_blocked_title(summary: str, needles: tuple[str, ...]) -> bool:
     return any(needle and needle in folded for needle in needles)
 
 
+_EMAIL_RE = re.compile(r"[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}", re.I)
+_SKIP_EMAIL_DOMAINS = (
+    "airbnb.com",
+    "airbnb.fr",
+    "booking.com",
+    "vrbo.com",
+    "homeaway.com",
+    "expedia.com",
+)
+
+
+def extract_guest_email(*texts: str | None) -> str:
+    """First personal email in calendar description or location.
+
+    Platform addresses (Airbnb, Booking) are skipped. An empty string means
+    none was found — the owner still copies the welcome note by hand.
+    """
+    for text in texts:
+        if not text:
+            continue
+        for match in _EMAIL_RE.findall(str(text)):
+            addr = match.strip().rstrip(".,;>)")
+            domain = addr.rsplit("@", 1)[-1].casefold()
+            if any(domain == skip or domain.endswith("." + skip) for skip in _SKIP_EMAIL_DOMAINS):
+                continue
+            return addr
+    return ""
+
+
 def sanitize_guest(summary: str) -> str:
     """Turn a calendar title into a voucher note fragment."""
     text = summary.replace("'", "").replace('"', "").replace("\\", "")
@@ -137,6 +167,26 @@ def stay_key(
     return hashlib.sha256(raw.encode()).hexdigest()[:20]
 
 
+def end_of_local_day(value: datetime) -> datetime:
+    """First instant of the next local calendar day."""
+    nxt = datetime.combine(value.date() + timedelta(days=1), time.min)
+    if value.tzinfo is not None:
+        return nxt.replace(tzinfo=value.tzinfo)
+    return nxt
+
+
+def maison_closes_at(check_out: datetime) -> datetime:
+    """Maison link stops at the end of the planned departure day."""
+    return end_of_local_day(check_out)
+
+
+def wifi_revokes_at(
+    check_out: datetime, extra_days: int = DEFAULT_EXTRA_DAYS
+) -> datetime:
+    """UniFi voucher is deleted this instant (departure day + extra days)."""
+    return maison_closes_at(check_out) + timedelta(days=max(int(extra_days), 0))
+
+
 def time_limit_minutes(check_in: datetime, check_out: datetime, extra_days: int) -> int:
     """Stay length plus the configured extra day, in minutes.
 
@@ -174,6 +224,8 @@ def normalize_event(
     uid: str | None = None,
     recurrence_id: str | None = None,
     status: str | None = None,
+    description: str | None = None,
+    location: str | None = None,
     blocklist: tuple[str, ...] = (),
     max_stay_days: int = DEFAULT_MAX_STAY_DAYS,
     tz: datetime.tzinfo | None = None,
@@ -217,6 +269,7 @@ def normalize_event(
         check_in=check_in,
         check_out=check_out,
         summary=summary or guest,
+        email=extract_guest_email(description, location),
     )
 
 
@@ -234,9 +287,10 @@ def build_plan(
 ) -> SyncPlan:
     """Decide which stays are active and which stored keys must be revoked.
 
-    A stay is provisioned from ``lead_days`` before check-in until check-out.
-    A known key that disappeared from the calendar is treated as a cancellation
-    when it was previously stored (the caller only passes keys it still tracks).
+    A stay is provisioned from ``lead_days`` before check-in until the Wi-Fi
+    extra day after departure. A known key that disappeared from the calendar
+    is treated as a cancellation when it was previously stored (the caller
+    only passes keys it still tracks).
     """
     ensure: list[StayPlan] = []
     active_keys: set[str] = set()
@@ -245,7 +299,8 @@ def build_plan(
     for stay in stays:
         active_keys.add(stay.key)
         window_open = stay.check_in - lead
-        if now < window_open or now >= stay.check_out:
+        wifi_until = wifi_revokes_at(stay.check_out, extra_days)
+        if now < window_open or now >= wifi_until:
             continue
         spec = VoucherSpec(
             name=voucher_name(stay.guest, stay.check_in.date(), stay.check_out.date()),
@@ -293,12 +348,20 @@ def default_blocklist() -> tuple[str, ...]:
     return parse_blocklist(DEFAULT_TITLE_BLOCKLIST)
 
 
-def select_current(stored: dict[str, dict], now: datetime) -> dict | None:
-    """Pick the stay whose code the sensor should show."""
+def select_current(
+    stored: dict[str, dict],
+    now: datetime,
+    extra_days: int = DEFAULT_EXTRA_DAYS,
+) -> dict | None:
+    """Pick the stay in progress (or next), for the Wi-Fi sensor and services.
+
+    Manual EasyPass stays may have no per-stay ``voucher_code`` yet (code is
+    pasted later or shared via options). Still select them by calendar window.
+    """
     covering: list[tuple[datetime, dict]] = []
     upcoming: list[tuple[datetime, dict]] = []
     for record in stored.values():
-        if not record.get("voucher_code"):
+        if record.get("preview"):
             continue
         try:
             start = datetime.fromisoformat(str(record.get("check_in")))
@@ -309,7 +372,8 @@ def select_current(stored: dict[str, dict], now: datetime) -> dict | None:
             start = start.replace(tzinfo=now.tzinfo)
         if end.tzinfo is None and now.tzinfo is not None:
             end = end.replace(tzinfo=now.tzinfo)
-        if start <= now < end:
+        wifi_until = wifi_revokes_at(end, extra_days)
+        if start <= now < wifi_until:
             covering.append((start, record))
         elif now < start:
             upcoming.append((start, record))

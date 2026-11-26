@@ -4,7 +4,8 @@ Intégration Home Assistant (custom component, installable via HACS) pour une ma
 
 1. des **vouchers hotspot UniFi** créés sur l'UDM, puis supprimés au départ, en cas d'annulation ou de séjour raccourci ;
 2. un **compte Home Assistant non administrateur** par séjour (ou un compte unique dont le mot de passe tourne), limité aux entités et appareils choisis, en local par défaut ;
-3. un **journal** (événement Home Assistant + CSV) qui dit qui a reçu quoi, et quand.
+3. un **code porte Nuki Keypad** par séjour (optionnel), créé à l'avance, envoyé dans le mail d'accueil, retiré à la fin du jour de départ ;
+4. un **journal** (événement Home Assistant + CSV) qui dit qui a reçu quoi, et quand.
 
 L'intégration ne remplace pas le portail captif : le locataire saisit le code sur la page hotspot UniFi, comme aujourd'hui. Elle ne crée aucune redirection de port et n'ouvre rien vers Internet.
 
@@ -45,10 +46,29 @@ Home Assistant 2025.1 ou plus récent.
 
 ### HACS
 
+Le dépôt doit être **public**. HACS n'installe pas un dépôt privé.
+
 1. HACS → ⋮ → *Dépôts personnalisés*.
 2. URL `https://github.com/nicdive/ha-mslumio-location`, catégorie **Intégration**.
-3. Télécharger **Usvegliu**, redémarrer Home Assistant.
-4. Paramètres → Appareils et services → Ajouter une intégration → **Usvegliu**.
+3. Télécharger **Usvegliu** en choisissant une **release GitHub** (dernière : [0.6.99](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.99)), pas le commit d'une branche.
+4. Redémarrer Home Assistant.
+5. Paramètres → Appareils et services → Ajouter une intégration → **Usvegliu**.
+
+Pour **mettre à jour** (ex. 0.6.35 → 0.6.99) : HACS → Usvegliu → ⋮ → **Redownload** → **0.6.99**, puis redémarrer. Le numéro dans Paramètres → Intégrations ne change qu'après ce redémarrage.
+
+HACS ne liste une version **que** si la [release GitHub](https://github.com/nicdive/ha-mslumio-location/releases) existe. Un numéro dans le `manifest.json` ou une pull request ne suffit pas : sans tag `v0.6.99` poussé, 0.6.99 n'apparaît pas.
+
+## Versions
+
+SemVer dans `custom_components/usvegliu/manifest.json`, historisé dans [CHANGELOG.md](CHANGELOG.md). HACS affiche uniquement les [releases GitHub](https://github.com/nicdive/ha-mslumio-location/releases), pas les tags seuls ni les branches.
+
+Pour publier :
+
+1. Monter le `version` du `manifest.json`.
+2. Ajouter une section en tête du changelog.
+3. Commit (la branche qui porte ce numéro).
+4. Tag annoté `vX.Y.Z` (même numéro que le manifest) et `git push origin vX.Y.Z`.
+5. L'action **Release** crée alors la release GitHub. **Sans ce push de tag, HACS reste sur la version précédente.** Si l'action manque : GitHub → Releases → *Create a new release* à partir du tag.
 
 ### Copie manuelle
 
@@ -88,7 +108,18 @@ L'intégration essaie `https://<udm>/proxy/network/integration/v1/info`, puis `h
 
 Il n'y a **pas** de repli vers l'ancienne API privée (`/proxy/network/api/...`, cookie d'admin). Elle n'est pas l'API à clé demandée, et elle demanderait un mot de passe administrateur UniFi.
 
-Repli opérationnel : décocher *Créer les vouchers UniFi*. Les séjours peuvent continuer d'alimenter le journal et les comptes HA ; les vouchers se créent à la main dans UniFi. Les identifiants déjà créés ici ne sont pas oubliés : la suppression reprend quand la case est recochée.
+Repli opérationnel : décocher *Créer les vouchers Wi-Fi*. Les séjours peuvent continuer d'alimenter le journal et les comptes HA ; les vouchers se créent à la main dans UniFi ou cnMaestro. Les identifiants déjà créés ici ne sont pas oubliés : la suppression reprend quand la case est recochée.
+
+## Cambium EasyPass (optionnel)
+
+Au **setup**, trois choix : **UniFi** (auto), **Cambium EasyPass API** (cnMaestro **X** requis), ou **Voucher manuel** (EasyPass sans API : tu génères le code dans cnMaestro et tu le colles dans Options). La voie manuelle / Cambium préremplit le thème **49 Ledbury**.
+
+## Thème Maison (U Svegliu / 49 Ledbury)
+
+Sur l’instance HA de **49 Ledbury Road** : Options → **Thème Maison** → **49 Ledbury (Notting Hill)**. Logos, couleurs Portobello, mails et titres suivent. U Svegliu reste sur le thème par défaut. Une instance = un thème.
+
+Guide d’usage de l’app locataire Ledbury : [docs/ledbury-guest-app.md](docs/ledbury-guest-app.md).  
+Plaquette PDF (EN) : [docs/ledbury-manual/49-Ledbury-Guest-User-Manual.pdf](docs/ledbury-manual/49-Ledbury-Guest-User-Manual.pdf).
 
 Exemple à lancer **sur le LAN**, une fois, pour voir la réponse réelle (remplacer les valeurs, ne pas commiter la clé) :
 
@@ -105,26 +136,51 @@ Le formulaire demande ensuite :
 
 | Réglage | Défaut | Rôle |
 | --- | --- | --- |
-| Calendrier | — | N'importe quelle entité `calendar`. Le **titre** est le nom du locataire, les dates sont le séjour. |
-| Jours avant l'arrivée | 3 | Création du voucher et du compte à partir de cette avance. |
+| Calendrier | — | N'importe quelle entité `calendar`. Le **titre** est le nom du locataire, les dates sont le séjour. L'**adresse mail** du locataire va dans la **description** (pas le titre) pour l'envoi automatique J−2. |
+| Jours avant l'arrivée | 3 | Création du voucher Wi-Fi, du code porte, du compte HA et du lien Maison. Login HA et lien Maison ne **s'activent que le jour d'arrivée**. |
 | Appareils | 10 | `authorizedGuestLimit` : un seul code, plusieurs appareils. |
 | Débits | 100 / 100 Mbit/s | Convertis en kbit/s SI : 100 Mbit/s = 100000 kbit/s. |
-| Jours supplémentaires | 1 | Durée envoyée = longueur du séjour + 1 jour. |
+| Jours supplémentaires | 1 | Le voucher Wi-Fi reste **un jour après le départ**, puis il est supprimé. Le lien Maison s'arrête à la fin de la journée de départ. |
 | Comptes | Un par séjour | Ou un compte `locataire` dont le mot de passe change quand plus aucun séjour n'est actif, puis au suivant. |
 | Entités et appareils | listes vides | Tout domaine. Seules ces entités (et toutes les entités des appareils choisis) sont lisibles et commandables. Caméra, serrure et alarme exigent une case de confirmation. |
 | Accès internet | désactivé | Pendant le séjour seulement, le compte n'est plus « local uniquement ». Rien n'est ouvert sur le réseau : Home Assistant doit déjà être joignable de l'extérieur. |
+| Mail locataire | vide | Service `notify` SMTP (ex. `notify.smtp`). Vide = pas d'envoi auto, le message reste à copier sur la Console. Distinct de la notification propriétaire. |
+| Jours avant le mail | 2 | Envoi du message d'accueil (lien Maison, Wi-Fi, code porte) ce nombre de jours avant l'arrivée, une fois les codes créés (J−3 par défaut). |
 | Journal | `usvegliu/journal.csv` | Sous le dossier de configuration, ou un dossier média. |
 | Titres ignorés | `not available`, `indisponible`, `fermé`, … | Les blocages Airbnb / Booking ne deviennent pas des vouchers. |
 | Impression | désactivée | Voir plus bas. |
 | URL publique web app | vide | Origine du lien locataire (`https://www.usvegliu.fr`). Vide = URL interne de HA (`/usvegliu/s/…`). |
+| Nom du réseau Wi-Fi | vide | SSID affiché au locataire dans **Informations**. |
+| Switch chauffage / climatisation | vide | Interrupteur du propriétaire. **Allumé = climatisation**, **éteint = chauffage**. Le locataire le lit, il ne le commande pas. |
+| Température extérieure / piscine / pH | vide | Capteurs affichés en tête de la web app, lecture seule. |
+| Code alarme | vide | Si le panneau HA exige un code. Reste sur le serveur. |
+| Code PIN Nuki (Keypad) | désactivé | PIN porte par séjour. **Indépendant** du déverrouillage Nuki dans Maison (`lock`). Décochez : le mail d'accueil part sans code porte. |
+| Jeton Nuki Web API | vide | Créé sur [web.nuki.io](https://web.nuki.io) (API). Comme le code alarme : un champ mot de passe, vide = ne pas changer. |
+| Identifiant smartlock | vide | Laissez vide s'il n'y a qu'une serrure. Sinon l'id numérique Nuki de la porte d'entrée. |
+
+## Keypad Nuki
+
+Ouvrir ou fermer la porte depuis Maison (`lock.unlock` / `lock.lock`) utilise l'entité Nuki déjà dans Home Assistant. Ça n'a pas besoin de Keypad ni de PIN.
+
+Le **code PIN** est une option à part : un code par locataire, à taper sur le Keypad. Décochez **Code PIN Nuki (Keypad)** si vous n'avez pas (encore) de clavier : le mail d'accueil part quand même, sans code porte.
+
+Pour les PIN :
+
+1. Jumeler le Keypad dans l'app Nuki.
+2. Sur [web.nuki.io](https://web.nuki.io) : créer un jeton API, le coller dans les options Usvegliu, cocher **Code PIN Nuki (Keypad)**.
+3. Usvegliu crée un PIN 6 chiffres (1–9, jamais 0, ne commence pas par 12) dans la fenêtre d'avance, le met dans le mail J−2, Infos et la Console, et le retire à la **fin du jour de départ** (le Wi-Fi peut rester un jour de plus).
+
+Le PIN n'est pas dans le CSV ni les logs. Airbnb peut déjà envoyer des codes Nuki de son côté : Usvegliu sert les réservations calendrier / directes.
+
+Si Nuki ne répond pas, UniFi et le compte HA continuent. Le PIN est réessayé au cycle suivant ; le mail d'accueil n'attend le code que si l'option PIN est cochée et le jeton présent.
 
 Un second passage avec les mêmes dates ne crée pas un deuxième voucher ni un deuxième compte. Au redémarrage, un voucher qui porte déjà le nom `<locataire> <arrivée>/<départ>` est réutilisé ; un doublon de ce nom est supprimé.
 
 Nom du voucher : `Jean Dupont 2026-07-10/2026-07-17`. Les apostrophes sont retirées (le filtre UniFi `name.eq('…')` ne les supporte pas).
 
-Séjour « journée entière » : la date de fin ICS est exclusive. Un événement du 10 au 17 est un départ le 17 au matin, soit 7 nuits, plus 1 jour, soit 8 jours de voucher.
+Séjour « journée entière » : la date de fin ICS est exclusive. Un événement du 10 au 17 est un départ le 17. Le lien Maison tient jusqu'à la fin de cette journée. Le voucher Wi-Fi est retiré le lendemain.
 
-Le capteur **Code voucher** affiche le code du séjour en cours (sinon le prochain déjà créé, sinon `aucun`). Il n'est pas dans la politique du locataire. Le mot de passe HA n'est pas un capteur.
+Le capteur **Code voucher** affiche le code du séjour en cours (sinon le prochain déjà créé, sinon `aucun`). Le capteur **Séjours actifs** liste tous les séjours encore ouverts (y compris avant l'arrivée, et un lien d'essai 24 h) : locataire, dates, identifiant HA, **mot de passe**, code Wi-Fi, code porte, lien Maison, tableau `/usvegliu-sejour`. Le code Wi-Fi et le code porte sont créés dès la fenêtre d'avance (3 jours) pour le message à envoyer. Avant le jour d'arrivée le compte HA est désactivé, et le lien Maison répond « s'ouvre le jour d'arrivée ». C'est la console propriétaire : fermer la notification persistante ne l'efface pas ; le départ ou l'annulation si. Un compte créé avant 0.5.3 n'a pas encore de mot de passe stocké : `usvegliu.regenerer_acces` en émet un et le pose sur le capteur. Ces deux capteurs ne sont pas dans la politique du locataire.
 
 ## Pare-feu (zone Hotspot → HA:8123 seulement)
 
@@ -190,19 +246,44 @@ Home Assistant doit **déjà** être joignable de l'extérieur, par exemple :
 - Home Assistant Cloud (Nabu Casa), ou
 - un reverse proxy HTTPS que vous administrez déjà.
 
-Mesures à avoir en place avant d'activer l'option : mot de passe fort (celui généré ici l'est), `http.ip_ban_enabled` et `login_attempts_threshold` dans la configuration HTTP, MFA du compte propriétaire, et aucun droit d'administration pour le locataire. Le mot de passe n'est affiché qu'une fois, dans la notification administrateur.
+Mesures à avoir en place avant d'activer l'option : mot de passe fort (celui généré ici l'est), `http.ip_ban_enabled` et `login_attempts_threshold` dans la configuration HTTP, MFA du compte propriétaire, et aucun droit d'administration pour le locataire.
 
-Le mot de passe est généré dans Home Assistant (`token_urlsafe`, sous la limite bcrypt de 72 octets). Il n'est pas écrit dans les logs, ni dans le CSV, ni dans le stockage du séjour. Il apparaît dans la notification admin, à noter tout de suite. Au départ, cette notification est retirée. Pour en obtenir un autre : `usvegliu.regenerer_acces`.
+Le mot de passe est généré dans Home Assistant (`token_urlsafe`, sous la limite bcrypt de 72 octets). Le propriétaire le retrouve sur **Séjours actifs** et dans la notification. Il n'est pas écrit dans les logs, ni dans le CSV, ni dans les diagnostics. La web app Maison ne le voit pas. Pour en émettre un autre : `usvegliu.regenerer_acces`.
 
-Tableau de bord : URL `usvegliu-sejour`, titre **Séjour**, visible des non-administrateurs, cartes thermostat / volets / éclairage. L'intégration le crée si la collection Lovelace en mémoire est joignable (commande websocket `lovelace/dashboards/create`). Sinon une réparation l'indique. Créer alors un tableau de stockage d'URL `usvegliu-sejour` (le tiret est obligatoire) et appeler `usvegliu.appliquer_tableau`.
+Tableau locataire : URL `usvegliu-sejour`, titre **Séjour**, visible des non-administrateurs, cartes thermostat / volets / éclairage. Accueil du compte locataire (`default_panel`).
 
-Mettre les autres tableaux (vue d'ensemble, caméras, serrures) en **réservé aux administrateurs**. L'intégration ne le fait pas toute seule, pour ne pas masquer l'interface de l'owner.
+Tableau propriétaire : URL `usvegliu-proprietaire`, titre **Console**. Visible des **administrateurs** et des comptes **Utilisateur** (droits de contrôle), pas des locataires. Quatre vues : **Accueil** (séjour **en cours** et **prochain**, raccourcis), **Séjours** (liste ordonnée, un clic ouvre la fiche), **Historique** (séjours clos et journal des accès, sans les codes), **Réglages**. La fiche d'un séjour contient le compte HA, le mot de passe, le Wi-Fi, le **code porte**, le **message à envoyer** et les actions. Le message à coller contient le lien personnel Maison, le réseau, le code Wi-Fi et le code Keypad s'il existe, dans une forme de politesse villa ; pas les identifiants Home Assistant. S'il y a une adresse et un SMTP, le même texte part par mail à J−2. Les identifiants sont lus en direct sur le capteur **Séjours actifs** (rien de secret dans le YAML Lovelace). Home Assistant masque l'attribut `password` : le mot de passe est exposé sous un autre nom pour rester visible. Si un séjour ancien n'a pas de mot de passe enregistré, **Nouveau mot de passe**.
+
+L'intégration crée les deux tableaux si la collection Lovelace est joignable. Sinon : créer les URL `usvegliu-sejour` et `usvegliu-proprietaire` (tiret obligatoire) puis `usvegliu.appliquer_tableau`.
+
+### Afficher la console propriétaire
+
+Ce n'est **pas** le tableau **Séjour** (locataire) ni un tableau créé à la main sous un autre nom. Dans Home Assistant 2026, le bouton **+** des tableaux de bord ne reprend pas le titre comme URL : « Location » devient `dashboard-location`, donc l'intégration n'y écrit rien.
+
+1. Mettre à jour Usvegliu ([0.6.99](https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.6.99)+), redémarrer Home Assistant.
+2. Outils de développement → Actions → `usvegliu.appliquer_tableau` → Exécuter.
+3. Dans la barre latérale, ouvrir **Console**, ou l'URL `/usvegliu-proprietaire`.
+
+Si **Console** n'apparaît toujours pas : Paramètres → Tableaux de bord → **+** → nouveau tableau vide. Titre `Usvegliu propriétaire` (Home Assistant génère alors l'URL `usvegliu-proprietaire`). **Ne pas** cocher « réservé aux administrateurs » (les comptes Utilisateur doivent la voir). Afficher dans la barre. Puis rappeler `usvegliu.appliquer_tableau`. Un tableau **Location** vide peut être supprimé.
+
+Les locataires n'ont pas la Console dans la barre. Mettre les autres tableaux (vue d'ensemble, caméras, serrures) en **réservé aux administrateurs** si seul l'admin doit les voir. L'intégration ne le fait pas toute seule.
+
+### Écran « Chargement des données… » après le mot de passe
+
+Le formulaire peut accepter le mot de passe et rester ensuite sur le splash. Deux causes distinctes :
+
+1. **Accueil Home Assistant.** HA 2026 ouvre le tableau Home (zones, toutes les entités). Un compte restreint y reste parfois bloqué. L'intégration pose maintenant **Séjour** comme tableau par défaut du locataire. Mettre à jour le composant, redémarrer, puis `usvegliu.regenerer_acces` (ou attendre le cycle de 15 min) pour l'écrire sur le compte déjà créé.
+2. **Tailscale n'est pas « local ».** Home Assistant ne traite comme locales que les RFC1918 (`10/8`, `172.16/12`, `192.168/16`). Une IP Tailscale `100.64.0.0/10` est refusée pour un compte `local_only` **au websocket** (HA 2026.4+), pas forcément au formulaire. D'où un login « ok » puis un chargement infini sur `http://ha:8123`.
+
+Pour un essai du **compte HA** depuis Tailscale : activer **Accès internet pendant le séjour**, enregistrer, puis `usvegliu.regenerer_acces`. Sur le VLAN hotspot de la villa (IP privée), laisser l'option coupée. Le **lien Maison** n'utilise pas ce compte : il fonctionne déjà sur `ha:8123` sans ce réglage.
+
+Pas besoin d'assigner un groupe dans Paramètres → Personnes : l'intégration crée `usvegliu-<identifiant>` toute seule. La colonne Groupe de l'UI peut rester vide.
 
 ## Journal et Synology
 
-Fichier CSV, une ligne par action (`voucher_cree`, `voucher_adopte`, `voucher_regenere`, `voucher_supprime`, `acces_cree`, `acces_regenere`, `acces_supprime`, `acces_desactive`). Colonnes : horodatage, action, réservation, locataire, début, fin, id voucher, nom du voucher, **code voucher**, MAC si le contrôleur la renvoie, détail. Le schéma voucher v11.0.97 ne documente pas de MAC : la colonne reste vide tant qu'une réponse n'en contient pas (`macAddress`, `mac`, ou une liste de clients).
+Fichier CSV, une ligne par action (`voucher_cree`, `voucher_adopte`, `voucher_regenere`, `voucher_supprime`, `acces_cree`, `acces_regenere`, `acces_supprime`, `acces_desactive`, `code_porte_cree`, `code_porte_adopte`, `code_porte_regenere`, `code_porte_supprime`, `message_envoye`). Colonnes : horodatage, action, réservation, locataire, début, fin, id voucher, nom du voucher, **code voucher**, MAC si le contrôleur la renvoie, détail. Le schéma voucher v11.0.97 ne documente pas de MAC : la colonne reste vide tant qu'une réponse n'en contient pas (`macAddress`, `mac`, ou une liste de clients).
 
-Pas de mot de passe, pas d'identifiant de connexion. Un ancien fichier qui en contenait est réécrit sans ces colonnes à la prochaine ligne. Le code voucher reste dans le CSV : c'est le secret d'accès Wi-Fi à archiver. Le poser sur un partage Synology monté dans Home Assistant, par exemple :
+Pas de mot de passe, pas d'identifiant de connexion, pas de PIN Nuki. Un ancien fichier qui en contenait est réécrit sans ces colonnes à la prochaine ligne. Le code voucher reste dans le CSV : c'est le secret d'accès Wi-Fi à archiver. Le poser sur un partage Synology monté dans Home Assistant, par exemple :
 
 - monter le partage dans `/media/synology` (ou sous `/config/...`) ;
 - régler le chemin sur `/media/synology/usvegliu-sejour/journal.csv`.
@@ -215,23 +296,30 @@ Le magasin interne (`.storage/usvegliu.<entrée>`) est privé. Il sert à ne pas
 
 ## Notification et impression
 
-À chaque nouveau code ou mot de passe : notification persistante `Usvegliu — <locataire>`. Un service `notify.…` optionnel reçoit le même texte (beaucoup de notifiers recopient le message dans le log : ne l'activer que si ce log reste privé).
+À chaque nouveau code ou mot de passe : notification persistante `Usvegliu — <locataire>`. Un service `notify.…` optionnel reçoit le même texte (beaucoup de notifiers recopient le message dans le log : ne l'activer que si ce log reste privé). La notification peut être fermée : le capteur **Séjours actifs** (appareil Usvegliu) reste la liste de travail tant que le séjour est ouvert.
+
+Le **mail locataire** est un autre service (`notify.smtp` typiquement). J−2 avant l'arrivée, Usvegliu y envoie le message d'accueil (lien Maison, SSID, code Wi-Fi, code porte s'il est activé) à l'adresse lue dans la description du calendrier. Les adresses des plateformes (Airbnb, Booking, Vrbo…) sont ignorées. Sans adresse ou sans SMTP, copiez le bloc **Message à envoyer** sur la Console. `usvegliu.renvoyer_notification` renvoie aussi ce mail, même avant J−2. Si le Keypad est activé, le mail attend que le PIN existe.
 
 L'impression n'est pas faite par l'intégration. Service `usvegliu.imprimer_voucher` (ou la case « événement d'impression », désactivée par défaut) : événement `usvegliu_print_voucher` avec le code en clair, pour une automatisation qui imprime. Cet événement peut apparaître dans les traces d'automatisation. Le laisser désactivé si personne n'imprime.
 
 ## Services
 
-Tous exigent un administrateur lorsque l'appel porte un utilisateur. Une automatisation lancée sans utilisateur (contexte vide) passe : ne pas exposer ces services à un tableau locataire.
+Tous exigent un administrateur **ou** un compte Utilisateur (droits de contrôle) lorsque l'appel porte un utilisateur. Les locataires sont refusés. Une automatisation lancée sans utilisateur (contexte vide) passe.
 
 | Service | Effet |
 | --- | --- |
 | `usvegliu.regenerer_voucher` | Nouveau code pour le séjour (l'ancien est supprimé). |
+| `usvegliu.revoquer_voucher` | Supprime le code Wi-Fi jusqu'à régénération. |
+| `usvegliu.regenerer_nuki` | Nouveau code porte Keypad (l'ancien est supprimé). |
+| `usvegliu.revoquer_nuki` | Supprime le code porte jusqu'à régénération. |
 | `usvegliu.regenerer_acces` | Nouveau mot de passe. |
-| `usvegliu.renvoyer_notification` | Renvoie le code. Le mot de passe n'est pas conservé : il faut le régénérer. |
+| `usvegliu.revoquer_acces` | Supprime le compte HA jusqu'à régénération. |
+| `usvegliu.renvoyer_notification` | Renvoie la notification propriétaire, et le mail d'accueil au locataire s'il a une adresse. |
 | `usvegliu.reglages_sejour` | Surcharge les entités, les appareils et l'accès internet d'une réservation. |
 | `usvegliu.imprimer_voucher` | Événement d'impression, réponse avec le code. |
 | `usvegliu.exporter_journal` | Chemin du CSV. |
-| `usvegliu.appliquer_tableau` | Réécrit les cartes du tableau `usvegliu-sejour`. |
+| `usvegliu.appliquer_tableau` | Réécrit **Séjour** et **Console**. |
+| `usvegliu.relire_calendrier` | Relit le calendrier tout de suite (sinon cycle de 15 min). |
 
 `reservation_key` vide = le séjour affiché par le capteur.
 
@@ -254,25 +342,56 @@ Sans UID calendrier, la clé est un condensat du nom et des dates : renommer le 
 - Aucune exposition Internet ajoutée. La règle de pare-feu est à créer sur l'UDM ; l'intégration ne pousse pas de règle firewall (elle ne touche pas à cette partie de l'API).
 - Mots de passe absents des logs, du CSV, du stockage des séjours et des événements. Présents seulement dans la notification admin, le temps de la noter.
 - Codes voucher dans le CSV et le capteur, masqués sur le bus. L'événement d'impression, s'il est activé, contient le code en clair.
+- PIN Nuki : notification propriétaire, mail, Console et Infos. Absent du CSV, des logs et des diagnostics.
 - Le capteur de code n'est pas dans la liste donnée au locataire, sauf si vous l'y ajoutez vous-même.
 
-## Web app locataire (premier jet)
+## Web app locataire
 
-La web app **Maison** est servie par le même Home Assistant. Le locataire n'ouvre pas l'UI admin : un lien avec jeton suffit.
+La web app **Maison** est servie par le même Home Assistant. Le locataire n'ouvre pas l'UI admin : un lien avec jeton suffit. L'interface est une application à sections (accueil, clim, pool, lumière, accès, infos), adaptée au téléphone et à l'iPad mini. Le bandeau reprend le logo **U Svegliu**.
 
-Elle pilote, pour ce premier jet :
+### Tablettes murales (iPad)
 
-- les `climate.*` autorisés (On/Off, consigne, ventilation 1/2/3) — vues **Pièces**, **Réglage** et cadran ;
-- les `lock.*` autorisés (Nuki) — page **Entrée**.
+Pour 6 iPad dans la maison : **une seule URL fixe**, installée une fois.
+
+1. Services → `usvegliu.lien_tablettes` (réponse `url` / `path`).
+2. Sur chaque iPad, ouvrir l’URL **locale** (`http://ha:8123/usvegliu/house/…` ou l’IP LAN) → Sur l’écran d’accueil.
+3. Ne **pas** utiliser `https://home.49ledbury.com/…` : le jeton tablette est **refusé hors LAN** (et idéalement bloqué sur le reverse proxy).
+
+L’app reste **toujours active** (chauffage, lumières…). Pendant un séjour le prénom du locataire s’affiche ; sinon le nom de la villa. Le lien perso du mail (`/s/<token>`) reste distinct et expire au départ.
+
+- **Maison** : accueil nominatif, dates du séjour, météo du jour à Lumio, **véhicule** seulement s'il est branché (pictogramme de voiture, en charge, niveau, charge terminée). Si quelqu'un sonne, un popup avec la photo de la platine et *Ouvrir le portail*.
+- **Clim** : thermostats autorisés (marche / arrêt, consigne, ventilation) ; titre **Chauffage** ou **Climatisation** selon le switch du propriétaire. Température extérieure en coin.
+- **Pool** : température, pH, et lumière du bassin.
+- **Lumière** : lumières (icône de lampe allumée / éteinte) et scénarios (à cocher dans les entités locataire).
+- **Accès** : porte, garage, portail, alarme (armer / désarmer), volets, sonnette (état), borne de recharge (lecture), chacun avec un pictogramme. La photo visio est sur l'accueil, pas ici.
+- **Son** : zones `media_player` (Amp Sonos) : volume, pause / lecture, muet, tout couper. L'onglet n'apparaît que si au moins une zone est cochée. Pas de Spotify / source de la villa.
+- **Infos** : nom du réseau Wi-Fi, code voucher, code porte Keypad, et QR code du lien personnel Maison. Pas sur l'accueil.
+
+Pour apparaître, chaque appareil doit d'abord exister dans Home Assistant, puis être dans **Entités autorisées** (alarme / serrure : cocher la case sensible, et renseigner le **code alarme** Delta Dore / TYDOM).
+
+- **Borne** : OCPP, Modbus EVlink, Wallbox, etc. Cocher le capteur d'état et, s'il existe, le capteur de niveau (SOC %). Accueil : visible seulement si un véhicule est branché, avec un **pictogramme de voiture** (câble vers la borne), **En charge**, **Branché** ou **Charge terminée**, plus le % s'il est dans HA. L'onglet Accès garde aussi **Libre**. Pas de démarrage / arrêt de charge.
+- **Alarme Delta Dore** : **Tydom 2** déjà en place. HACS *Delta Dore Tydom*, cocher `alarm_control_panel`, coller le code. L'app appelle `set_mode_using_stored_pin` si ce service existe.
+- **Sonnette / visiophone** : sonnerie via `binary_sensor` / `event`. Popup accueil (photo + ouvrir le portail) si une `camera` (Linea 3000 / 300EOS) est cochée (case sensible). Parler reste sur le HomeTouch / 300EOS / app Home + Security.
+- **Sonos Amp** : cocher les `media_player` des zones (salon, terrasse, piscine). Pas les TV. Le locataire règle le volume et coupe le son ; il lance sa musique depuis son téléphone (AirPlay / appli Sonos).
 
 Le navigateur n'envoie que le jeton. Les commandes sont exécutées côté serveur après contrôle de la liste d'entités du séjour.
+
+### Mode démo
+
+Pour voir le rendu complet **avant** d'avoir branché thermostats, borne, alarme, etc. dans Home Assistant :
+
+1. Appareil **Usvegliu** → allumer le switch **Mode démo**.
+2. Ouvrir un lien Maison (`usvegliu.lien_maison` → essai 24 h, ou un séjour déjà provisionné).
+
+L'app affiche alors 10 thermostats, le véhicule en charge, lumières, scènes, porte, garage, portail, volets, alarme, piscine, son, Infos. Les boutons réagissent (mémoire, rien n'est envoyé aux vrais appareils). Un bandeau **Mode démo** le rappelle. Éteindre le switch avant un vrai séjour.
 
 ### Configurer pour tester
 
 1. Mettre à jour le custom component (redémarrer Home Assistant).
 2. Options Usvegliu :
-   - **Entités autorisées** : les thermostats MH8 (`climate.…`) et, si vous voulez la porte, `lock.…` de Nuki.
-   - Pour Nuki : cocher **J'autorise caméras, serrures ou alarmes**.
+   - **Entités autorisées** : thermostats MH8 (`climate.…`), lumières MyHome, scènes, `cover` garage/portail, et si besoin `lock.…` Nuki plus `alarm_control_panel`.
+   - **Switch chauffage / climatisation**, **température extérieure**, **piscine**, **pH** : lecture seule, à part des entités locataire.
+   - Pour Nuki / alarme : cocher **J'autorise caméras, serrures ou alarmes**. Un **code alarme** éventuel reste côté serveur.
    - **URL publique de la web app** : laisser **vide** sur le HA de test. Réserver `https://www.usvegliu.fr` au reverse proxy de production.
 3. Outils de développement → Services → `usvegliu.lien_maison` :
    - **Lien d'essai (24 h)** = oui, pour tester tout de suite sans événement calendrier ;
@@ -284,7 +403,7 @@ Le navigateur n'envoie que le jeton. Les commandes sont exécutées côté serve
 
 Si l'URL locale de Home Assistant (Paramètres → Système → Réseau) est déjà `http://ha:8123`, `lien_maison` compose ce lien tout seul. Tailscale ne change rien au jeton ni à l'API : pas de compte HA, pas de certificat client. HTTPS seulement si ce HA de test l'a déjà activé.
 
-Le lien d'essai expire au bout de 24 h. Un séjour calendrier reste valable jusqu'au check-out ; le jeton est créé dès que le séjour est provisionné (y compris les jours avant l'arrivée).
+Le lien d'essai expire au bout de 24 h. Un séjour calendrier a un jeton et un code Wi-Fi dès qu'il est provisionné (3 jours avant). Le lien Maison et le compte HA s'ouvrent le jour d'arrivée et s'arrêtent à la fin de la journée de départ. Le Wi-Fi reste un jour de plus.
 
 ### Reverse proxy (même machine)
 
@@ -294,9 +413,12 @@ La web app écoute sur Home Assistant :
 | --- | --- |
 | `/usvegliu/s/<token>` | page locataire |
 | `/usvegliu/static/` | CSS / JS |
-| `/api/usvegliu/guest/state` | état |
+| `/api/usvegliu/guest/state` | état (un coup) |
+| `/api/usvegliu/guest/stream` | état en temps réel (SSE) |
 | `/api/usvegliu/guest/climate` | commandes thermostat |
 | `/api/usvegliu/guest/lock` | Nuki |
+| `/api/usvegliu/guest/command` | lumières, scènes, bassin, garage, portail, alarme |
+| `/api/usvegliu/guest/snapshot` | photo d'une caméra visio autorisée |
 
 Exemple pour `https://www.usvegliu.fr/s/…` vers HA en local :
 
@@ -315,6 +437,8 @@ location /api/usvegliu/ {
     proxy_pass https://127.0.0.1:8123/api/usvegliu/;
     proxy_set_header Host $host;
     proxy_ssl_verify off;
+    proxy_buffering off;
+    proxy_cache off;
 }
 ```
 
@@ -327,7 +451,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-Les tests couvrent le client UniFi (contrôleur HTTP local, clé dans `X-API-KEY` et pas dans l'URL, repli de préfixe, pagination, 404, refus de redirection), le calcul des séjours, l'idempotence, l'adoption d'un voucher déjà nommé, l'annulation, le remplacement quand le séjour raccourcit, l'absence de révocation si le contrôleur ne répond pas, le CSV sans mot de passe (y compris la réécriture d'un ancien fichier), le chemin de journal, la rédaction des diagnostics, la politique limitée aux entités choisies et l'avertissement caméra / serrure / alarme.
+Les tests couvrent le client UniFi (contrôleur HTTP local, clé dans `X-API-KEY` et pas dans l'URL, repli de préfixe, pagination, 404, refus de redirection), le calcul des séjours, l'idempotence, l'adoption d'un voucher déjà nommé, l'annulation, le remplacement quand le séjour raccourcit, l'absence de révocation si le contrôleur ne répond pas, le PIN Keypad (création, révocation au départ Maison, panne Nuki sans bloquer UniFi), le CSV sans mot de passe ni PIN (y compris la réécriture d'un ancien fichier), le chemin de journal, la rédaction des diagnostics, la politique limitée aux entités choisies et l'avertissement caméra / serrure / alarme.
 
 ## Limites connues
 
@@ -335,8 +459,9 @@ Les tests couvrent le client UniFi (contrôleur HTTP local, clé dans `X-API-KEY
 - Schéma v11 non confirmé sur un UDM Pro Max de cette maison. HTTP 400 = s'arrêter et lire l'OpenAPI locale.
 - Groupe locataire via une API interne de Home Assistant. À recontrôler après chaque montée de version majeure, y compris le filtrage du journal.
 - Pas d'ACL sur les services sans entité ni, dans le code lu, sur le journal. Le test manuel locataire fait partie de la mise en service.
-- L'accès internet n'est qu'un drapeau `local_only`. Sans Nabu Casa ou un proxy déjà en place, le locataire distant n'arrive pas.
-- Le tableau Lovelace n'est créé que si la collection déjà chargée par HA est retrouvée. Sinon, création manuelle d'URL `usvegliu-sejour`.
-- Un seul capteur de code : le séjour en cours, ou à défaut le prochain.
+- L'accès internet n'est qu'un drapeau `local_only`. Sans Nabu Casa ou un proxy déjà en place, le locataire distant n'arrive pas. Tailscale (`100.x`, MagicDNS `ha`) n'est pas local pour ce drapeau : le formulaire peut passer, le websocket non.
+- Les tableaux Lovelace ne sont créés que si la collection déjà chargée par HA est retrouvée. Sinon, création manuelle des URL `usvegliu-sejour` et `usvegliu-proprietaire`.
+- Capteur de code : le séjour en cours, ou à défaut le prochain. Capteur **Séjours actifs** : tous les séjours encore ouverts, avec liens et mot de passe propriétaire. Pas dans le CSV.
 - Compte partagé : un seul mot de passe pour les séjours qui se chevauchent.
 - Pas de pilotage du portail captif, des conditions d'utilisation, ni du pare-feu UniFi.
+- Les codes Keypad passent par l'API cloud Nuki (`api.nuki.io`). Sans internet ou sans jeton, le PIN n'est pas créé ; UniFi et HA continuent.

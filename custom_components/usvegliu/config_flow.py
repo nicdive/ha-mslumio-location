@@ -40,10 +40,35 @@ from .const import (
     CONF_COVER_ENTITIES,
     CONF_DEVICE_LIMIT,
     CONF_DOWNLOAD_MBPS,
+    CONF_CAMBIUM_CLIENT_ID,
+    CONF_CAMBIUM_CLIENT_SECRET,
+    CONF_CAMBIUM_PORTAL,
+    CONF_CAMBIUM_VOUCHER_PLAN,
     CONF_ENABLE_ACCESS,
+    CONF_ENABLE_NUKI,
     CONF_ENABLE_VOUCHERS,
+    CONF_VOUCHER_PROVIDER,
+    CONF_MANUAL_WIFI_CODE,
+    CONF_NUKI_SMARTLOCK_ID,
+    CONF_NUKI_TOKEN,
     CONF_EXTRA_DAYS,
     CONF_GUEST_BASE_URL,
+    CONF_GUEST_LOCALE,
+    CONF_GUEST_MAIL_DAYS,
+    CONF_GUEST_MAIL_SERVICE,
+    CONF_GUEST_THEME,
+    CONF_WIFI_SSID,
+    DEFAULT_GUEST_LOCALE,
+    GUEST_LOCALES,
+    LOCALE_EN,
+    DEFAULT_GUEST_THEME,
+    THEME_LEDBURY,
+    THEME_USVEGLIU,
+    CONF_ALARM_CODE,
+    CONF_HOUSE_MODE_ENTITY,
+    CONF_OUTDOOR_TEMPERATURE,
+    CONF_POOL_PH,
+    CONF_POOL_TEMPERATURE,
     CONF_JOURNAL_PATH,
     CONF_LEAD_DAYS,
     CONF_LIGHT_ENTITIES,
@@ -53,14 +78,18 @@ from .const import (
     CONF_PRINT_EVENT,
     CONF_SITE_ID,
     CONF_SITE_NAME,
+    CONF_BULK_ADD_DOMAINS,
     CONF_TENANT_DEVICES,
     CONF_TENANT_ENTITIES,
+    CONF_TENANT_TARGET,
     CONF_TITLE_BLOCKLIST,
+    TENANT_BULK_DOMAINS,
     CONF_UPLOAD_MBPS,
     CONF_VERIFY_SSL,
     DEFAULT_DEVICE_LIMIT,
     DEFAULT_DOWNLOAD_MBPS,
     DEFAULT_EXTRA_DAYS,
+    DEFAULT_GUEST_MAIL_DAYS,
     DEFAULT_JOURNAL_PATH,
     DEFAULT_LEAD_DAYS,
     DEFAULT_LOOKAHEAD_DAYS,
@@ -68,11 +97,23 @@ from .const import (
     DEFAULT_PORT,
     DEFAULT_TITLE_BLOCKLIST,
     DEFAULT_UPLOAD_MBPS,
+    DEFAULT_VOUCHER_PROVIDER,
+    DEFAULT_WIFI_SSID,
     DOMAIN,
     ACCESS_PER_STAY,
+    VOUCHER_PROVIDER_CAMBIUM,
+    VOUCHER_PROVIDER_MANUAL,
+    VOUCHER_PROVIDER_UNIFI,
 )
 from .access import sensitive_entity_ids
 from .journal import JournalPathError, resolve_journal_path
+from .target_options import (
+    as_id_list as _as_id_list,
+    default_entities as _default_entities,
+    entity_ids_for_domains as _entity_ids_for_domains,
+    expand_tenant_target as _expand_tenant_target,
+    merge_unique as _merge_unique,
+)
 from .unifi import (
     UnifiAuthError,
     UnifiClient,
@@ -105,15 +146,14 @@ def _number(min_value: int, max_value: int) -> NumberSelector:
     )
 
 
-def _default_entities(defaults: Mapping[str, Any]) -> list[str]:
-    """Keep a previous climate/cover/light selection visible after the upgrade."""
-    selected = list(defaults.get(CONF_TENANT_ENTITIES) or [])
-    if selected:
-        return selected
-    legacy: list[str] = []
-    for key in (CONF_CLIMATE_ENTITIES, CONF_COVER_ENTITIES, CONF_LIGHT_ENTITIES):
-        legacy.extend(defaults.get(key) or [])
-    return legacy
+def _default_guest_locale(defaults: Mapping[str, Any]) -> str:
+    """Locale for the house form: saved value, else theme default."""
+    from .branding import normalize_guest_locale
+
+    return normalize_guest_locale(
+        defaults.get(CONF_GUEST_LOCALE),
+        theme=defaults.get(CONF_GUEST_THEME) or DEFAULT_GUEST_THEME,
+    )
 
 
 def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
@@ -150,17 +190,32 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
                     mode=SelectSelectorMode.DROPDOWN,
                 )
             ),
+            # Filterable HA entity picker (search). Bulk-add fills by domain;
+            # remove chips afterward — no long checkbox wall.
             vol.Optional(
                 CONF_TENANT_ENTITIES,
-                default=_default_entities(defaults),
+                description={"suggested_value": _default_entities(defaults)},
             ): EntitySelector(EntitySelectorConfig(multiple=True)),
             vol.Optional(
+                CONF_BULK_ADD_DOMAINS,
+                default=[],
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=list(TENANT_BULK_DOMAINS),
+                    multiple=True,
+                    mode=SelectSelectorMode.DROPDOWN,
+                    translation_key="bulk_add_domains",
+                )
+            ),
+            vol.Optional(
                 CONF_TENANT_DEVICES,
-                default=defaults.get(CONF_TENANT_DEVICES, []),
+                description={
+                    "suggested_value": _as_id_list(defaults.get(CONF_TENANT_DEVICES))
+                },
             ): DeviceSelector(DeviceSelectorConfig(multiple=True)),
             vol.Required(
                 CONF_CONFIRM_SENSITIVE,
-                default=False,
+                default=bool(defaults.get(CONF_CONFIRM_SENSITIVE, False)),
             ): BooleanSelector(),
             vol.Required(
                 CONF_ALLOW_REMOTE,
@@ -170,9 +225,54 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
                 CONF_NOTIFY_SERVICE, default=defaults.get(CONF_NOTIFY_SERVICE, "")
             ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
             vol.Optional(
+                CONF_GUEST_MAIL_SERVICE,
+                default=defaults.get(CONF_GUEST_MAIL_SERVICE, ""),
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            vol.Required(
+                CONF_GUEST_MAIL_DAYS,
+                default=defaults.get(CONF_GUEST_MAIL_DAYS, DEFAULT_GUEST_MAIL_DAYS),
+            ): _number(0, 30),
+            vol.Optional(
                 CONF_GUEST_BASE_URL,
                 default=defaults.get(CONF_GUEST_BASE_URL, ""),
             ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            vol.Required(
+                CONF_GUEST_THEME,
+                default=defaults.get(CONF_GUEST_THEME, DEFAULT_GUEST_THEME),
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=[THEME_USVEGLIU, THEME_LEDBURY],
+                    translation_key="guest_theme",
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Required(
+                CONF_GUEST_LOCALE,
+                default=_default_guest_locale(defaults),
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=list(GUEST_LOCALES),
+                    translation_key="guest_locale",
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Optional(
+                CONF_WIFI_SSID,
+                default=defaults.get(CONF_WIFI_SSID, DEFAULT_WIFI_SSID),
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            **_optional_entity_field(
+                CONF_HOUSE_MODE_ENTITY,
+                defaults,
+                ["switch", "input_boolean", "select", "input_select"],
+            ),
+            **_optional_entity_field(
+                CONF_OUTDOOR_TEMPERATURE, defaults, ["sensor", "weather"]
+            ),
+            **_optional_entity_field(CONF_POOL_TEMPERATURE, defaults, ["sensor"]),
+            **_optional_entity_field(CONF_POOL_PH, defaults, ["sensor"]),
+            vol.Optional(
+                CONF_ALARM_CODE, default=""
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
             vol.Required(
                 CONF_JOURNAL_PATH,
                 default=defaults.get(CONF_JOURNAL_PATH, DEFAULT_JOURNAL_PATH),
@@ -193,8 +293,51 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
                 CONF_ENABLE_VOUCHERS, default=defaults.get(CONF_ENABLE_VOUCHERS, True)
             ): BooleanSelector(),
             vol.Required(
+                CONF_VOUCHER_PROVIDER,
+                default=defaults.get(CONF_VOUCHER_PROVIDER, DEFAULT_VOUCHER_PROVIDER),
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=[
+                        VOUCHER_PROVIDER_UNIFI,
+                        VOUCHER_PROVIDER_CAMBIUM,
+                        VOUCHER_PROVIDER_MANUAL,
+                    ],
+                    translation_key="voucher_provider",
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Optional(
+                CONF_CAMBIUM_CLIENT_ID,
+                default=defaults.get(CONF_CAMBIUM_CLIENT_ID, ""),
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            vol.Optional(
+                CONF_CAMBIUM_CLIENT_SECRET, default=""
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
+            vol.Optional(
+                CONF_CAMBIUM_PORTAL,
+                default=defaults.get(CONF_CAMBIUM_PORTAL, ""),
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            vol.Optional(
+                CONF_CAMBIUM_VOUCHER_PLAN,
+                default=defaults.get(CONF_CAMBIUM_VOUCHER_PLAN, ""),
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+            vol.Optional(
+                CONF_MANUAL_WIFI_CODE, default=""
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
+            vol.Required(
                 CONF_ENABLE_ACCESS, default=defaults.get(CONF_ENABLE_ACCESS, True)
             ): BooleanSelector(),
+            vol.Required(
+                CONF_ENABLE_NUKI,
+                default=defaults.get(CONF_ENABLE_NUKI, False),
+            ): BooleanSelector(),
+            vol.Optional(
+                CONF_NUKI_TOKEN, default=""
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
+            vol.Optional(
+                CONF_NUKI_SMARTLOCK_ID,
+                default=defaults.get(CONF_NUKI_SMARTLOCK_ID, ""),
+            ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
             vol.Required(
                 CONF_PRINT_EVENT, default=defaults.get(CONF_PRINT_EVENT, False)
             ): BooleanSelector(),
@@ -202,7 +345,9 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
     )
 
 
-def _clean_options(user_input: Mapping[str, Any]) -> dict[str, Any]:
+def _clean_options(
+    user_input: Mapping[str, Any], hass: Any | None = None
+) -> dict[str, Any]:
     """Coerce selector numbers and drop connection secrets from options."""
     cleaned = dict(user_input)
     for key in (
@@ -213,24 +358,86 @@ def _clean_options(user_input: Mapping[str, Any]) -> dict[str, Any]:
         CONF_EXTRA_DAYS,
         CONF_MAX_STAY_DAYS,
         CONF_LOOKAHEAD_DAYS,
+        CONF_GUEST_MAIL_DAYS,
     ):
         if key in cleaned and cleaned[key] is not None:
             cleaned[key] = int(cleaned[key])
-    legacy = []
+    legacy: list[str] = []
     for key in (CONF_CLIMATE_ENTITIES, CONF_COVER_ENTITIES, CONF_LIGHT_ENTITIES):
-        legacy.extend(cleaned.get(key) or [])
-    selected = list(cleaned.get(CONF_TENANT_ENTITIES) or [])
+        legacy.extend(_as_id_list(cleaned.get(key)))
+    target = cleaned.pop(CONF_TENANT_TARGET, None)
+    if isinstance(target, Mapping):
+        selected, devices = _expand_tenant_target(hass, target)
+    else:
+        selected = _as_id_list(cleaned.get(CONF_TENANT_ENTITIES))
+        devices = _as_id_list(cleaned.get(CONF_TENANT_DEVICES))
     if not selected and legacy:
         selected = legacy
+    bulk_domains = _as_id_list(cleaned.pop(CONF_BULK_ADD_DOMAINS, None))
+    if bulk_domains:
+        selected = _merge_unique(selected, _entity_ids_for_domains(hass, bulk_domains))
     cleaned[CONF_TENANT_ENTITIES] = selected
-    cleaned[CONF_TENANT_DEVICES] = list(cleaned.get(CONF_TENANT_DEVICES) or [])
+    cleaned[CONF_TENANT_DEVICES] = devices
     cleaned[CONF_ALLOW_REMOTE] = bool(cleaned.get(CONF_ALLOW_REMOTE, False))
-    cleaned.pop(CONF_CONFIRM_SENSITIVE, None)
+    # Remember “I allow cameras/locks/alarms” so Options does not untick every save.
+    cleaned[CONF_CONFIRM_SENSITIVE] = bool(cleaned.get(CONF_CONFIRM_SENSITIVE, False))
+    cleaned.pop(CONF_BULK_ADD_DOMAINS, None)
     for key in (CONF_CLIMATE_ENTITIES, CONF_COVER_ENTITIES, CONF_LIGHT_ENTITIES):
         cleaned.pop(key, None)
     cleaned[CONF_NOTIFY_SERVICE] = str(cleaned.get(CONF_NOTIFY_SERVICE) or "").strip()
+    cleaned[CONF_GUEST_MAIL_SERVICE] = str(
+        cleaned.get(CONF_GUEST_MAIL_SERVICE) or ""
+    ).strip()
     cleaned[CONF_GUEST_BASE_URL] = str(cleaned.get(CONF_GUEST_BASE_URL) or "").strip()
+    from .branding import normalize_guest_locale, normalize_guest_theme
+
+    cleaned[CONF_GUEST_THEME] = normalize_guest_theme(
+        cleaned.get(CONF_GUEST_THEME) or DEFAULT_GUEST_THEME
+    )
+    cleaned[CONF_GUEST_LOCALE] = normalize_guest_locale(
+        cleaned.get(CONF_GUEST_LOCALE), theme=cleaned[CONF_GUEST_THEME]
+    )
+    cleaned[CONF_WIFI_SSID] = str(cleaned.get(CONF_WIFI_SSID) or "").strip()
+    cleaned[CONF_HOUSE_MODE_ENTITY] = str(
+        cleaned.get(CONF_HOUSE_MODE_ENTITY) or ""
+    ).strip()
+    for key in (
+        CONF_OUTDOOR_TEMPERATURE,
+        CONF_POOL_TEMPERATURE,
+        CONF_POOL_PH,
+    ):
+        cleaned[key] = str(cleaned.get(key) or "").strip()
+    cleaned[CONF_ALARM_CODE] = str(cleaned.get(CONF_ALARM_CODE) or "").strip()
+    cleaned[CONF_VOUCHER_PROVIDER] = str(
+        cleaned.get(CONF_VOUCHER_PROVIDER) or DEFAULT_VOUCHER_PROVIDER
+    ).strip() or DEFAULT_VOUCHER_PROVIDER
+    cleaned[CONF_CAMBIUM_CLIENT_ID] = str(
+        cleaned.get(CONF_CAMBIUM_CLIENT_ID) or ""
+    ).strip()
+    cleaned[CONF_CAMBIUM_CLIENT_SECRET] = str(
+        cleaned.get(CONF_CAMBIUM_CLIENT_SECRET) or ""
+    ).strip()
+    cleaned[CONF_CAMBIUM_PORTAL] = str(cleaned.get(CONF_CAMBIUM_PORTAL) or "").strip()
+    cleaned[CONF_CAMBIUM_VOUCHER_PLAN] = str(
+        cleaned.get(CONF_CAMBIUM_VOUCHER_PLAN) or ""
+    ).strip()
+    cleaned[CONF_MANUAL_WIFI_CODE] = str(
+        cleaned.get(CONF_MANUAL_WIFI_CODE) or ""
+    ).strip()
+    if cleaned.get(CONF_VOUCHER_PROVIDER) == VOUCHER_PROVIDER_MANUAL:
+        cleaned[CONF_ENABLE_VOUCHERS] = False
     return {key: value for key, value in cleaned.items() if key not in _CONNECTION_KEYS}
+
+
+def _optional_entity_field(
+    key: str, defaults: Mapping[str, Any], domains: list[str]
+) -> dict[Any, Any]:
+    """Optional single-entity selector that keeps a previous choice."""
+    selector = EntitySelector(EntitySelectorConfig(domain=domains, multiple=False))
+    current = str(defaults.get(key) or "").strip()
+    if current:
+        return {vol.Optional(key, default=current): selector}
+    return {vol.Optional(key): selector}
 
 
 class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -247,11 +454,58 @@ class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):
         self._base_path = ""
         self._sites: list[tuple[str, str]] = []
         self._reauth = False
+        self._connection: dict[str, Any] = {}
+        self._house_defaults: dict[str, Any] = {}
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Collect the controller address and the API key."""
+        """Choose UniFi (U Svegliu) or Cambium-only (49 Ledbury)."""
+        if self._reauth:
+            if not str(self._get_reauth_entry().data.get(CONF_API_KEY) or "").strip():
+                return await self.async_step_cambium()
+            return await self.async_step_unifi()
+        if user_input is not None:
+            choice = str(user_input.get(CONF_VOUCHER_PROVIDER) or "").strip()
+            if choice == VOUCHER_PROVIDER_CAMBIUM:
+                return await self.async_step_cambium()
+            if choice == VOUCHER_PROVIDER_MANUAL:
+                return await self.async_step_manual()
+            return await self.async_step_unifi()
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_VOUCHER_PROVIDER,
+                        default=DEFAULT_VOUCHER_PROVIDER,
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=[
+                                {
+                                    "label": "UniFi — hotspot UDM (auto)",
+                                    "value": VOUCHER_PROVIDER_UNIFI,
+                                },
+                                {
+                                    "label": "Cambium EasyPass — API cnMaestro X (auto)",
+                                    "value": VOUCHER_PROVIDER_CAMBIUM,
+                                },
+                                {
+                                    "label": "Voucher manuel — Cambium/autre sans API",
+                                    "value": VOUCHER_PROVIDER_MANUAL,
+                                },
+                            ],
+                            mode=SelectSelectorMode.LIST,
+                        )
+                    ),
+                }
+            ),
+        )
+
+    async def async_step_unifi(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Collect the UniFi controller address and the API key."""
         errors: dict[str, str] = {}
         if user_input is not None:
             host, port = split_host_port(
@@ -291,7 +545,7 @@ class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):
             CONF_VERIFY_SSL: False,
         }
         return self.async_show_form(
-            step_id="user",
+            step_id="unifi",
             data_schema=self.add_suggested_values_to_schema(
                 vol.Schema(
                     {
@@ -306,6 +560,117 @@ class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):
                 suggested,
             ),
             errors=errors,
+        )
+
+    async def async_step_cambium(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Cambium EasyPass only — no UniFi controller required."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            client_id = str(user_input.get(CONF_CAMBIUM_CLIENT_ID) or "").strip()
+            client_secret = str(user_input.get(CONF_CAMBIUM_CLIENT_SECRET) or "").strip()
+            portal = str(user_input.get(CONF_CAMBIUM_PORTAL) or "").strip()
+            plan = str(user_input.get(CONF_CAMBIUM_VOUCHER_PLAN) or "").strip()
+            if not (client_id and client_secret and portal and plan):
+                errors["base"] = "cambium_incomplete"
+            else:
+                from .cambium import CambiumAuthError, CambiumError
+
+                try:
+                    await _async_probe_cambium(client_id, client_secret, portal, plan)
+                except CambiumAuthError:
+                    errors["base"] = "invalid_auth"
+                except CambiumError:
+                    errors["base"] = "cannot_connect"
+                else:
+                    await self.async_set_unique_id(f"cambium:{portal}:{plan}")
+                    self._abort_if_unique_id_configured()
+                    self._connection = {
+                        CONF_HOST: "",
+                        CONF_PORT: DEFAULT_PORT,
+                        CONF_API_KEY: "",
+                        CONF_VERIFY_SSL: True,
+                        CONF_BASE_PATH: "",
+                        CONF_SITE_ID: f"cambium:{portal}",
+                        CONF_SITE_NAME: portal,
+                    }
+                    self._house_defaults = {
+                        CONF_VOUCHER_PROVIDER: VOUCHER_PROVIDER_CAMBIUM,
+                        CONF_CAMBIUM_CLIENT_ID: client_id,
+                        CONF_CAMBIUM_CLIENT_SECRET: client_secret,
+                        CONF_CAMBIUM_PORTAL: portal,
+                        CONF_CAMBIUM_VOUCHER_PLAN: plan,
+                        CONF_GUEST_THEME: THEME_LEDBURY,
+                        CONF_GUEST_LOCALE: LOCALE_EN,
+                        CONF_WIFI_SSID: "49Ledbury-Guest",
+                        CONF_ENABLE_VOUCHERS: True,
+                    }
+                    return await self.async_step_house()
+        return self.async_show_form(
+            step_id="cambium",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_CAMBIUM_CLIENT_ID): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.TEXT)
+                    ),
+                    vol.Required(CONF_CAMBIUM_CLIENT_SECRET): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                    ),
+                    vol.Required(CONF_CAMBIUM_PORTAL): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.TEXT)
+                    ),
+                    vol.Required(CONF_CAMBIUM_VOUCHER_PLAN): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.TEXT)
+                    ),
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_manual(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """No UniFi / Cambium API — owner pastes EasyPass codes by hand."""
+        if user_input is not None:
+            site = str(user_input.get(CONF_SITE_NAME) or "Maison").strip() or "Maison"
+            code = str(user_input.get(CONF_MANUAL_WIFI_CODE) or "").strip()
+            ssid = str(user_input.get(CONF_WIFI_SSID) or "").strip()
+            await self.async_set_unique_id(f"manual:{site.casefold()}")
+            self._abort_if_unique_id_configured()
+            self._connection = {
+                CONF_HOST: "",
+                CONF_PORT: DEFAULT_PORT,
+                CONF_API_KEY: "",
+                CONF_VERIFY_SSL: True,
+                CONF_BASE_PATH: "",
+                CONF_SITE_ID: f"manual:{site.casefold()}",
+                CONF_SITE_NAME: site,
+            }
+            self._house_defaults = {
+                CONF_VOUCHER_PROVIDER: VOUCHER_PROVIDER_MANUAL,
+                CONF_ENABLE_VOUCHERS: False,
+                CONF_GUEST_THEME: THEME_LEDBURY,
+                CONF_GUEST_LOCALE: LOCALE_EN,
+                CONF_WIFI_SSID: ssid or "49Ledbury-Guest",
+                CONF_MANUAL_WIFI_CODE: code,
+            }
+            return await self.async_step_house()
+        return self.async_show_form(
+            step_id="manual",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_SITE_NAME, default="49 Ledbury"): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.TEXT)
+                    ),
+                    vol.Optional(
+                        CONF_WIFI_SSID, default="49Ledbury-Guest"
+                    ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+                    vol.Optional(CONF_MANUAL_WIFI_CODE, default=""): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.TEXT)
+                    ),
+                }
+            ),
         )
 
     async def async_step_site(
@@ -350,7 +715,10 @@ class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Collect the calendar, voucher limits and tenant entities."""
         if user_input is not None:
-            options = _clean_options(user_input)
+            options = _clean_options(user_input, self.hass)
+            for key, value in self._house_defaults.items():
+                if not options.get(key) and value not in (None, ""):
+                    options[key] = value
             error = _house_error(
                 self.hass,
                 options,
@@ -359,23 +727,29 @@ class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):
             if error:
                 return self.async_show_form(
                     step_id="house",
-                    data_schema=_house_schema(user_input),
+                    data_schema=_house_schema({**self._house_defaults, **user_input}),
                     errors={"base": error},
                 )
-            title = f"Usvegliu ({self._connection[CONF_SITE_NAME]})"
+            site = str(self._connection.get(CONF_SITE_NAME) or "Maison")
+            title = f"Usvegliu ({site})"
             return self.async_create_entry(
                 title=title,
                 data=self._connection,
                 options=options,
             )
-        return self.async_show_form(step_id="house", data_schema=_house_schema({}))
+        return self.async_show_form(
+            step_id="house",
+            data_schema=_house_schema(self._house_defaults),
+        )
 
     async def async_step_reauth(
         self, entry_data: Mapping[str, Any]
     ) -> ConfigFlowResult:
         """Start reauthentication when the API key is rejected."""
         self._reauth = True
-        return await self.async_step_user()
+        if not str(entry_data.get(CONF_API_KEY) or "").strip():
+            return await self.async_step_cambium()
+        return await self.async_step_unifi()
 
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
@@ -383,6 +757,8 @@ class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):
         """Replace the controller connection without logging the key."""
         errors: dict[str, str] = {}
         entry = self._get_reconfigure_entry()
+        if not str(entry.data.get(CONF_API_KEY) or "").strip():
+            return self.async_abort(reason="reconfigure_not_unifi")
         if user_input is not None:
             host, port = split_host_port(
                 str(user_input[CONF_HOST]), int(user_input.get(CONF_PORT, DEFAULT_PORT))
@@ -472,7 +848,23 @@ class UsvegliuOptionsFlow(OptionsFlow):
     ) -> ConfigFlowResult:
         """Show the house options."""
         if user_input is not None:
-            options = _clean_options(user_input)
+            options = _clean_options(user_input, self.hass)
+            if not options.get(CONF_ALARM_CODE):
+                options[CONF_ALARM_CODE] = str(
+                    self.config_entry.options.get(CONF_ALARM_CODE) or ""
+                )
+            if not options.get(CONF_NUKI_TOKEN):
+                options[CONF_NUKI_TOKEN] = str(
+                    self.config_entry.options.get(CONF_NUKI_TOKEN) or ""
+                )
+            if not options.get(CONF_CAMBIUM_CLIENT_SECRET):
+                options[CONF_CAMBIUM_CLIENT_SECRET] = str(
+                    self.config_entry.options.get(CONF_CAMBIUM_CLIENT_SECRET) or ""
+                )
+            if not options.get(CONF_MANUAL_WIFI_CODE):
+                options[CONF_MANUAL_WIFI_CODE] = str(
+                    self.config_entry.options.get(CONF_MANUAL_WIFI_CODE) or ""
+                )
             error = _house_error(
                 self.hass,
                 options,
@@ -519,6 +911,24 @@ def _house_error(
 
     if not options.get(CONF_CALENDAR):
         return "calendar_missing"
+    provider = str(
+        options.get(CONF_VOUCHER_PROVIDER) or DEFAULT_VOUCHER_PROVIDER
+    ).strip()
+    if (
+        bool(options.get(CONF_ENABLE_VOUCHERS, True))
+        and provider == VOUCHER_PROVIDER_CAMBIUM
+    ):
+        missing = not all(
+            str(options.get(key) or "").strip()
+            for key in (
+                CONF_CAMBIUM_CLIENT_ID,
+                CONF_CAMBIUM_CLIENT_SECRET,
+                CONF_CAMBIUM_PORTAL,
+                CONF_CAMBIUM_VOUCHER_PLAN,
+            )
+        )
+        if missing:
+            return "cambium_incomplete"
     sensitive = sensitive_entity_ids(list(options.get(CONF_TENANT_ENTITIES) or []))
     sensitive.extend(
         _sensitive_device_entities(hass, list(options.get(CONF_TENANT_DEVICES) or []))
@@ -567,3 +977,23 @@ async def _async_connect(
             len(sites),
         )
         return resolved, sites
+
+
+async def _async_probe_cambium(
+    client_id: str,
+    client_secret: str,
+    portal: str,
+    plan: str,
+) -> None:
+    """Fetch an EasyPass token so bad credentials fail during setup."""
+    from .cambium import CambiumClient
+
+    async with aiohttp.ClientSession() as session:
+        client = CambiumClient(
+            session,
+            client_id=client_id,
+            client_secret=client_secret,
+            portal_name=portal,
+            voucher_plan=plan,
+        )
+        await client.async_ensure_token()
