@@ -356,7 +356,7 @@ def build():
         ["Home", "Welcome, London weather, alarm status"],
         ["Heating", "Heating by room (no cooling)"],
         ["Lights", "Lights, dimmers, scenes"],
-        ["Access", "Locks, gate / shutters, alarm, doorbell"],
+        ["Access", "Door lock, alarm, doorbell"],
         ["TV", "Apple TV remote — power, pad, volume"],
         ["Sound", "Audio zones (if available)"],
         ["Info", "Wi-Fi voucher, QR / link to share the app"],
@@ -415,9 +415,8 @@ def build():
     story.append(Paragraph("Access", s["h2"]))
     story.append(
         Paragraph(
-            "Door lock Open / Close; gate or shutters Open / Close / Stop; "
-            "alarm Arm / Disarm with confirmation. If someone rings, a popup may show "
-            "the door camera and <b>Open the gate</b>.",
+            "Door lock Open / Close; alarm Arm / Disarm with confirmation. "
+            "If someone rings, a popup may show the door camera.",
             s["body"],
         )
     )

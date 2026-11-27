@@ -15,7 +15,7 @@ Too early: **Available from \<date\>.**
 | **Home** | Welcome, London weather, alarm status |
 | **Heating** | Heating by room (no cooling) |
 | **Lights** | Lights & scenes |
-| **Access** | Locks, shutters / gate, alarm, doorbell |
+| **Access** | Door lock, alarm, doorbell |
 | **Sound** | Audio zones (if available) |
 | **TV** | Apple TV remote (if available) |
 | **Info** | Wi‑Fi voucher, QR / share link |
@@ -38,7 +38,7 @@ Join the guest network → enter the **voucher** on the **captive portal**. Code
 
 ## Access
 
-Locks Open/Close; gate / shutters Open/Close/Stop; alarm Arm/Disarm (confirm). Doorbell popup may show camera + **Open the gate**.
+Door lock Open/Close; alarm Arm/Disarm (confirm). Doorbell popup may show the door camera.
 
 ---
 
