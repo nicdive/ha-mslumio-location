@@ -1720,7 +1720,7 @@
     return `${pageHead(item.name, t("tv_remote"))}
       <div class="tv-remote${on ? " live" : ""}">
         <div class="tv-power-row">
-          <button class="access-action${on ? " filled" : ""}" type="button" data-act="tv" data-id="${escapeAttr(item.entity_id)}" data-cmd="${powerCmd}">${escapeHtml(powerLabel)}</button>
+          <button class="access-action tv-power${on ? " filled" : ""}" type="button" data-act="tv" data-id="${escapeAttr(item.entity_id)}" data-cmd="${powerCmd}">${powerGlyph(18)}<span>${escapeHtml(powerLabel)}</span></button>
           <div class="tv-status-chip">${escapeHtml(tvStatus(item))}</div>
         </div>
         <div class="tv-pad${remoteDisabled ? " disabled" : ""}" aria-label="${escapeAttr(t("tv_remote"))}">

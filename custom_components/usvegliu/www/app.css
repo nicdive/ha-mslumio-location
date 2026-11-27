@@ -757,6 +757,17 @@ body[data-theme="ledbury"] .confirm-pop {
   flex: 1 1 auto;
 }
 
+.tv-power {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.tv-power svg {
+  flex: 0 0 auto;
+}
+
 .tv-pad {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

@@ -4,6 +4,14 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.7.3] — 2026-11-27
+
+### Modifié
+- Maison TV : icône power sur Allumer / Éteindre.
+- Manuel guest Ledbury simplifié (Wi‑Fi voucher, home app + access, TV ; sans door code / VE / Portobello).
+
+[0.7.3]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.7.3
+
 ## [0.7.2] — 2026-11-27
 
 ### Documenté

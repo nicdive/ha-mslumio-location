@@ -1,99 +1,72 @@
-# 49 Ledbury — guide Maison (locataire)
+# 49 Ledbury — Maison (guest)
 
-App **Maison** pour **49 Ledbury Road** (thème Ledbury, **anglais**). Lien personnel (mail / message) : actif **le jour d’arrivée** → fin du jour de départ.
+App for **49 Ledbury Road** (Notting Hill). Personal link from the welcome message: **arrival day** → end of departure day.
 
-Ouvrir sur le téléphone, de préférence sur le **Wi‑Fi guest** de la maison. iPhone : Share → **Add to Home Screen**.
+Open on your phone. iPhone: Share → **Add to Home Screen**.
 
-Si trop tôt : **Available from \<date\>.**
+Too early: **Available from \<date\>.**
 
 ---
 
-## Onglets
+## Tabs
 
-N’apparaissent que s’il y a quelque chose à afficher.
-
-| Onglet | Rôle |
+| Tab | Role |
 | --- | --- |
-| **Home** | Salutation, météo Londres, alarme / chargeur (statut) |
-| **Heating** | Chauffage par pièce (pas de clim ni ventilateur) |
-| **Lights** | Lumières + scènes |
-| **Access** | Serrures, volets / portes, alarme, sonnette, chargeur |
-| **Sound** | Zones audio (si configurées) |
-| **TV** | Télécommandes Apple TV (si configurées) |
-| **Info** | Wi‑Fi, code porte, QR / partage de l’app |
+| **Home** | Welcome, London weather, alarm status |
+| **Heating** | Heating by room (no cooling) |
+| **Lights** | Lights & scenes |
+| **Access** | Locks, shutters / gate, alarm, doorbell |
+| **Sound** | Audio zones (if available) |
+| **TV** | Apple TV remote (if available) |
+| **Info** | Wi‑Fi voucher, QR / share link |
 
 ---
 
-## Home
+## Wi‑Fi
 
-- Logo **49 Ledbury**, *Good morning / afternoon / evening*.
-- **Weather in London**.
-- **Home Alarm** : Armed / Disarmed seulement (pas de bouton ici).
-- Chargeur véhicule : seulement s’il est branché.
+Join the guest network → enter the **voucher** on the **captive portal**. Codes also under **Info**.
 
 ---
 
-## Heating
+## Home / Heating / Lights
 
-**Adjust** (consigne ±, on/off) et **Overview** (cartes). Toucher une pièce → cadran. Pas de Cool / fan.
-
----
-
-## Lights
-
-Par pièce ; scènes en haut si autorisées. Icône = on/off. Variation : glisser horizontalement (~10 %).
+- **Home** — greeting, weather, alarm status only.
+- **Heating** — Adjust (±, on/off) or Overview; tap a room for the dial.
+- **Lights** — by room; lamp = on/off; swipe to dim; scenes if present.
 
 ---
 
 ## Access
 
-Selon le séjour : locks, volets / portail, **Arm / Disarm** (avec confirmation), sonnette (popup + éventuelle photo / open gate), chargeur.
+Locks Open/Close; gate / shutters Open/Close/Stop; alarm Arm/Disarm (confirm). Doorbell popup may show camera + **Open the gate**.
 
 ---
 
-## Sound (si présent)
+## TV
 
-Play / pause, volume, mute, **Mute all**.
-
----
-
-## TV (si présent)
-
-Liste des TV (ex. Living, Kitchen…). Ouvrir une TV :
-
-- **Turn on / off** (CEC via Apple TV)
-- Pad ▲▼◀▶ + OK, Menu, Home
-- Volume ± / mute
-
-Pas de choix de source (box / sat / CCTV) : une Apple TV est **fixée** par écran. Control4 peut encore free-router hors Maison.
-
-**AirPlay** depuis l’iPhone (musique / vidéo / mirroring) vers une Apple TV : Control Center, sur le Wi‑Fi guest — indépendant de l’onglet TV (réglage réseau villa).
+Pick a TV → power, pad, Menu/Home, volume. One Apple TV per screen (no source picker). AirPlay from the phone to an Apple TV works on guest Wi‑Fi when the network allows it.
 
 ---
 
 ## Info
 
-Wi‑Fi + code, code porte (Keypad) si activé, QR pour partager l’app. Pas de mot de passe Home Assistant ici.
+Wi‑Fi network + voucher, QR to share the app with your party.
 
 ---
 
-## Limites
+## Notes
 
-- Uniquement les équipements autorisés pour le séjour.
-- Tablette murale (`/house/…`) : **LAN** villa seulement.
-- Après départ : lien fermé ; Wi‑Fi parfois +1 jour.
+- Link closes after departure; Wi‑Fi may last one more day.
+- Wall tablet URL (`/house/…`) is for the house LAN only.
 
-Plaquette PDF : [ledbury-manual/49-Ledbury-Guest-User-Manual.pdf](ledbury-manual/49-Ledbury-Guest-User-Manual.pdf).
+PDF: [ledbury-manual/49-Ledbury-Guest-User-Manual.pdf](ledbury-manual/49-Ledbury-Guest-User-Manual.pdf).
 
-### Setup propriétaire (résumé)
+### Host setup (short)
 
-1. **Pulse-Eight** + **Apple TV** (appairage PIN) dans HA.  
-2. Usvegliu → **Options** : jusqu’à 4 TV = nom + `media_player` ATV + sortie Neo + entrée Neo ATV.  
-3. ATV dans les **entités locataire**.  
-4. AirPlay guest Wi‑Fi : [ledbury-airplay-vlan15.md](ledbury-airplay-vlan15.md) (mDNS + firewall Hotspot → IP ATV).
+1. Pulse-Eight + Apple TVs in HA; Usvegliu **Options** → up to 4 TVs (name, ATV, Neo out/in).  
+2. ATV `media_player` in tenant entities.  
+3. AirPlay guest: [ledbury-airplay-vlan15.md](ledbury-airplay-vlan15.md).
 
-### À venir
+### Later
 
-- **Push sonnette** (Web Push si l’app est en arrière-plan) — pas encore.
-
-*Usage locataire — thème 49 Ledbury. Console / U Svegliu hors sujet.*
+- Doorbell Web Push (background) — not yet.
