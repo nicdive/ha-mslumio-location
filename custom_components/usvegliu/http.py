@@ -72,6 +72,7 @@ from .guest_session import (
     pick_preset_on,
     resolve_house_mode,
 )
+from .guest_tv import async_ensure_neo_route, mapping_for_atv
 from .qr import guest_share_url, make_share_qr_svg
 
 _LOGGER = logging.getLogger(__name__)
@@ -556,22 +557,67 @@ def _linked_remote_entity_id(hass: Any, media_player_id: str) -> str | None:
     return None
 
 
-def _serialize_tv(hass: Any, entity_id: str) -> dict[str, Any] | None:
+def _serialize_tv(
+    hass: Any,
+    entity_id: str,
+    *,
+    name: str | None = None,
+    mapping: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
     state = hass.states.get(entity_id)
     if state is None:
         return None
     volume = _as_float(state.attributes.get("volume_level"))
     muted = bool(state.attributes.get("is_volume_muted"))
     remote_id = _linked_remote_entity_id(hass, entity_id)
-    return {
+    label = (name or "").strip() or str(
+        state.attributes.get("friendly_name") or entity_id
+    )
+    item: dict[str, Any] = {
         "entity_id": entity_id,
-        "name": str(state.attributes.get("friendly_name") or entity_id),
+        "name": label,
         "state": tv_view_state(str(state.state)),
         "volume": 0 if volume is None else int(round(max(0.0, min(1.0, volume)) * 100)),
         "muted": muted,
         "remote_entity_id": remote_id,
         "supports_remote": remote_id is not None,
     }
+    if mapping:
+        item["neo_output"] = mapping.get("neo_output")
+        item["neo_input"] = mapping.get("neo_input")
+        item["slot"] = mapping.get("slot")
+    return item
+
+
+def _serialize_guest_tvs(
+    hass: Any,
+    runtime: Any,
+    allowed: list[str],
+    grouped: dict[str, list[str]],
+) -> list[dict[str, Any]]:
+    """Prefer fixed Usvegliu mappings; else classify allow-list media_players."""
+    allowed_set = set(allowed)
+    mappings = runtime.guest_tv_mappings()
+    if mappings:
+        items: list[dict[str, Any]] = []
+        for mapping in mappings:
+            entity_id = str(mapping.get("atv_entity_id") or "")
+            if entity_id not in allowed_set:
+                continue
+            item = _serialize_tv(
+                hass,
+                entity_id,
+                name=str(mapping.get("name") or "") or None,
+                mapping=mapping,
+            )
+            if item:
+                items.append(item)
+        return items
+    return [
+        item
+        for entity_id in _ids(grouped, GUEST_KIND_TV)
+        if (item := _serialize_tv(hass, entity_id))
+    ]
 
 
 def _serialize_doorbell(hass: Any, entity_id: str) -> dict[str, Any] | None:
@@ -792,13 +838,13 @@ def _snapshot(
         "speakers": [
             item
             for entity_id in _ids(grouped, GUEST_KIND_SPEAKER)
-            if (item := _serialize_speaker(hass, entity_id))
+            if entity_id not in {
+                str(m.get("atv_entity_id") or "")
+                for m in runtime.guest_tv_mappings()
+            }
+            and (item := _serialize_speaker(hass, entity_id))
         ],
-        "tvs": [
-            item
-            for entity_id in _ids(grouped, GUEST_KIND_TV)
-            if (item := _serialize_tv(hass, entity_id))
-        ],
+        "tvs": _serialize_guest_tvs(hass, runtime, allowed, grouped),
     }
     villa = runtime.demo_villa() if runtime.demo_mode() else None
     if villa:
@@ -1427,11 +1473,20 @@ class GuestCommandView(HomeAssistantView):
         allowed = runtime.allowed_entity_ids(record)
         if entity_id not in allowed:
             return _json_error(self, 403, "forbidden")
-        kind = _entity_kind(hass, entity_id)
+        tv_mapping = mapping_for_atv(runtime.guest_tv_mappings(), entity_id)
+        kind = GUEST_KIND_TV if tv_mapping else _entity_kind(hass, entity_id)
         if kind not in _COMMAND_KINDS:
             return _json_error(self, 403, "forbidden")
         try:
-            await _async_guest_command(hass, runtime, entity_id, kind, action, value)
+            await _async_guest_command(
+                hass,
+                runtime,
+                entity_id,
+                kind,
+                action,
+                value,
+                tv_mapping=tv_mapping,
+            )
         except ValueError:
             return _json_error(self, 400, "bad_action")
         except Exception:  # noqa: BLE001
@@ -1447,6 +1502,8 @@ async def _async_guest_command(
     kind: str,
     action: str,
     value: Any = None,
+    *,
+    tv_mapping: dict[str, Any] | None = None,
 ) -> None:
     domain = entity_id.split(".", 1)[0]
     data: dict[str, Any] = {"entity_id": entity_id}
@@ -1511,17 +1568,45 @@ async def _async_guest_command(
         await _async_speaker_command(hass, entity_id, action, value)
         return
     if kind == GUEST_KIND_TV:
-        await _async_tv_command(hass, entity_id, action, value)
+        mapping = tv_mapping or mapping_for_atv(
+            runtime.guest_tv_mappings(), entity_id
+        )
+        await _async_tv_command(
+            hass, entity_id, action, value, mapping=mapping
+        )
         return
     raise ValueError("bad_action")
 
 
 async def _async_tv_command(
-    hass: Any, entity_id: str, action: str, value: Any
+    hass: Any,
+    entity_id: str,
+    action: str,
+    value: Any,
+    *,
+    mapping: dict[str, Any] | None = None,
 ) -> None:
     """Volume / power on the Apple TV media_player; pad via linked remote."""
     data: dict[str, Any] = {"entity_id": entity_id}
     fold = str(action or "").casefold().strip()
+    if fold in {
+        "on",
+        "turn_on",
+        "power_on",
+        "wakeup",
+        "up",
+        "down",
+        "left",
+        "right",
+        "select",
+        "menu",
+        "home",
+        "home_hold",
+        "top_menu",
+        "play",
+        "pause",
+    }:
+        await async_ensure_neo_route(hass, mapping)
     if fold == "volume":
         level = _as_float(value)
         if level is None:

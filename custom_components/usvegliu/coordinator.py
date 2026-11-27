@@ -227,6 +227,12 @@ class UsvegliuRuntime:
                 found[kind] = entity_id
         return found
 
+    def guest_tv_mappings(self) -> list[dict[str, Any]]:
+        """Fixed Maison TVs: Apple TV (+ optional Pulse-Eight output/input)."""
+        from .guest_tv import parse_guest_tv_mappings
+
+        return parse_guest_tv_mappings(self.entry.options)
+
     def guest_watch_ids(self, record: dict[str, Any]) -> set[str]:
         """Entities whose changes should refresh the guest stream."""
         watched = set(self.allowed_entity_ids(record))
@@ -234,6 +240,12 @@ class UsvegliuRuntime:
         if mode_entity:
             watched.add(mode_entity)
         watched.update(self.telemetry_entity_ids().values())
+        for mapping in self.guest_tv_mappings():
+            watched.add(str(mapping["atv_entity_id"]))
+            if mapping.get("neo_output"):
+                watched.add(str(mapping["neo_output"]))
+            if mapping.get("neo_input"):
+                watched.add(str(mapping["neo_input"]))
         return watched
 
     def alarm_code(self) -> str | None:

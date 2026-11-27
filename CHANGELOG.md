@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.7.1] — 2026-11-27
+
+### Ajouté
+- Options Usvegliu : **4 TV guest** fixes — nom, Apple TV (`media_player`), sortie Neo + entrée ATV Neo. À l’usage Maison force `pulse_eight.set_route` (pas de grille de sources pour le locataire).
+
+[0.7.1]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.7.1
+
 ## [0.7.0] — 2026-11-27
 
 ### Ajouté

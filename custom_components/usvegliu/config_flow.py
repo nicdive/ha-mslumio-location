@@ -106,6 +106,14 @@ from .const import (
     VOUCHER_PROVIDER_UNIFI,
 )
 from .access import sensitive_entity_ids
+from .guest_tv import (
+    GUEST_TV_SLOTS,
+    guest_tv_atv_key,
+    guest_tv_name_key,
+    guest_tv_neo_input_key,
+    guest_tv_neo_output_key,
+    guest_tv_option_keys,
+)
 from .journal import JournalPathError, resolve_journal_path
 from .target_options import (
     as_id_list as _as_id_list,
@@ -270,6 +278,7 @@ def _house_schema(defaults: Mapping[str, Any]) -> vol.Schema:
             ),
             **_optional_entity_field(CONF_POOL_TEMPERATURE, defaults, ["sensor"]),
             **_optional_entity_field(CONF_POOL_PH, defaults, ["sensor"]),
+            **_guest_tv_fields(defaults),
             vol.Optional(
                 CONF_ALARM_CODE, default=""
             ): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD)),
@@ -407,6 +416,8 @@ def _clean_options(
         CONF_POOL_PH,
     ):
         cleaned[key] = str(cleaned.get(key) or "").strip()
+    for key in guest_tv_option_keys():
+        cleaned[key] = str(cleaned.get(key) or "").strip()
     cleaned[CONF_ALARM_CODE] = str(cleaned.get(CONF_ALARM_CODE) or "").strip()
     cleaned[CONF_VOUCHER_PROVIDER] = str(
         cleaned.get(CONF_VOUCHER_PROVIDER) or DEFAULT_VOUCHER_PROVIDER
@@ -438,6 +449,32 @@ def _optional_entity_field(
     if current:
         return {vol.Optional(key, default=current): selector}
     return {vol.Optional(key): selector}
+
+
+def _guest_tv_fields(defaults: Mapping[str, Any]) -> dict[Any, Any]:
+    """Up to four fixed Maison TVs: Apple TV + optional Pulse-Eight route."""
+    fields: dict[Any, Any] = {}
+    for slot in range(1, GUEST_TV_SLOTS + 1):
+        name_key = guest_tv_name_key(slot)
+        fields[
+            vol.Optional(
+                name_key, default=str(defaults.get(name_key) or "")
+            )
+        ] = TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT))
+        fields.update(
+            _optional_entity_field(guest_tv_atv_key(slot), defaults, ["media_player"])
+        )
+        fields.update(
+            _optional_entity_field(
+                guest_tv_neo_output_key(slot), defaults, ["media_player"]
+            )
+        )
+        fields.update(
+            _optional_entity_field(
+                guest_tv_neo_input_key(slot), defaults, ["media_player"]
+            )
+        )
+    return fields
 
 
 class UsvegliuConfigFlow(ConfigFlow, domain=DOMAIN):

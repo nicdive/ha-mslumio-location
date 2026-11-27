@@ -885,6 +885,12 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert "media_player" in http
     assert '"remote"' in http
     assert '"send_command"' in http
+    assert "_guest_tv_fields" in flow
+    assert "guest_tv_atv_key" in flow
+    guest_tv = (root / "guest_tv.py").read_text(encoding="utf-8")
+    assert "pulse_eight" in guest_tv
+    assert 'f"guest_tv_{slot}_atv"' in guest_tv
+    assert "set_route" in guest_tv
     assert "Ouvrir le portail" in js
     assert "data-act=\"visio-open\"" in js
     assert "data-act=\"visio-close\"" in js
