@@ -1,105 +1,99 @@
-# 49 Ledbury — guide de l’app locataire
+# 49 Ledbury — guide Maison (locataire)
 
-Interface **Maison** pour les hôtes de **49 Ledbury Road** (thème Ledbury, langue **anglaise**). Lien personnel reçu par mail / message d’accueil ; actif **le jour d’arrivée**, jusqu’à la fin du jour de départ.
+App **Maison** pour **49 Ledbury Road** (thème Ledbury, **anglais**). Lien personnel (mail / message) : actif **le jour d’arrivée** → fin du jour de départ.
 
-Ouvrir le lien sur le téléphone (idéalement sur le Wi‑Fi de la maison). Sur iPhone : Partager → **Add to Home Screen**. Sur Android : menu ⋮ → Installer / Add to Home screen.
+Ouvrir sur le téléphone, de préférence sur le **Wi‑Fi guest** de la maison. iPhone : Share → **Add to Home Screen**.
 
----
-
-## Accès avant l’arrivée
-
-Si le lien est ouvert trop tôt : **Available from \<date\>.** (ou *Available on your arrival day*).
-
-Les codes Wi‑Fi / porte peuvent déjà figurer dans le mail ; l’app elle-même ne s’ouvre qu’à l’arrivée.
+Si trop tôt : **Available from \<date\>.**
 
 ---
 
-## Navigation (barre du bas)
+## Onglets
 
-Les onglets n’apparaissent que s’il y a quelque chose à afficher pour ce séjour.
+N’apparaissent que s’il y a quelque chose à afficher.
 
 | Onglet | Rôle |
 | --- | --- |
-| **Home** | Accueil : salutation, météo Londres, statut alarme / chargeur si présent |
-| **Heating** | Chauffage par pièce (Ledbury = chauffage seul, pas de clim ni ventilateur) |
-| **Lights** | Lumières et scènes |
-| **Access** | Serrures, volets / portes, alarme, sonnette / visiophone, chargeur |
+| **Home** | Salutation, météo Londres, alarme / chargeur (statut) |
+| **Heating** | Chauffage par pièce (pas de clim ni ventilateur) |
+| **Lights** | Lumières + scènes |
+| **Access** | Serrures, volets / portes, alarme, sonnette, chargeur |
 | **Sound** | Zones audio (si configurées) |
-| **Info** | Wi‑Fi, code porte, QR / lien pour partager l’app |
-| **Pool** | Uniquement si des données piscine sont branchées (rare à Ledbury) |
+| **TV** | Télécommandes Apple TV (si configurées) |
+| **Info** | Wi‑Fi, code porte, QR / partage de l’app |
 
 ---
 
 ## Home
 
-- Logo **49 Ledbury**, message du type *Good morning / afternoon / evening*.
-- Météo locale (**Weather in London**).
-- **Home Alarm** : état seulement (Armed / Disarmed) — pas de bouton ici.
-- Chargeur véhicule : affiché s’il est branché (état de charge).
+- Logo **49 Ledbury**, *Good morning / afternoon / evening*.
+- **Weather in London**.
+- **Home Alarm** : Armed / Disarmed seulement (pas de bouton ici).
+- Chargeur véhicule : seulement s’il est branché.
 
 ---
 
 ## Heating
 
-Deux vues : **Adjust** (consigne ±, marche/arrêt) et **Overview** (cartes pièces).
-
-- Toucher une pièce pour le **cadran** de consigne (− / on-off / +).
-- Pas de commande « Cool » ni de vitesses d’air (spécifique Ledbury).
-- Température extérieure affichée en pastille si un capteur est configuré.
+**Adjust** (consigne ±, on/off) et **Overview** (cartes). Toucher une pièce → cadran. Pas de Cool / fan.
 
 ---
 
 ## Lights
 
-- Groupées par pièce ; **Scenes** en haut si des scènes sont autorisées.
-- Toucher l’icône lampe : on / off.
-- Lumières à variation : **glisser horizontalement** sur la ligne (par pas de ~10 %) pour régler la luminosité ; relâcher pour valider.
+Par pièce ; scènes en haut si autorisées. Icône = on/off. Variation : glisser horizontalement (~10 %).
 
 ---
 
 ## Access
 
-Selon ce qui est exposé au séjour :
-
-- **Locks** — Open / Close (déverrouiller / verrouiller).
-- **Shutters / covers / gates** — Open / Close / Stop.
-- **Home Alarm** — **Arm** / **Disarm** avec confirmation (*Arm the alarm?* / *Disarm the alarm?*).
-- **Door entry** — si quelqu’un sonne : popup *Someone is at the door*, éventuelle caméra, bouton **Open the gate**.
-- **Vehicle / charger** — statut (Available, Charging, Charged…).
-
----
-
-## Info
-
-- **Wi‑Fi network** + **Wi‑Fi code** (copie possible).
-- **Door code** (PIN Keypad), s’il est activé pour le séjour.
-- **Share the app** / QR : ouvrir le même séjour sur un autre téléphone.
-
-Le mot de passe Home Assistant **n’apparaît pas** dans cette app (réservé à la Console propriétaire).
+Selon le séjour : locks, volets / portail, **Arm / Disarm** (avec confirmation), sonnette (popup + éventuelle photo / open gate), chargeur.
 
 ---
 
 ## Sound (si présent)
 
-Play / pause, volume ±, mute par zone, **Mute all**.
+Play / pause, volume, mute, **Mute all**.
 
 ---
 
-## Limites utiles à savoir
+## TV (si présent)
 
-- L’app ne commande que les équipements autorisés pour les locataires.
-- Pas de réglages d’intégration, pas de calendrier, pas de comptes.
-- Tablette murale : URL maison (`/house/…`) réservée au **LAN** de la villa.
-- Après le départ : le lien se ferme ; le Wi‑Fi peut rester un jour de plus selon la config.
+Liste des TV (ex. Living, Kitchen…). Ouvrir une TV :
+
+- **Turn on / off** (CEC via Apple TV)
+- Pad ▲▼◀▶ + OK, Menu, Home
+- Volume ± / mute
+
+Pas de choix de source (box / sat / CCTV) : une Apple TV est **fixée** par écran. Control4 peut encore free-router hors Maison.
+
+**AirPlay** depuis l’iPhone (musique / vidéo / mirroring) vers une Apple TV : Control Center, sur le Wi‑Fi guest — indépendant de l’onglet TV (réglage réseau villa).
 
 ---
 
-Plaquette PDF en anglais (Wi‑Fi, voucher, web app, captures) :
-[ledbury-manual/49-Ledbury-Guest-User-Manual.pdf](ledbury-manual/49-Ledbury-Guest-User-Manual.pdf).
+## Info
+
+Wi‑Fi + code, code porte (Keypad) si activé, QR pour partager l’app. Pas de mot de passe Home Assistant ici.
+
+---
+
+## Limites
+
+- Uniquement les équipements autorisés pour le séjour.
+- Tablette murale (`/house/…`) : **LAN** villa seulement.
+- Après départ : lien fermé ; Wi‑Fi parfois +1 jour.
+
+Plaquette PDF : [ledbury-manual/49-Ledbury-Guest-User-Manual.pdf](ledbury-manual/49-Ledbury-Guest-User-Manual.pdf).
+
+### Setup propriétaire (résumé)
+
+1. **Pulse-Eight** + **Apple TV** (appairage PIN) dans HA.  
+2. Usvegliu → **Options** : jusqu’à 4 TV = nom + `media_player` ATV + sortie Neo + entrée Neo ATV.  
+3. ATV dans les **entités locataire**.  
+4. AirPlay guest Wi‑Fi : [ledbury-airplay-vlan15.md](ledbury-airplay-vlan15.md) (mDNS + firewall Hotspot → IP ATV).
 
 ### À venir
-- **Push sonnette** : notification Web Push sur le téléphone du locataire quand la platine sonne (même si l’app est en arrière-plan). Pas implémenté — popup seulement app ouverte pour l’instant.
-- **TV / Apple TV** : onglet Maison **TV** — jusqu’à **4** TV fixes configurées dans **Usvegliu → Options** (nom + `media_player` Apple TV + sortie/entrée Pulse-Eight). À l’ouverture, Maison force la route Neo (`pulse_eight.set_route`) puis pilote remote/volume/CEC via l’ATV. Pas de grille de sources libre (contrairement à Control4).
-- **AirPlay guest** : ouvrir VLAN 15 → device AirPlay sur VLAN 1 (mDNS + firewall UDM). Procédure : [ledbury-airplay-vlan15.md](ledbury-airplay-vlan15.md).
 
-*Document d’usage locataire — thème 49 Ledbury uniquement. La Console propriétaire et U Svegliu sont hors sujet.*
+- **Push sonnette** (Web Push si l’app est en arrière-plan) — pas encore.
+
+*Usage locataire — thème 49 Ledbury. Console / U Svegliu hors sujet.*

@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.7.2] — 2026-11-27
+
+### Documenté
+- Guide Ledbury Maison : onglet **TV**, AirPlay guest, résumé setup Neo / Options.
+
+[0.7.2]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.7.2
+
 ## [0.7.1] — 2026-11-27
 
 ### Ajouté
