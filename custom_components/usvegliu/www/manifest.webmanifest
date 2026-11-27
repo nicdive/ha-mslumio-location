@@ -1,0 +1,13 @@
+{
+  "name": "Maison",
+  "short_name": "Maison",
+  "description": "Stub only — install via /usvegliu/manifest.webmanifest?token=… (branded icons).",
+  "start_url": "/usvegliu/static/",
+  "scope": "/usvegliu/",
+  "display": "browser",
+  "orientation": "portrait-primary",
+  "background_color": "#F1EBE2",
+  "theme_color": "#F1EBE2",
+  "lang": "fr",
+  "icons": []
+}
