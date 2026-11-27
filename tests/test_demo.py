@@ -29,6 +29,8 @@ def test_demo_villa_covers_the_guest_app():
     assert villa["chargers"][0]["level"] == 64
     assert villa["locks"][0]["locked"] is True
     assert villa["speakers"][0]["state"] == "playing"
+    assert len(villa["tvs"]) >= 1
+    assert villa["tvs"][0]["supports_remote"] is True
     assert any(item["kind"] == "pool_temp" for item in villa["metrics"])
     assert all(is_demo_entity(entity_id) for entity_id in demo_entity_ids(villa))
     assert demo_entity_kind(villa, villa["climates"][0]["entity_id"]) == "climate"
@@ -56,6 +58,10 @@ def test_demo_commands_mutate_the_villa():
         villa, villa["speakers"][0]["entity_id"], "speaker", "volume", 10
     )
     assert speaker is not None and speaker["volume"] == 10
+    tv = apply_demo_command(villa, villa["tvs"][0]["entity_id"], "tv", "off")
+    assert tv is not None and tv["state"] == "off"
+    tv = apply_demo_command(villa, villa["tvs"][0]["entity_id"], "tv", "select")
+    assert tv is not None and tv["last_remote"] == "select" and tv["state"] == "on"
 
 
 def test_overlay_replaces_empty_equipment_and_keeps_the_stay():

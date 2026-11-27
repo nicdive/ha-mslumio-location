@@ -28,6 +28,7 @@ _LIST_KEYS = (
     "doorbells",
     "cameras",
     "speakers",
+    "tvs",
     "metrics",
 )
 
@@ -284,6 +285,35 @@ def build_demo_villa(house_mode: str = HOUSE_COOL) -> dict[str, Any]:
                 "muted": False,
             },
         ],
+        "tvs": [
+            {
+                "entity_id": _eid("media_player", "living_atv"),
+                "name": "Living room",
+                "state": "on",
+                "volume": 28,
+                "muted": False,
+                "remote_entity_id": _eid("remote", "living_atv"),
+                "supports_remote": True,
+            },
+            {
+                "entity_id": _eid("media_player", "kitchen_atv"),
+                "name": "Kitchen",
+                "state": "off",
+                "volume": 18,
+                "muted": False,
+                "remote_entity_id": _eid("remote", "kitchen_atv"),
+                "supports_remote": True,
+            },
+            {
+                "entity_id": _eid("media_player", "master_atv"),
+                "name": "Master bedroom",
+                "state": "on",
+                "volume": 22,
+                "muted": False,
+                "remote_entity_id": _eid("remote", "master_atv"),
+                "supports_remote": True,
+            },
+        ],
         "metrics": [
             {
                 "entity_id": _eid("sensor", "exterieur"),
@@ -347,6 +377,7 @@ def demo_entity_kind(villa: dict[str, Any] | None, entity_id: str) -> str | None
         "doorbells": "doorbell",
         "cameras": "camera",
         "speakers": "speaker",
+        "tvs": "tv",
     }
     for key, kind in mapping.items():
         for item in (villa or {}).get(key) or []:
@@ -464,6 +495,8 @@ def apply_demo_command(
         return item
     if kind == "speaker":
         return _apply_demo_speaker(item, action, value)
+    if kind == "tv":
+        return _apply_demo_tv(item, action, value)
     raise ValueError("bad_action")
 
 
@@ -487,6 +520,58 @@ def _apply_demo_speaker(item: dict[str, Any], action: str, value: Any) -> dict[s
         return item
     if action in {"pause", "stop"}:
         item["state"] = "paused" if action == "pause" else "idle"
+        return item
+    raise ValueError("bad_action")
+
+
+def _apply_demo_tv(item: dict[str, Any], action: str, value: Any) -> dict[str, Any]:
+    fold = str(action or "").casefold().strip()
+    if fold == "volume":
+        try:
+            level = float(value)
+        except (TypeError, ValueError) as err:
+            raise ValueError("bad_action") from err
+        item["volume"] = int(max(0, min(100, round(level))))
+        return item
+    if fold == "volume_up":
+        item["volume"] = int(min(100, int(item.get("volume") or 0) + 5))
+        return item
+    if fold == "volume_down":
+        item["volume"] = int(max(0, int(item.get("volume") or 0) - 5))
+        return item
+    if fold == "mute":
+        item["muted"] = True
+        return item
+    if fold == "unmute":
+        item["muted"] = False
+        return item
+    if fold in {"on", "turn_on", "power_on", "wakeup"}:
+        item["state"] = "on"
+        return item
+    if fold in {"off", "turn_off", "power_off", "suspend"}:
+        item["state"] = "off"
+        return item
+    if fold in {
+        "up",
+        "down",
+        "left",
+        "right",
+        "select",
+        "menu",
+        "home",
+        "home_hold",
+        "top_menu",
+        "play",
+        "pause",
+        "stop",
+        "next",
+        "previous",
+        "skip_forward",
+        "skip_backward",
+    }:
+        # Navigation is fire-and-forget in demo; keep TV awake.
+        item["state"] = "on"
+        item["last_remote"] = fold
         return item
     raise ValueError("bad_action")
 

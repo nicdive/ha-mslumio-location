@@ -877,7 +877,14 @@ def test_guest_snapshot_exposes_wifi_and_voucher():
     assert "function soundSection" in js
     assert "Tout couper" in js
     assert "data-act=\"sound-cut\"" in js
+    assert '"tvs"' in http
+    assert "GUEST_KIND_TV" in http
+    assert "function tvSection" in js
+    assert "data-act=\"open-tv\"" in js
+    assert "data-act=\"tv\"" in js
     assert "media_player" in http
+    assert '"remote"' in http
+    assert '"send_command"' in http
     assert "Ouvrir le portail" in js
     assert "data-act=\"visio-open\"" in js
     assert "data-act=\"visio-close\"" in js

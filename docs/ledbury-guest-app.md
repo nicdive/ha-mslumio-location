@@ -99,7 +99,7 @@ Plaquette PDF en anglais (Wi‑Fi, voucher, web app, captures) :
 
 ### À venir
 - **Push sonnette** : notification Web Push sur le téléphone du locataire quand la platine sonne (même si l’app est en arrière-plan). Pas implémenté — popup seulement app ouverte pour l’instant.
-- **TV / Apple TV** : une ATV fixe par TV (Frame) ; allumage CEC (Anynet+) en priorité ; remote + volume via HA Apple TV dans Maison. Pas de grille Pulse-Eight ni Control4 pour le guest. Pas implémenté.
+- **TV / Apple TV** : onglet Maison **TV** — une ATV fixe par TV (Frame) ; allumage CEC via `media_player.turn_on/off` ; pad + volume via HA Apple TV (`remote` lié). Pas de grille Pulse-Eight ni Control4 pour le guest.
 - **AirPlay guest** : ouvrir VLAN 15 → device AirPlay sur VLAN 1 (mDNS + firewall UDM). Procédure : [ledbury-airplay-vlan15.md](ledbury-airplay-vlan15.md).
 
 *Document d’usage locataire — thème 49 Ledbury uniquement. La Console propriétaire et U Svegliu sont hors sujet.*

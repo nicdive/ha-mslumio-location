@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.7.0] — 2026-11-27
+
+### Ajouté
+- Guest app : onglet **TV** (Apple TV) — allumage/extinction, pad directionnel, menu/home, volume et mute. Les `media_player` classés TV (`device_class` tv/receiver ou nom Apple TV) apparaissent séparément des zones Son.
+
+[0.7.0]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.7.0
+
 ## [0.6.99] — 2026-11-24
 
 ### Corrigé

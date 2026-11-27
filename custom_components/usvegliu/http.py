@@ -46,6 +46,7 @@ from .guest_session import (
     GUEST_KIND_SCENE,
     GUEST_KIND_SHUTTER,
     GUEST_KIND_SPEAKER,
+    GUEST_KIND_TV,
     alarm_view_state,
     charger_charge_level,
     charger_view_state,
@@ -58,7 +59,9 @@ from .guest_session import (
     cover_is_open,
     doorbell_is_ringing,
     guest_alarm_service,
+    is_tv_remote_command,
     speaker_view_state,
+    tv_view_state,
     house_mode_label,
     TYDOM_DOMAIN,
     TYDOM_SET_MODE,
@@ -103,6 +106,7 @@ _COMMAND_KINDS = frozenset(
         GUEST_KIND_GATE,
         GUEST_KIND_SHUTTER,
         GUEST_KIND_SPEAKER,
+        GUEST_KIND_TV,
     }
 )
 
@@ -528,6 +532,48 @@ def _serialize_speaker(hass: Any, entity_id: str) -> dict[str, Any] | None:
     }
 
 
+def _linked_remote_entity_id(hass: Any, media_player_id: str) -> str | None:
+    """Apple TV ``remote.*`` on the same device, or a same-object_id fallback."""
+    object_id = media_player_id.split(".", 1)[-1]
+    candidate = f"remote.{object_id}"
+    try:
+        from homeassistant.helpers import entity_registry as er
+
+        registry = er.async_get(hass)
+        entry = registry.async_get(media_player_id)
+        if entry is not None and entry.device_id:
+            for other in registry.entities.values():
+                if (
+                    other.device_id == entry.device_id
+                    and other.domain == "remote"
+                    and not other.disabled
+                ):
+                    return other.entity_id
+    except Exception:  # noqa: BLE001 — registry optional in unit tests
+        pass
+    if hass.states.get(candidate) is not None:
+        return candidate
+    return None
+
+
+def _serialize_tv(hass: Any, entity_id: str) -> dict[str, Any] | None:
+    state = hass.states.get(entity_id)
+    if state is None:
+        return None
+    volume = _as_float(state.attributes.get("volume_level"))
+    muted = bool(state.attributes.get("is_volume_muted"))
+    remote_id = _linked_remote_entity_id(hass, entity_id)
+    return {
+        "entity_id": entity_id,
+        "name": str(state.attributes.get("friendly_name") or entity_id),
+        "state": tv_view_state(str(state.state)),
+        "volume": 0 if volume is None else int(round(max(0.0, min(1.0, volume)) * 100)),
+        "muted": muted,
+        "remote_entity_id": remote_id,
+        "supports_remote": remote_id is not None,
+    }
+
+
 def _serialize_doorbell(hass: Any, entity_id: str) -> dict[str, Any] | None:
     state = hass.states.get(entity_id)
     if state is None:
@@ -747,6 +793,11 @@ def _snapshot(
             item
             for entity_id in _ids(grouped, GUEST_KIND_SPEAKER)
             if (item := _serialize_speaker(hass, entity_id))
+        ],
+        "tvs": [
+            item
+            for entity_id in _ids(grouped, GUEST_KIND_TV)
+            if (item := _serialize_tv(hass, entity_id))
         ],
     }
     villa = runtime.demo_villa() if runtime.demo_mode() else None
@@ -1459,6 +1510,85 @@ async def _async_guest_command(
     if kind == GUEST_KIND_SPEAKER:
         await _async_speaker_command(hass, entity_id, action, value)
         return
+    if kind == GUEST_KIND_TV:
+        await _async_tv_command(hass, entity_id, action, value)
+        return
+    raise ValueError("bad_action")
+
+
+async def _async_tv_command(
+    hass: Any, entity_id: str, action: str, value: Any
+) -> None:
+    """Volume / power on the Apple TV media_player; pad via linked remote."""
+    data: dict[str, Any] = {"entity_id": entity_id}
+    fold = str(action or "").casefold().strip()
+    if fold == "volume":
+        level = _as_float(value)
+        if level is None:
+            raise ValueError("bad_action")
+        volume = max(0.0, min(100.0, level)) / 100.0
+        await hass.services.async_call(
+            "media_player",
+            "volume_set",
+            {**data, "volume_level": volume},
+            blocking=True,
+        )
+        return
+    if fold == "volume_up":
+        await hass.services.async_call(
+            "media_player", "volume_up", data, blocking=True
+        )
+        return
+    if fold == "volume_down":
+        await hass.services.async_call(
+            "media_player", "volume_down", data, blocking=True
+        )
+        return
+    if fold == "mute":
+        await hass.services.async_call(
+            "media_player",
+            "volume_mute",
+            {**data, "is_volume_muted": True},
+            blocking=True,
+        )
+        return
+    if fold == "unmute":
+        await hass.services.async_call(
+            "media_player",
+            "volume_mute",
+            {**data, "is_volume_muted": False},
+            blocking=True,
+        )
+        return
+    if fold in {"on", "turn_on", "power_on"}:
+        await hass.services.async_call(
+            "media_player", "turn_on", data, blocking=True
+        )
+        return
+    if fold in {"off", "turn_off", "power_off"}:
+        await hass.services.async_call(
+            "media_player", "turn_off", data, blocking=True
+        )
+        return
+    if fold in {"play", "pause", "stop"}:
+        service = {
+            "play": "media_play",
+            "pause": "media_pause",
+            "stop": "media_stop",
+        }[fold]
+        await hass.services.async_call("media_player", service, data, blocking=True)
+        return
+    if is_tv_remote_command(fold):
+        remote_id = _linked_remote_entity_id(hass, entity_id)
+        if not remote_id:
+            raise ValueError("bad_action")
+        await hass.services.async_call(
+            "remote",
+            "send_command",
+            {"entity_id": remote_id, "command": fold},
+            blocking=True,
+        )
+        return
     raise ValueError("bad_action")
 
 
@@ -1517,6 +1647,8 @@ def _serialize_command_result(hass: Any, entity_id: str, kind: str) -> dict[str,
         return _serialize_alarm(hass, entity_id)
     if kind == GUEST_KIND_SPEAKER:
         return _serialize_speaker(hass, entity_id)
+    if kind == GUEST_KIND_TV:
+        return _serialize_tv(hass, entity_id)
     return {"entity_id": entity_id}
 
 

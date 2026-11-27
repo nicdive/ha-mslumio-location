@@ -9,7 +9,8 @@
       tab === "access" ||
       tab === "info" ||
       tab === "pool" ||
-      tab === "sound"
+      tab === "sound" ||
+      tab === "tv"
     ) {
       return tab;
     }
@@ -20,6 +21,7 @@
   let screen = readScreen();
   let listMode = "reglage";
   let roomId = null;
+  let tvId = null;
   let error = "";
   let arrivalNote = "";
   /** Pending arm/disarm confirmation: { id, cmd } or null. */
@@ -76,6 +78,7 @@
       info: '<path d="M4.6 16.6 L7.2 9.2 H9.8 L7.2 16.6 Z M12.2 7.4 H19.4 M12.2 12 H19.4 M12.2 16.6 H17.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
       pool: '<path d="M4 16.6 C6.2 14.8 8.4 14.8 10.6 16.6 C12.8 18.4 15 18.4 17.2 16.6 C18.2 15.8 19.2 15.6 20 15.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M4 12.4 C6.2 10.6 8.4 10.6 10.6 12.4 C12.8 14.2 15 14.2 17.2 12.4 C18.2 11.6 19.2 11.4 20 11.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M8.4 7.2 C9.2 5.6 10.6 5 12 5.8 C13.4 6.6 13.8 8.2 13 9.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
       sound: '<path d="M4.6 9 H8.4 L13 4.8 V19.2 L8.4 15 H4.6 Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M15.4 9.2 C16.8 10.4 16.8 13.6 15.4 14.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M17.4 7.2 C19.8 9.2 19.8 14.8 17.4 16.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+      tv: '<rect x="3.5" y="5.5" width="17" height="11.5" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8.5 19.2 H15.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M12 17 V19.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
     };
     return `<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">${icons[kind] || ""}</svg>`;
   }
@@ -230,18 +233,21 @@
     if (((state && state.speakers) || []).length) {
       items.push({ id: "sound", label: t("sound"), icon: "sound" });
     }
+    if (((state && state.tvs) || []).length) {
+      items.push({ id: "tv", label: t("tv"), icon: "tv" });
+    }
     if (hasInfo()) items.push({ id: "info", label: t("info"), icon: "info" });
     return items;
   }
 
   function normalizeScreen() {
-    if (screen === "room") return;
+    if (screen === "room" || screen === "tv-remote") return;
     const allowed = new Set(tabItems().map((item) => item.id));
     if (!allowed.has(screen)) screen = "home";
   }
 
   function dock() {
-    if (screen === "room") return "";
+    if (screen === "room" || screen === "tv-remote") return "";
     return `<nav class="dock" aria-label="${escapeHtml(t("nav"))}">
       ${tabItems()
         .map(
@@ -319,10 +325,20 @@
       lights: "Lumière",
       access: "Accès",
       sound: "Son",
+      tv: "TV",
       info: "Infos",
       pool: "Pool",
       nav: "Navigation",
       back: "Retour",
+      tv_on: "Allumer",
+      tv_off: "Éteindre",
+      tv_remote: "Télécommande",
+      tv_menu: "Menu",
+      tv_home: "Home",
+      tv_ok: "OK",
+      tv_vol: "Volume",
+      tv_status_on: "Allumée",
+      tv_status_off: "Éteinte",
       welcome: "Bienvenue",
       hello_night: "Bonne nuit",
       hello_morning: "Bonjour",
@@ -407,6 +423,7 @@
       empty_info: "Aucune information pour ce séjour.",
       empty_pool: "Aucune donnée piscine pour ce séjour.",
       empty_sound: "Aucune zone son pour ce séjour.",
+      empty_tv: "Aucune TV pour ce séjour.",
       link_incomplete: "Ce lien est incomplet. Demandez-en un à l’accueil.",
       stay_closed: "Ce séjour est clos. Demandez un nouveau lien à l’accueil.",
       opens_on: "Disponible le jour de votre arrivée",
@@ -428,10 +445,20 @@
       lights: "Lights",
       access: "Access",
       sound: "Sound",
+      tv: "TV",
       info: "Info",
       pool: "Pool",
       nav: "Navigation",
       back: "Back",
+      tv_on: "Turn on",
+      tv_off: "Turn off",
+      tv_remote: "Remote",
+      tv_menu: "Menu",
+      tv_home: "Home",
+      tv_ok: "OK",
+      tv_vol: "Volume",
+      tv_status_on: "On",
+      tv_status_off: "Off",
       welcome: "Welcome",
       hello_night: "Good night",
       hello_morning: "Good morning",
@@ -516,6 +543,7 @@
       empty_info: "No information for this stay.",
       empty_pool: "No pool data for this stay.",
       empty_sound: "No sound zones for this stay.",
+      empty_tv: "No TVs for this stay.",
       link_incomplete: "This link is incomplete. Please ask the host for a new one.",
       stay_closed: "This stay has ended. Please ask the host for a new link.",
       opens_on: "Available on your arrival day",
@@ -791,6 +819,11 @@
 
   function stageHtml(withBack) {
     if (withBack) {
+      if (screen === "tv-remote") {
+        const tv = ((state && state.tvs) || []).find((item) => item.entity_id === tvId);
+        if (!tv) return null;
+        return tvRemoteView(tv);
+      }
       const room = (state.climates || []).find((item) => item.entity_id === roomId);
       if (!room) return null;
       return `${pageHead(room.name, modeLabel())}${dialView(room)}`;
@@ -1646,12 +1679,88 @@
     return `${pageHead(t("sound"))}${body}`;
   }
 
+  function tvStatus(item) {
+    return item && item.state === "on" ? t("tv_status_on") : t("tv_status_off");
+  }
+
+  function tvSection() {
+    const tvs = (state && state.tvs) || [];
+    if (!tvs.length) return "";
+    return `<div class="tv-list">${tvs
+      .map((item) => {
+        const on = item.state === "on";
+        return `<button class="tv-card${on ? " live" : ""}" type="button" data-act="open-tv" data-id="${escapeAttr(item.entity_id)}">
+          <div class="tv-card-copy">
+            <div class="tv-name">${escapeHtml(item.name)}</div>
+            <div class="tv-status">${escapeHtml(tvStatus(item))}</div>
+          </div>
+          <span class="tv-open">${escapeHtml(t("tv_remote"))}</span>
+        </button>`;
+      })
+      .join("")}</div>`;
+  }
+
+  function tvPage() {
+    const body = tvSection();
+    if (!body) return `${pageHead(t("tv"))}<p class="empty">${escapeHtml(t("empty_tv"))}</p>`;
+    return `${pageHead(t("tv"))}${body}`;
+  }
+
+  function tvPadButton(cmd, label, extraClass) {
+    return `<button class="tv-pad-btn${extraClass ? ` ${extraClass}` : ""}" type="button" data-act="tv" data-id="${escapeAttr(tvId)}" data-cmd="${escapeAttr(cmd)}" aria-label="${escapeAttr(label)}">${escapeHtml(label)}</button>`;
+  }
+
+  function tvRemoteView(item) {
+    const on = item.state === "on";
+    const powerCmd = on ? "off" : "on";
+    const powerLabel = on ? t("tv_off") : t("tv_on");
+    const muteCmd = item.muted ? "unmute" : "mute";
+    const muteLabel = item.muted ? t("unmute") : t("mute");
+    const remoteDisabled = item.supports_remote === false;
+    return `${pageHead(item.name, t("tv_remote"))}
+      <div class="tv-remote${on ? " live" : ""}">
+        <div class="tv-power-row">
+          <button class="access-action${on ? " filled" : ""}" type="button" data-act="tv" data-id="${escapeAttr(item.entity_id)}" data-cmd="${powerCmd}">${escapeHtml(powerLabel)}</button>
+          <div class="tv-status-chip">${escapeHtml(tvStatus(item))}</div>
+        </div>
+        <div class="tv-pad${remoteDisabled ? " disabled" : ""}" aria-label="${escapeAttr(t("tv_remote"))}">
+          <div class="tv-pad-spacer"></div>
+          ${tvPadButton("up", "▲", "tv-pad-dir")}
+          <div class="tv-pad-spacer"></div>
+          ${tvPadButton("left", "◀", "tv-pad-dir")}
+          ${tvPadButton("select", t("tv_ok"), "tv-pad-ok")}
+          ${tvPadButton("right", "▶", "tv-pad-dir")}
+          <div class="tv-pad-spacer"></div>
+          ${tvPadButton("down", "▼", "tv-pad-dir")}
+          <div class="tv-pad-spacer"></div>
+        </div>
+        <div class="tv-soft">
+          ${tvPadButton("menu", t("tv_menu"), "tv-soft-btn")}
+          ${tvPadButton("home", t("tv_home"), "tv-soft-btn")}
+          ${tvPadButton("play", "▶", "tv-soft-btn")}
+          ${tvPadButton("pause", "❚❚", "tv-soft-btn")}
+        </div>
+        <div class="tv-vol">
+          <span class="tv-vol-label">${escapeHtml(t("tv_vol"))}</span>
+          <button class="chevron" type="button" data-act="tv" data-id="${escapeAttr(item.entity_id)}" data-cmd="volume_down" aria-label="${escapeAttr(t("less"))}">
+            <svg width="10" height="16" viewBox="0 0 10 16"><path d="M8 1 L2 8 L8 15" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <span>${escapeHtml(String(item.volume || 0))} %</span>
+          <button class="chevron" type="button" data-act="tv" data-id="${escapeAttr(item.entity_id)}" data-cmd="volume_up" aria-label="${escapeAttr(t("more"))}">
+            <svg width="10" height="16" viewBox="0 0 10 16"><path d="M2 1 L8 8 L2 15" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="sound-mute" type="button" data-act="tv" data-id="${escapeAttr(item.entity_id)}" data-cmd="${muteCmd}">${escapeHtml(muteLabel)}</button>
+        </div>
+      </div>`;
+  }
+
   function pageView() {
     if (screen === "climate") return climatePage();
     if (screen === "pool") return poolPage();
     if (screen === "lights") return lightsPage();
     if (screen === "access") return accessPage();
     if (screen === "sound") return soundPage();
+    if (screen === "tv") return tvPage();
     if (screen === "info") return infoPage();
     return homePage();
   }
@@ -1735,10 +1844,17 @@
       } else {
         withBack = true;
       }
+    } else if (screen === "tv-remote") {
+      const tv = ((state && state.tvs) || []).find((item) => item.entity_id === tvId);
+      if (!tv) {
+        screen = "tv";
+      } else {
+        withBack = true;
+      }
     }
     const inner = stageHtml(withBack);
     if (inner == null) {
-      screen = "climate";
+      screen = screen === "tv-remote" ? "tv" : "climate";
       withBack = false;
     }
     const body = inner != null ? inner : stageHtml(false);
@@ -1974,7 +2090,7 @@
     const act = button.getAttribute("data-act");
     const id = button.getAttribute("data-id");
     if (act === "back") {
-      screen = "climate";
+      screen = screen === "tv-remote" ? "tv" : "climate";
       render();
       return;
     }
@@ -2007,6 +2123,45 @@
       roomId = id;
       screen = "room";
       render();
+      return;
+    }
+    if (act === "open-tv") {
+      tvId = id;
+      screen = "tv-remote";
+      render();
+      return;
+    }
+    if (act === "tv") {
+      const tv = ((state && state.tvs) || []).find((item) => item.entity_id === id);
+      if (!tv) return;
+      const cmd = button.getAttribute("data-cmd") || "";
+      if (cmd === "on" || cmd === "off") {
+        commandEntity("tvs", id, cmd, { state: cmd === "on" ? "on" : "off" });
+        return;
+      }
+      if (cmd === "mute") {
+        commandEntity("tvs", id, "mute", { muted: true });
+        return;
+      }
+      if (cmd === "unmute") {
+        commandEntity("tvs", id, "unmute", { muted: false });
+        return;
+      }
+      if (cmd === "volume_up" || cmd === "volume_down") {
+        const delta = cmd === "volume_up" ? 5 : -5;
+        const next = Math.max(0, Math.min(100, Number(tv.volume || 0) + delta));
+        commandEntity(
+          "tvs",
+          id,
+          cmd,
+          { volume: next, muted: next === 0 ? tv.muted : false, state: "on" }
+        );
+        return;
+      }
+      if (tv.supports_remote === false && !["play", "pause", "stop"].includes(cmd)) {
+        return;
+      }
+      commandEntity("tvs", id, cmd, { state: "on" });
       return;
     }
     const room = (state.climates || []).find((item) => item.entity_id === id);

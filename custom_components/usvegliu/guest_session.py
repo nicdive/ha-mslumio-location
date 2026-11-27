@@ -780,6 +780,7 @@ GUEST_KIND_CHARGER = "charger"
 GUEST_KIND_DOORBELL = "doorbell"
 GUEST_KIND_CAMERA = "camera"
 GUEST_KIND_SPEAKER = "speaker"
+GUEST_KIND_TV = "tv"
 TYDOM_DOMAIN = "deltadore_tydom"
 TYDOM_SET_MODE = "set_mode_using_stored_pin"
 
@@ -807,6 +808,38 @@ _DOORBELL_NEEDLES = (
     "classe 300",
 )
 _TV_CLASSES = ("tv", "receiver")
+_APPLE_TV_NEEDLES = (
+    "apple_tv",
+    "apple tv",
+    "appletv",
+    "apple-tv",
+    " atv",
+    "atv ",
+    "atv_",
+    "_atv",
+)
+_TV_REMOTE_COMMANDS = frozenset(
+    {
+        "up",
+        "down",
+        "left",
+        "right",
+        "select",
+        "menu",
+        "home",
+        "home_hold",
+        "top_menu",
+        "play",
+        "pause",
+        "stop",
+        "next",
+        "previous",
+        "skip_forward",
+        "skip_backward",
+        "wakeup",
+        "suspend",
+    }
+)
 _CHARGING_STATES = ("charging", "charge", "en_charge", "en charge")
 _FINISHED_STATES = (
     "finishing",
@@ -890,8 +923,9 @@ def classify_guest_entity(
     if domain == "camera":
         return GUEST_KIND_CAMERA
     if domain == "media_player":
-        if klass in _TV_CLASSES:
-            return None
+        # Apple TV / TV device_class → guest TV remote (not Sonos zones).
+        if klass in _TV_CLASSES or _has_needle(label, _APPLE_TV_NEEDLES):
+            return GUEST_KIND_TV
         return GUEST_KIND_SPEAKER
     if domain == "light":
         if _has_needle(label, _POOL_NEEDLES):
@@ -955,6 +989,21 @@ def speaker_view_state(raw: str | None) -> str:
     if fold == "paused":
         return "paused"
     return "idle"
+
+
+def tv_view_state(raw: str | None) -> str:
+    """on / off / idle for an Apple TV / Frame paired as a guest TV."""
+    fold = str(raw or "").casefold().strip()
+    if fold in {"off", "standby", "unavailable", "unknown", ""}:
+        return "off"
+    if fold in {"playing", "buffering", "paused", "idle", "on"}:
+        return "on"
+    return "on"
+
+
+def is_tv_remote_command(action: str) -> bool:
+    """True for Apple TV remote pad actions sent via ``remote.send_command``."""
+    return str(action or "").casefold().strip() in _TV_REMOTE_COMMANDS
 
 
 def _as_percent(value: Any) -> int | None:

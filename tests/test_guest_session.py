@@ -10,7 +10,9 @@ from custom_components.usvegliu.guest_session import (
     charger_view_state,
     combine_charger_views,
     classify_guest_entity,
+    is_tv_remote_command,
     speaker_view_state,
+    tv_view_state,
     doorbell_is_ringing,
     climate_activity,
     climate_is_on,
@@ -513,11 +515,23 @@ def test_guest_entity_classification():
         classify_guest_entity(
             "media_player.tv_salon", device_class="tv", name="TV salon"
         )
-        is None
+        == "tv"
+    )
+    assert (
+        classify_guest_entity(
+            "media_player.living_atv", name="Living Apple TV"
+        )
+        == "tv"
     )
     assert speaker_view_state("playing") == "playing"
     assert speaker_view_state("paused") == "paused"
     assert speaker_view_state("off") == "idle"
+    assert tv_view_state("playing") == "on"
+    assert tv_view_state("off") == "off"
+    assert tv_view_state("standby") == "off"
+    assert is_tv_remote_command("select")
+    assert is_tv_remote_command("home")
+    assert not is_tv_remote_command("volume")
     assert alarm_view_state("armed_away") == "armed"
     assert alarm_view_state("disarmed") == "disarmed"
     assert charger_view_state("Charging") == "charging"
