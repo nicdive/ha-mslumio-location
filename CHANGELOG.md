@@ -4,6 +4,13 @@ Toutes les versions notables d’Usvegliu. Le numéro tient dans `custom_compone
 
 Le schéma est [SemVer](https://semver.org/lang/fr/) : MAJEUR.MINEUR.CORRECTIF.
 
+## [0.7.5] — 2026-11-27
+
+### Modifié
+- Mode démo **Ledbury** : plus de gate, volets, garage, chargeur VE ni piscine (comme la maison réelle).
+
+[0.7.5]: https://github.com/nicdive/ha-mslumio-location/releases/tag/v0.7.5
+
 ## [0.7.4] — 2026-11-27
 
 ### Modifié

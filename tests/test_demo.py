@@ -86,3 +86,25 @@ def test_overlay_replaces_empty_equipment_and_keeps_the_stay():
     assert payload["informations"]["nuki_code"] == DEMO_NUKI
     assert payload["weather"]["place"] == "Lumio"
     assert payload["mode_label"] == "Climatisation"
+
+
+def test_ledbury_demo_omits_gate_shutters_and_ev():
+    villa = build_demo_villa("heat")
+    payload = overlay_demo_snapshot(
+        {"guest": "Jeremy", "informations": {}, "climates": []},
+        villa,
+        house_mode="heat",
+        brand={"climate_heat_only": "1", "id": "ledbury"},
+    )
+    assert payload["gates"] == []
+    assert payload["shutters"] == []
+    assert payload["garages"] == []
+    assert payload["chargers"] == []
+    assert payload["pool_lights"] == []
+    assert payload["locks"]
+    assert payload["doorbells"]
+    assert payload["alarms"]
+    assert "nuki_code" not in payload["informations"]
+    assert not any(
+        item.get("kind") in {"pool_temp", "pool_ph"} for item in payload["metrics"]
+    )

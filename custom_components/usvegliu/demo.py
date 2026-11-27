@@ -6,7 +6,7 @@ unit-tested against this catalog.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Mapping
 
 from .guest_session import HOUSE_COOL, climate_activity, house_mode_label
 
@@ -576,32 +576,56 @@ def _apply_demo_tv(item: dict[str, Any], action: str, value: Any) -> dict[str, A
     raise ValueError("bad_action")
 
 
+# 49 Ledbury has no garage / gate / shutters / EV / pool in Maison.
+_LEDBURY_DEMO_OMIT = frozenset(
+    {"garages", "gates", "shutters", "chargers", "pool_lights"}
+)
+
+
 def overlay_demo_snapshot(
     payload: dict[str, Any],
     villa: dict[str, Any],
     *,
     house_mode: str,
+    brand: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Replace guest equipment with the demo villa. Keep stay identity."""
+    from .branding import brand_heat_only
+
     out = dict(payload)
     mode = house_mode if house_mode in {"heat", "cool"} else str(villa.get("mode") or HOUSE_COOL)
     out["demo"] = True
     out["mode"] = mode
     out["mode_label"] = house_mode_label(mode)
     out["climates"] = _refresh_climates(list(villa.get("climates") or []), mode)
+    ledbury = brand_heat_only(brand)
     for key in _LIST_KEYS:
         if key == "climates":
+            continue
+        if ledbury and key in _LEDBURY_DEMO_OMIT:
+            out[key] = []
             continue
         if key in villa:
             out[key] = list(villa.get(key) or [])
     if villa.get("metrics"):
-        out["metrics"] = list(villa["metrics"])
+        metrics = list(villa["metrics"])
+        if ledbury:
+            metrics = [
+                item
+                for item in metrics
+                if str(item.get("kind") or "") not in {"pool_temp", "pool_ph"}
+            ]
+        out["metrics"] = metrics
     if not out.get("weather") and villa.get("weather"):
         out["weather"] = dict(villa["weather"])
     info = dict(out.get("informations") or {})
     if not info.get("voucher_code") and not info.get("voucher_revoked"):
         info["voucher_code"] = DEMO_VOUCHER
-    if not info.get("nuki_code") and not info.get("nuki_revoked"):
+    if ledbury:
+        # No keypad door code at Ledbury.
+        info.pop("nuki_code", None)
+        info["nuki_revoked"] = False
+    elif not info.get("nuki_code") and not info.get("nuki_revoked"):
         info["nuki_code"] = DEMO_NUKI
     out["informations"] = info
     if not str(out.get("guest") or "").strip():

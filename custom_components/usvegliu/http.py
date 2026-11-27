@@ -849,7 +849,9 @@ def _snapshot(
     villa = runtime.demo_villa() if runtime.demo_mode() else None
     if villa:
         demo_mode = HOUSE_HEAT if brand_heat_only(brand) else house_mode
-        payload = overlay_demo_snapshot(payload, villa, house_mode=demo_mode)
+        payload = overlay_demo_snapshot(
+            payload, villa, house_mode=demo_mode, brand=brand
+        )
     return _theme_climate_snapshot(payload, brand)
 
 
